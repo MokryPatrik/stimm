@@ -1,0 +1,78 @@
+version: "3.9"
+
+services:
+  model-prep:
+    image: curlimages/curl:8.9.1
+    user: "0"
+    volumes:
+      - llm-models:/models
+    environment:
+      - LLM_HF_MODEL=${LLM_HF_MODEL}
+      - MODEL_FILE=${MODEL_FILE}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+    entrypoint: >
+      sh -c '
+        set -e
+
+        if ! command -v curl >/dev/null 2>&1; then
+          apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+        fi
+
+        TARGET="/models/${MODEL_FILE}"
+        URL="https://huggingface.co/${LLM_HF_MODEL}/resolve/main/${MODEL_FILE}"
+
+        TARGET_DIR=$$(dirname "$$TARGET")
+        mkdir -p "$$TARGET_DIR"
+
+        if [ ! -f "/models/${MODEL_FILE}.done" ]; then
+          echo "⏬ downloading ${LLM_HF_MODEL}/${MODEL_FILE} …"
+
+          if [ -n "${HUGGINGFACE_TOKEN}" ]; then
+            curl -fL -C - --retry 5 --retry-delay 2 \
+              -H "Authorization: Bearer ${HUGGINGFACE_TOKEN}" \
+              "$$URL" -o "$$TARGET"
+          else
+            curl -fL -C - --retry 5 --retry-delay 2 \
+              "$$URL" -o "$$TARGET"
+          fi
+
+          echo "✅ downloaded: $$TARGET"
+          touch /models/${MODEL_FILE}.done
+        else
+          echo "✅ model already present: $$TARGET"
+        fi
+
+        tail -f /dev/null
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /models/${MODEL_FILE}.done || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  llm-server:
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    depends_on:
+      model-prep:
+        condition: service_healthy
+    volumes:
+      - llm-models:/models
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    command: [
+      "-m", "/models/${MODEL_FILE}",
+      "--host", "0.0.0.0",
+      "--port", "8000",
+      "--ctx-size", "4096",
+      "--n-gpu-layers", "10000",
+      "--threads", "8",
+      "--batch-size", "512"
+    ]
+
+volumes:
+  llm-models:

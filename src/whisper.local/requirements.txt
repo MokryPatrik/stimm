@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+faster-whisper
+numpy
+python-multipart
+nvidia-cudnn-cu12==9.1.0.70
+pytest
+httpx
+websockets
+pydub
+librosa
+soundfile
+sounddevice
+pytest-asyncio

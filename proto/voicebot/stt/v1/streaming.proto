@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package voicebot.stt.v1;
+
+option go_package = "voicebot/stt/v1;sttv1";
+option java_multiple_files = true;
+option java_package = "ai.voicebot.stt.v1";
+
+// StreamingRecognizeRequest carries either session config or raw audio.
+message StreamingRecognizeRequest {
+  string request_id = 1;
+
+  oneof payload {
+    RecognitionConfig config = 2;
+    AudioChunk audio = 3;
+    ControlMessage control = 4;
+  }
+}
+
+// Recognition session settings.
+message RecognitionConfig {
+  uint32 sample_rate_hz = 1;
+  string language_code = 2;
+  bool enable_interim_results = 3;
+  map<string, string> metadata = 4;
+}
+
+// Raw audio data in PCM16 little endian.
+message AudioChunk {
+  bytes data = 1;
+  uint32 timestamp_ms = 2;
+  bool is_last = 3;
+}
+
+// Control commands sent by the client.
+message ControlMessage {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_FLUSH = 1;
+    TYPE_CANCEL = 2;
+  }
+
+  Type type = 1;
+}
+
+// Recognition results streamed back to the client.
+message RecognitionEvent {
+  string transcript = 1;
+  bool is_final = 2;
+  float stability = 3;
+  float confidence = 4;
+  uint32 sequence = 5;
+  map<string, string> metadata = 6;
+}
+
+service StreamingSpeechToText {
+  // Bidirectional recognition with low-latency streaming.
+  rpc StreamingRecognize(stream StreamingRecognizeRequest)
+      returns (stream RecognitionEvent);
+}

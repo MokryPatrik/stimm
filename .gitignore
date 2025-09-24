@@ -1,0 +1,14 @@
+.env
+venv
+data
+riva_quickstart_2.19.0
+ngc-cli
+src/__pycache__
+**/__pycache__/
+tutorials
+src/tutorials
+qtNim/
+llama.cpp
+TensorRT-LLM/checkpoints
+TensorRT-LLM_repo_tmp
+models

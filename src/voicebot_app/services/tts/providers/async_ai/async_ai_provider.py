@@ -1,0 +1,109 @@
+"""
+Async.AI TTS Provider (passthrough for TTSService concurrent streaming)
+"""
+
+import asyncio
+import json
+import logging
+import base64
+from typing import AsyncGenerator
+import websockets
+
+from ...config import tts_config
+
+logger = logging.getLogger(__name__)
+
+
+class AsyncAIProvider:
+    """Thin passthrough provider for Async.AI WebSocket TTS API."""
+
+    def __init__(self):
+        self.config = tts_config
+        self.websocket_url = self.config.async_ai_url
+        self.api_key = self.config.async_ai_api_key
+        self.voice_id = self.config.async_ai_voice_id
+        self.model_id = self.config.async_ai_model_id
+        self.sample_rate = self.config.async_ai_sample_rate
+        self.encoding = self.config.async_ai_encoding
+        self.container = self.config.async_ai_container
+
+
+    async def stream_synthesis(self, text_generator: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:
+        """Concurrent streaming passthrough for use by TTSService."""
+        url = f"{self.websocket_url}?api_key={self.api_key}&version=v1"
+        logger.info(f"Connecting to AsyncAI WebSocket: {url.split('?')[0]}...")
+
+        async with websockets.connect(url, ping_interval=20, ping_timeout=20, max_size=None) as ws:
+            logger.info("WebSocket connected, sending initialization...")
+            # Send initialization message (direct JSON object, not wrapped)
+            init_payload = {
+                "model_id": self.model_id,
+                "voice": {"mode": "id", "id": self.voice_id},
+                "output_format": {
+                    "container": self.container,
+                    "encoding": self.encoding,
+                    "sample_rate": self.sample_rate,
+                }
+            }
+            await ws.send(json.dumps(init_payload))
+            logger.info(f"Sent initialization: {init_payload}")
+
+            queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+
+            async def sender():
+                try:
+                    text_count = 0
+                    async for chunk in text_generator:
+                        text_count += 1
+                        if not chunk.endswith(" "):
+                            chunk += " "
+                        # Send text message directly as {"transcript": "text "}
+                        text_payload = {"transcript": chunk}
+                        await ws.send(json.dumps(text_payload))
+                        logger.info(f"Sent text chunk {text_count}: {chunk.strip()}")
+                    # Send close connection message as {"transcript": ""}
+                    await ws.send(json.dumps({"transcript": ""}))
+                    logger.info("Sent close connection message")
+                except Exception as e:
+                    logger.error(f"Sender error: {e}")
+
+            async def receiver():
+                try:
+                    message_count = 0
+                    async for raw_msg in ws:
+                        message_count += 1
+                        msg = json.loads(raw_msg)
+                        logger.info(f"Received message {message_count}: {list(msg.keys())}")
+                        
+                        if "audio" in msg:
+                            audio_b64 = msg.get("audio")
+                            if audio_b64:
+                                audio_bytes = base64.b64decode(audio_b64)
+                                logger.info(f"Audio chunk: {len(audio_bytes)} bytes")
+                                await queue.put(audio_bytes)
+                            if msg.get("final"):
+                                logger.info("Received final message")
+                                break
+                        else:
+                            logger.info(f"Non-audio message: {msg}")
+                except Exception as e:
+                    logger.error(f"Receiver error: {e}")
+                finally:
+                    await queue.put(None)
+
+            send_task = asyncio.create_task(sender())
+            recv_task = asyncio.create_task(receiver())
+
+            try:
+                chunk_count = 0
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        logger.info(f"Stream ended, yielded {chunk_count} audio chunks")
+                        break
+                    chunk_count += 1
+                    yield item
+            finally:
+                send_task.cancel()
+                recv_task.cancel()
+                await asyncio.gather(send_task, recv_task, return_exceptions=True)
