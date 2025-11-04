@@ -1,0 +1,151 @@
+"""
+Deepgram TTS Provider
+
+WebSocket client for connecting to Deepgram TTS API for real-time
+text-to-speech synthesis using aiohttp WebSocket.
+"""
+
+import asyncio
+import json
+import logging
+import base64
+from typing import AsyncGenerator
+import aiohttp
+
+from ...config import tts_config
+
+logger = logging.getLogger(__name__)
+
+
+class DeepgramProvider:
+    """Deepgram TTS Provider with WebSocket streaming support."""
+
+    def __init__(self):
+        self.config = tts_config
+        self.api_key = self.config.deepgram_tts_api_key
+        self.model = self.config.deepgram_model
+        self.sample_rate = self.config.deepgram_sample_rate
+        self.encoding = self.config.deepgram_encoding
+        self.session = None
+        self.websocket = None
+        logger.info(f"DeepgramProvider initialized with model: {self.model}, sample_rate: {self.sample_rate}Hz")
+
+    async def stream_synthesis(self, text_generator: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:
+        """Stream synthesis using Deepgram TTS WebSocket API with aiohttp."""
+        if not self.api_key:
+            raise ValueError("DEEPGRAM_TTS_API_KEY environment variable is required")
+
+        # Build WebSocket URL with query parameters
+        url = f"wss://api.deepgram.com/v1/speak?model={self.model}&encoding={self.encoding}&sample_rate={self.sample_rate}"
+        
+        # Set headers for authentication
+        headers = {
+            "Authorization": f"Token {self.api_key}"
+        }
+        
+        logger.info(f"Connecting to Deepgram TTS WebSocket: {url}...")
+        
+        # Connect using aiohttp WebSocket
+        self.session = aiohttp.ClientSession()
+        try:
+            self.websocket = await self.session.ws_connect(url, headers=headers)
+            logger.info("Deepgram TTS WebSocket connected, starting text streaming...")
+
+            queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+
+            async def sender():
+                try:
+                    text_count = 0
+                    async for text_chunk in text_generator:
+                        text_count += 1
+                        # Send text message in Deepgram format
+                        text_payload = {
+                            "type": "Speak",
+                            "text": text_chunk
+                        }
+                        await self.websocket.send_str(json.dumps(text_payload))
+                        logger.info(f"Sent text chunk {text_count}: '{text_chunk.strip()}'")
+                    
+                    # Send flush message to get final audio
+                    flush_payload = {
+                        "type": "Flush"
+                    }
+                    await self.websocket.send_str(json.dumps(flush_payload))
+                    logger.info("Sent flush message")
+                    
+                except Exception as e:
+                    logger.error(f"Sender error: {e}")
+
+            async def receiver():
+                try:
+                    chunk_count = 0
+                    async for msg in self.websocket:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(msg.data)
+                                msg_type = data.get("type")
+                                
+                                # Log all received messages for debugging
+                                logger.debug(f"Received Deepgram message type: {msg_type}, data keys: {list(data.keys())}")
+                                
+                                if msg_type == "Metadata":
+                                    logger.info(f"Received metadata: {data}")
+                                elif msg_type == "Audio":
+                                    # Audio data is base64 encoded in Deepgram response
+                                    audio_b64 = data.get("audio")
+                                    if audio_b64:
+                                        audio_bytes = base64.b64decode(audio_b64)
+                                        chunk_count += 1
+                                        logger.info(f"Received audio chunk {chunk_count}: {len(audio_bytes)} bytes")
+                                        await queue.put(audio_bytes)
+                                    else:
+                                        logger.warning(f"Audio message received but no 'audio' field found. Available fields: {list(data.keys())}")
+                                elif msg_type == "Flushed":
+                                    logger.info("Received flushed signal, stream complete")
+                                    await queue.put(None)
+                                    break
+                                elif msg_type == "Warning":
+                                    logger.warning(f"Deepgram warning: {data.get('description', 'Unknown warning')}")
+                                elif msg_type == "Cleared":
+                                    logger.info("Received cleared signal")
+                                else:
+                                    logger.warning(f"Unexpected message type: {msg_type}, full data: {data}")
+                                    
+                            except json.JSONDecodeError:
+                                logger.warning(f"Received non-JSON message: {msg.data}")
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            logger.error(f"WebSocket error: {msg.data}")
+                            await queue.put(None)
+                            break
+                        elif msg.type == aiohttp.WSMsgType.CLOSE:
+                            logger.info("WebSocket connection closed")
+                            await queue.put(None)
+                            break
+                            
+                except Exception as e:
+                    logger.error(f"Receiver error: {e}")
+                    await queue.put(None)
+
+            send_task = asyncio.create_task(sender())
+            recv_task = asyncio.create_task(receiver())
+
+            try:
+                chunk_count = 0
+                while True:
+                    item = await queue.get()
+                    if item is None:
+                        logger.info(f"Stream ended, yielded {chunk_count} audio chunks")
+                        break
+                    chunk_count += 1
+                    yield item
+            finally:
+                send_task.cancel()
+                recv_task.cancel()
+                await asyncio.gather(send_task, recv_task, return_exceptions=True)
+                
+        finally:
+            # Clean up WebSocket connection
+            if self.websocket:
+                await self.websocket.close()
+            if self.session:
+                await self.session.close()

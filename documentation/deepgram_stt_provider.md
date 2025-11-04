@@ -11,8 +11,8 @@ The Deepgram STT provider enables real-time speech-to-text transcription using D
 The Deepgram provider requires the following environment variables:
 
 ```bash
-# Required: Deepgram API Key
-DEEPGRAM_API_KEY=your_deepgram_api_key_here
+# Required: Deepgram STT API Key
+DEEPGRAM_STT_API_KEY=your_deepgram_stt_api_key_here
 
 # Optional: Model selection (default: nova-2)
 DEEPGRAM_MODEL=nova-3
@@ -124,7 +124,7 @@ The [`STTConfig`](src/voicebot_app/services/stt/config.py) class includes Deepgr
 ```python
 def get_deepgram_config(self):
     return {
-        "api_key": self.deepgram_api_key,
+        "api_key": self.deepgram_stt_api_key,
         "model": self.deepgram_model,
         "language": self.deepgram_language
     }
@@ -182,7 +182,7 @@ stt_service = STTService()
 
 ### Common Issues
 
-1. **API Key Error**: Ensure `DEEPGRAM_API_KEY` is set correctly
+1. **API Key Error**: Ensure `DEEPGRAM_STT_API_KEY` is set correctly
 2. **Connection Timeout**: Check network connectivity to Deepgram API
 3. **Audio Format**: Verify audio is 16kHz, 16-bit, mono PCM
 4. **Model Compatibility**: Ensure selected model supports the target language

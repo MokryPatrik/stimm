@@ -7,6 +7,7 @@ from typing import AsyncGenerator
 from .config import tts_config
 from .providers.async_ai.async_ai_provider import AsyncAIProvider
 from .providers.kokoro_local.kokoro_local_provider import KokoroLocalProvider
+from .providers.deepgram.deepgram_provider import DeepgramProvider
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ class TTSService:
             self.provider = AsyncAIProvider()
         elif provider_name == "kokoro.local":
             self.provider = KokoroLocalProvider()
+        elif provider_name == "deepgram.com":
+            self.provider = DeepgramProvider()
         else:
             raise ValueError(f"Unsupported TTS provider: {provider_name}")
         

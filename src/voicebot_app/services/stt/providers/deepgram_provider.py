@@ -23,7 +23,7 @@ class DeepgramProvider:
     """
 
     def __init__(self):
-        self.api_key = os.getenv("DEEPGRAM_API_KEY")
+        self.api_key = os.getenv("DEEPGRAM_STT_API_KEY")
         self.model = os.getenv("DEEPGRAM_MODEL", "nova-2")
         self.language = os.getenv("DEEPGRAM_LANGUAGE", "fr")
         self.websocket = None
@@ -35,7 +35,7 @@ class DeepgramProvider:
         """Connect to the Deepgram WebSocket service."""
         try:
             if not self.api_key:
-                raise ValueError("DEEPGRAM_API_KEY environment variable is required")
+                raise ValueError("DEEPGRAM_STT_API_KEY environment variable is required")
 
             # Build WebSocket URL with query parameters
             params = {

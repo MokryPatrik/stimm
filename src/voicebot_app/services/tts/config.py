@@ -33,6 +33,12 @@ class TTSConfig:
         self.kokoro_local_language = os.getenv("KOKORO_TTS_DEFAULT_LANGUAGE", "fr-fr")
         self.kokoro_local_speed = float(os.getenv("KOKORO_TTS_DEFAULT_SPEED", "0.8"))
 
+        # Deepgram specific configuration
+        self.deepgram_tts_api_key = os.getenv("DEEPGRAM_TTS_API_KEY")
+        self.deepgram_model = os.getenv("DEEPGRAM_TTS_MODEL", "aura-asteria-en")
+        self.deepgram_sample_rate = int(os.getenv("DEEPGRAM_TTS_SAMPLE_RATE", "16000"))
+        self.deepgram_encoding = os.getenv("DEEPGRAM_TTS_ENCODING", "linear16")
+
     def get_provider(self):
         """Get the current TTS provider"""
         return self.provider

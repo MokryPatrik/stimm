@@ -57,9 +57,9 @@ def test_setup():
     """Setup for all tests in this module."""
     print("Setting up Deepgram test environment...")
     # Verify Deepgram API key is available
-    api_key = os.getenv("DEEPGRAM_API_KEY")
+    api_key = os.getenv("DEEPGRAM_STT_API_KEY")
     if not api_key:
-        pytest.skip("DEEPGRAM_API_KEY environment variable is required for Deepgram tests")
+        pytest.skip("DEEPGRAM_STT_API_KEY environment variable is required for Deepgram tests")
     yield
     print("Tearing down Deepgram test environment...")
 
@@ -128,8 +128,8 @@ def verify_transcription_results(
 async def test_deepgram_service_initialization():
     """Test that STT service initializes correctly with deepgram.com provider."""
     # Skip if Deepgram API key is not available
-    if not os.getenv("DEEPGRAM_API_KEY"):
-        pytest.skip("DEEPGRAM_API_KEY environment variable is required")
+    if not os.getenv("DEEPGRAM_STT_API_KEY"):
+        pytest.skip("DEEPGRAM_STT_API_KEY environment variable is required")
     
     stt_service = STTService()
     
@@ -233,8 +233,8 @@ async def test_deepgram_empty_chunks_handling():
     Test that the Deepgram provider handles empty chunks gracefully.
     """
     # Skip if Deepgram API key is not available
-    if not os.getenv("DEEPGRAM_API_KEY"):
-        pytest.skip("DEEPGRAM_API_KEY environment variable is required")
+    if not os.getenv("DEEPGRAM_STT_API_KEY"):
+        pytest.skip("DEEPGRAM_STT_API_KEY environment variable is required")
     
     stt_service = STTService()
 
