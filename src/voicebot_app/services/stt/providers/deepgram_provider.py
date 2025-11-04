@@ -59,8 +59,8 @@ class DeepgramProvider:
             }
             
             # Use aiohttp for WebSocket connection with proper headers
-            session = aiohttp.ClientSession()
-            self.websocket = await session.ws_connect(ws_url, headers=headers)
+            self.session = aiohttp.ClientSession()
+            self.websocket = await self.session.ws_connect(ws_url, headers=headers)
             self.connected = True
             logger.info(f"Connected to Deepgram service with model: {self.model}, language: {self.language}")
             
@@ -80,6 +80,11 @@ class DeepgramProvider:
                 logger.info("Disconnected from Deepgram service")
             except Exception as e:
                 logger.error(f"Error disconnecting from Deepgram service: {e}")
+        
+        # Close the aiohttp session
+        if self.session:
+            await self.session.close()
+            self.session = None
 
     async def _receive_transcripts(self) -> None:
         """Receive and process transcripts from the WebSocket connection."""
