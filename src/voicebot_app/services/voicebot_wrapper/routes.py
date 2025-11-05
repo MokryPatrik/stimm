@@ -152,13 +152,39 @@ async def voicebot_websocket_endpoint(websocket: WebSocket):
         # Register connection
         await connection_manager.connect(websocket, conversation_id)
         
+        # Get TTS provider configuration
+        from services.tts.config import tts_config
+        
+        current_provider = tts_config.get_provider()
+        
+        # Get provider-specific audio configuration
+        if current_provider == "elevenlabs.io":
+            tts_sample_rate = tts_config.elevenlabs_sample_rate
+            tts_encoding = tts_config.elevenlabs_encoding
+        elif current_provider == "async.ai":
+            tts_sample_rate = tts_config.async_ai_sample_rate
+            tts_encoding = tts_config.async_ai_encoding
+        elif current_provider == "kokoro.local":
+            tts_sample_rate = tts_config.kokoro_local_sample_rate
+            tts_encoding = tts_config.kokoro_local_encoding
+        elif current_provider == "deepgram.com":
+            tts_sample_rate = tts_config.deepgram_sample_rate
+            tts_encoding = tts_config.deepgram_encoding
+        else:
+            # Default values
+            tts_sample_rate = 44100
+            tts_encoding = "pcm_s16le"
+
         await websocket.send_json({
             "type": "conversation_started",
             "conversation_id": conversation_id,
             "config": {
                 "sample_rate": voicebot_config.SAMPLE_RATE,
                 "chunk_size_ms": voicebot_config.CHUNK_SIZE_MS,
-                "vad_threshold": voicebot_config.VAD_THRESHOLD
+                "vad_threshold": voicebot_config.VAD_THRESHOLD,
+                "tts_sample_rate": tts_sample_rate,
+                "tts_encoding": tts_encoding,
+                "tts_provider": current_provider
             }
         })
         

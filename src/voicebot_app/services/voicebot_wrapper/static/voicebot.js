@@ -468,7 +468,29 @@ class VoicebotInterface {
         switch (messageType) {
             case 'conversation_started':
                 this.conversationId = data.conversation_id;
-                // Debug logging removed for production
+                
+                // Update AudioStreamer with dynamic TTS configuration
+                if (data.config && data.config.tts_sample_rate && data.config.tts_encoding) {
+                    this.audioStreamer = new AudioStreamer({
+                        sampleRate: data.config.tts_sample_rate,
+                        encoding: data.config.tts_encoding,
+                        onPlaybackStart: () => {
+                            this.playbackStarted = true;
+                            this.playbackStartTime = Date.now();
+                            const latency = this.playbackStartTime - this.startTime;
+                            this.playbackStartLatency.textContent = `${latency}ms`;
+                            this.playbackStartLatency.className = 'latency-value measured';
+                            console.log(`🎵 Audio playback started after ${latency}ms`);
+                        },
+                        onPlaybackEnd: () => {
+                            this.ttsStatus.classList.remove('active');
+                        },
+                        onError: (error) => {
+                            console.error('AudioStreamer error:', error);
+                        }
+                    });
+                    console.log(`🎵 AudioStreamer reconfigured: ${data.config.tts_sample_rate}Hz, ${data.config.tts_encoding}`);
+                }
                 break;
                 
             case 'vad_status':
