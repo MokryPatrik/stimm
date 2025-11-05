@@ -321,7 +321,7 @@
         }
     </style>
 </head>
-<body>
+<body data-tts-text="{{ tts_interface_text | e }}" data-tts-provider="{{ tts_provider | e }}" data-tts-sample-rate="{{ tts_sample_rate | e }}" data-tts-encoding="{{ tts_encoding | e }}">
     <div class="tts-container">
         <div class="tts-header">
             <h1>TTS Live Streaming Interface</h1>
@@ -348,7 +348,7 @@
                     Provider: {{ tts_provider }} | Sample Rate: {{ tts_sample_rate }}Hz | Encoding: {{ tts_encoding }}
                 </div>
                 <div class="control-info">
-                    Text: "{{ tts_interface_text }}"
+                    Text: "{{ tts_interface_text | e }}"
                 </div>
             </div>
         </div>
@@ -446,12 +446,12 @@
                 this.playbackStartTime = null;
 
                 // Hard-coded text from the test file
-                this.hardCodedText = "{{ tts_interface_text }}";
+                this.hardCodedText = document.body.dataset.ttsText;
 
                 // Initialiser l'AudioStreamer partagé avec la configuration dynamique
                 this.audioStreamer = new AudioStreamer({
-                    sampleRate: {{ tts_sample_rate }}, // Configuration dynamique du backend
-                    encoding: '{{ tts_encoding }}', // Configuration dynamique du backend
+                    sampleRate: parseInt(document.body.dataset.ttsSampleRate), // Configuration dynamique du backend
+                    encoding: document.body.dataset.ttsEncoding, // Configuration dynamique du backend
                     onPlaybackStart: () => {
                         this.playbackStarted = true;
                         this.playbackStartTime = Date.now();
@@ -487,7 +487,7 @@
                 this.initializePreConnection();
                 
                 // Configuration audio déjà définie via les variables du template
-                console.log(`🎵 Configuration audio: provider={{ tts_provider }}, sampleRate={{ tts_sample_rate }}, encoding={{ tts_encoding }}`);
+                console.log(`🎵 Configuration audio: provider=${document.body.dataset.ttsProvider}, sampleRate=${document.body.dataset.ttsSampleRate}, encoding=${document.body.dataset.ttsEncoding}`);
             }
 
             initializeEventListeners() {
