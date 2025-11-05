@@ -402,10 +402,17 @@ class VoicebotService:
                     text_queue.task_done()
             
             async def process_llm_stream():
-                """Process LLM stream and send chunks to TTS with word-based buffering."""
+                """Process LLM stream and send chunks to TTS with configurable buffering."""
                 try:
-                    # Buffer for accumulating tokens until we hit a space
+                    # Buffer for accumulating tokens based on buffering level
                     text_buffer = ""
+                    buffering_level = self.config.PRE_TTS_BUFFERING_LEVEL
+                    
+                    # Log the buffering level being used
+                    logger.info(f"Using TTS buffering level: {buffering_level}")
+                    
+                    # Define punctuation characters for MEDIUM and HIGH levels
+                    punctuation_chars = ".!?;:"
                     
                     async for response_chunk in self.chatbot_service.process_chat_message(
                         conversation.final_transcript,
@@ -424,11 +431,10 @@ class VoicebotService:
                             conversation.response_text = content
                             # Add to buffer
                             text_buffer += content
-                            # Check if we have a complete word (ends with space)
-                            if text_buffer.endswith(' '):
-                                # Send the complete word to TTS
-                                await text_queue.put(text_buffer)
-                                text_buffer = ""
+                            
+                            # Process buffer based on buffering level
+                            await self._process_buffer_by_level(text_buffer, text_queue, buffering_level, punctuation_chars)
+                            
                             await self._send_websocket_message(conversation.conversation_id, {
                                 "type": "assistant_response",
                                 "text": conversation.response_text,
@@ -442,19 +448,8 @@ class VoicebotService:
                             # Add to buffer
                             text_buffer += new_content
                             
-                            # Check if we have a complete word (ends with space)
-                            if text_buffer.endswith(' '):
-                                # Send the complete word to TTS
-                                await text_queue.put(text_buffer)
-                                text_buffer = ""
-                            elif ' ' in text_buffer:
-                                # If there's a space in the buffer, split and send complete words
-                                parts = text_buffer.rsplit(' ', 1)
-                                if len(parts) > 1:
-                                    # Send all complete words (everything before the last space)
-                                    await text_queue.put(parts[0] + ' ')
-                                    # Keep the last incomplete word in buffer
-                                    text_buffer = parts[1]
+                            # Process buffer based on buffering level
+                            text_buffer = await self._process_buffer_by_level(text_buffer, text_queue, buffering_level, punctuation_chars)
                             
                             await self._send_websocket_message(conversation.conversation_id, {
                                 "type": "assistant_response",
@@ -518,6 +513,72 @@ class VoicebotService:
                 "type": "bot_responding_end"
             })
     
+    async def _process_buffer_by_level(self, text_buffer: str, text_queue: asyncio.Queue, buffering_level: str, punctuation_chars: str) -> str:
+        """Process text buffer based on buffering level and send complete chunks to TTS.
+        
+        Returns:
+            Updated text buffer (may be empty or contain remaining text)
+        """
+        if buffering_level == "NONE":
+            # Send everything immediately
+            if text_buffer:
+                await text_queue.put(text_buffer)
+                return ""
+        
+        elif buffering_level == "LOW":
+            # Current behavior - buffer until word completion (space)
+            if text_buffer.endswith(' '):
+                # Send the complete word to TTS
+                await text_queue.put(text_buffer)
+                return ""
+            elif ' ' in text_buffer:
+                # If there's a space in the buffer, split and send complete words
+                parts = text_buffer.rsplit(' ', 1)
+                if len(parts) > 1:
+                    # Send all complete words (everything before the last space)
+                    await text_queue.put(parts[0] + ' ')
+                    # Keep the last incomplete word in buffer
+                    return parts[1]
+        
+        elif buffering_level == "MEDIUM":
+            # Buffer until 4 words OR punctuation
+            words = text_buffer.split()
+            if len(words) >= 4:
+                # Send first 4 words
+                text_to_send = ' '.join(words[:4]) + ' '
+                await text_queue.put(text_to_send)
+                # Keep remaining words in buffer
+                remaining_text = ' '.join(words[4:])
+                return remaining_text
+            
+            # Check for punctuation
+            for char in punctuation_chars:
+                if char in text_buffer:
+                    # Find the last punctuation position
+                    last_punct_pos = max(text_buffer.rfind(char) for char in punctuation_chars)
+                    if last_punct_pos != -1:
+                        # Send up to and including punctuation
+                        text_to_send = text_buffer[:last_punct_pos + 1]
+                        await text_queue.put(text_to_send)
+                        # Keep text after punctuation
+                        return text_buffer[last_punct_pos + 1:]
+        
+        elif buffering_level == "HIGH":
+            # Buffer until punctuation
+            for char in punctuation_chars:
+                if char in text_buffer:
+                    # Find the last punctuation position
+                    last_punct_pos = max(text_buffer.rfind(char) for char in punctuation_chars)
+                    if last_punct_pos != -1:
+                        # Send up to and including punctuation
+                        text_to_send = text_buffer[:last_punct_pos + 1]
+                        await text_queue.put(text_to_send)
+                        # Keep text after punctuation
+                        return text_buffer[last_punct_pos + 1:]
+        
+        # If no condition met, return the buffer unchanged
+        return text_buffer
+
     async def _interrupt_bot_response(self, conversation: ConversationState):
         """Interrupt bot response (TTS playback)."""
         # Debug logging removed for production
