@@ -852,8 +852,8 @@
                 // Configuration spécifique au provider
                 switch(provider) {
                     case 'elevenlabs.io':
-                        sampleRate = 22050; // ElevenLabs utilise 22.05kHz en MP3
-                        encoding = 'mp3';
+                        sampleRate = 44100; // ElevenLabs utilise maintenant 44.1kHz en PCM
+                        encoding = 'pcm_s16le';
                         break;
                     case 'async.ai':
                         sampleRate = 44100; // Async.AI utilise 44.1kHz en PCM

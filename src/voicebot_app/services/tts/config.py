@@ -50,8 +50,8 @@ class TTSConfig:
         self.elevenlabs_voice_id = os.getenv("ELEVENLABS_TTS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
         self.elevenlabs_model_id = os.getenv("ELEVENLABS_TTS_MODEL_ID", "eleven_flash_v2_5")
         self.elevenlabs_sample_rate = int(os.getenv("ELEVENLABS_TTS_SAMPLE_RATE", "22050"))
-        self.elevenlabs_encoding = os.getenv("ELEVENLABS_TTS_ENCODING", "mp3")
-        self.elevenlabs_output_format = os.getenv("ELEVENLABS_TTS_OUTPUT_FORMAT", "mp3_22050_32")
+        self.elevenlabs_encoding = os.getenv("ELEVENLABS_TTS_ENCODING", "pcm_s16le")
+        self.elevenlabs_output_format = os.getenv("ELEVENLABS_TTS_OUTPUT_FORMAT", "pcm_22050")
 
     def get_provider(self):
         """Get the current TTS provider"""
