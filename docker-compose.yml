@@ -7,7 +7,7 @@ services:
   #     - voicebot-network
   postgres:
     extends:
-      file: ./docker/postgre/docker-compose.yml
+      file: ./docker/postgres/docker-compose.yml
       service: voicebot-postgres
     networks:
       - voicebot-network
@@ -135,5 +135,6 @@ volumes:
   coqui_speech_models:
   prometheus_data:
   grafana_data:
+  postgres_storage:
 
 
