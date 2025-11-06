@@ -22,7 +22,7 @@ router = APIRouter()
 
 
 @router.websocket("/stt/ws")
-async def stt_websocket(websocket: WebSocket):
+async def stt_websocket(websocket: WebSocket, agent_id: str = None):
     """
     WebSocket endpoint for real-time STT operations.
     
@@ -31,11 +31,15 @@ async def stt_websocket(websocket: WebSocket):
     - Receives audio data in chunks
     - Streams transcription results in real-time
     - Handles connection lifecycle
+    - Supports agent-based configuration via agent_id parameter
     """
     await websocket.accept()
-    logger.info("STT WebSocket connection established")
+    logger.info(f"STT WebSocket connection established (agent_id: {agent_id})")
     
     try:
+        # Create STT service instance with agent configuration
+        stt_service = STTService(agent_id=agent_id)
+        
         # Create an async generator for audio chunks
         async def audio_chunk_generator():
             while True:
@@ -92,17 +96,21 @@ async def stt_websocket(websocket: WebSocket):
 
 
 @router.websocket("/stt/stream")
-async def stt_streaming_websocket(websocket: WebSocket):
+async def stt_streaming_websocket(websocket: WebSocket, agent_id: str = None):
     """
     Dedicated streaming WebSocket endpoint for real-time transcription.
     
     This endpoint is optimized for continuous audio streaming and
     provides real-time transcription feedback.
+    Supports agent-based configuration via agent_id parameter
     """
     await websocket.accept()
-    logger.info("STT streaming WebSocket connection established")
+    logger.info(f"STT streaming WebSocket connection established (agent_id: {agent_id})")
     
     try:
+        # Create STT service instance with agent configuration
+        stt_service = STTService(agent_id=agent_id)
+        
         # Create an async generator for audio chunks
         async def audio_chunk_generator():
             while True:

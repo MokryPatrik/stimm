@@ -10,6 +10,7 @@ from typing import AsyncGenerator, Dict, Any, Optional
 from .config import stt_config
 from .providers.whisper_local import WhisperLocalProvider
 from .providers.deepgram_provider import DeepgramProvider
+from services.agent.agent_manager import get_agent_manager
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +26,21 @@ class STTService:
 
     def _initialize_provider(self):
         """Initialize the configured STT provider"""
-        # For now, use the existing config system
-        # This will be updated to use agent-based configuration
-        provider_name = stt_config.get_provider()
+        # Use agent-based configuration if agent_id is provided
+        if self.agent_id:
+            agent_manager = get_agent_manager()
+            agent_config = agent_manager.get_agent_config(self.agent_id)
+            provider_name = agent_config.get("stt_provider")
+            logger.info(f"Initialized STT provider from agent {self.agent_id}: {provider_name}")
+        else:
+            # Fallback to environment-based configuration
+            provider_name = stt_config.get_provider()
+            logger.info(f"Initialized STT provider from environment: {provider_name}")
         
         if provider_name == "whisper.local":
             self.provider = WhisperLocalProvider()
-            logger.info(f"Initialized STT provider: {provider_name}")
         elif provider_name == "deepgram.com":
             self.provider = DeepgramProvider()
-            logger.info(f"Initialized STT provider: {provider_name}")
         else:
             raise ValueError(f"Unsupported STT provider: {provider_name}")
 

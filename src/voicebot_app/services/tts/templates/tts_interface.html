@@ -330,6 +330,19 @@
 
         <div class="controls-section">
             <div class="stream-controls">
+                <div class="agent-selection" style="margin-bottom: 15px;">
+                    <label for="agentSelect" style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">Select Agent:</label>
+                    <select id="agentSelect" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white;">
+                        {% for agent in agents %}
+                        <option value="{{ agent.id }}" data-provider="{{ agent.tts_provider }}">
+                            {{ agent.name }} ({{ agent.tts_provider }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div id="agentInfo" style="margin-top: 8px; font-size: 0.85rem; color: #6b7280;">
+                        TTS Provider: <span id="providerName">{{ agents[0].tts_provider if agents else 'None' }}</span>
+                    </div>
+                </div>
                 <div class="control-buttons">
                     <button class="stream-button" id="streamButton">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -413,6 +426,8 @@
             constructor() {
                 this.streamButton = document.getElementById('streamButton');
                 this.stopButton = document.getElementById('stopButton');
+                this.agentSelect = document.getElementById('agentSelect');
+                this.providerName = document.getElementById('providerName');
                 this.textOutput = document.getElementById('textOutput');
                 this.statusDot = document.getElementById('statusDot');
                 this.statusText = document.getElementById('statusText');
@@ -431,6 +446,7 @@
                 this.audioChunkCounter = 0;
                 this.streamCompleted = false;
                 this.audioTimeout = null;
+                this.selectedAgentId = this.agentSelect.value;
 
                 // Frontend pre-connection optimization
                 this.preConnectedWebSocket = null;
@@ -493,6 +509,19 @@
             initializeEventListeners() {
                 this.streamButton.addEventListener('click', () => this.startStreaming());
                 this.stopButton.addEventListener('click', () => this.stopStreaming());
+                this.agentSelect.addEventListener('change', () => this.onAgentChange());
+            }
+
+            onAgentChange() {
+                this.selectedAgentId = this.agentSelect.value;
+                const selectedOption = this.agentSelect.options[this.agentSelect.selectedIndex];
+                const provider = selectedOption.getAttribute('data-provider');
+                this.providerName.textContent = provider;
+                
+                // Stop any ongoing streaming when changing agents
+                if (this.isStreaming) {
+                    this.stopStreaming();
+                }
             }
 
             async initializePreConnection() {
@@ -574,7 +603,7 @@
                     this.preConnectionAttempted = true;
 
                     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    const wsUrl = `${protocol}//${window.location.host}/api/tts/ws`;
+                    const wsUrl = `${protocol}//${window.location.host}/api/tts/ws?agent_id=${this.selectedAgentId}`;
 
                     this.preConnectedWebSocket = new WebSocket(wsUrl);
 
@@ -619,8 +648,9 @@
                         console.log('🎵 Creating new TTS WebSocket connection...');
 
                         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                        const wsUrl = `${protocol}//${window.location.host}/api/tts/ws`;
+                        const wsUrl = `${protocol}//${window.location.host}/api/tts/ws?agent_id=${this.selectedAgentId}`;
                         console.log('🔗 Connecting to TTS WebSocket:', wsUrl);
+                        console.log('🤖 Using agent ID:', this.selectedAgentId);
 
                         this.websocket = new WebSocket(wsUrl);
                         this.setupWebSocketHandlers();

@@ -10,19 +10,23 @@ from services.shared_streaming import shared_streaming_manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-tts_service = TTSService()
+# Don't initialize TTSService globally - create instances per request with agent_id
 
 @router.websocket("/tts/ws")
-async def tts_websocket(websocket: WebSocket):
+async def tts_websocket(websocket: WebSocket, agent_id: str = None):
     """
     WebSocket endpoint for TTS operations using centralized streaming logic
+    Supports agent-based configuration via agent_id parameter
     """
     await websocket.accept()
-    logger.info("✅ TTS WebSocket connected")
+    logger.info(f"✅ TTS WebSocket connected (agent_id: {agent_id})")
     
     session_id = f"tts_session_{id(websocket)}"
     
     try:
+        # Create TTS service instance with agent configuration
+        tts_service = TTSService(agent_id=agent_id)
+        
         async def text_generator():
             while True:
                 # Receive text data
@@ -56,17 +60,21 @@ async def tts_websocket(websocket: WebSocket):
 
 
 @router.websocket("/tts/streaming")
-async def tts_streaming_websocket(websocket: WebSocket):
+async def tts_streaming_websocket(websocket: WebSocket, agent_id: str = None):
     """
     Enhanced WebSocket endpoint for TTS streaming with progress tracking
     using centralized streaming logic.
+    Supports agent-based configuration via agent_id parameter
     """
     await websocket.accept()
-    logger.info("✅ TTS Streaming WebSocket connected")
+    logger.info(f"✅ TTS Streaming WebSocket connected (agent_id: {agent_id})")
     
     session_id = f"tts_streaming_{id(websocket)}"
     
     try:
+        # Create TTS service instance with agent configuration
+        tts_service = TTSService(agent_id=agent_id)
+        
         # Wait for initial setup message
         init_message = await websocket.receive_text()
         init_data = init_message  # Simple text for now

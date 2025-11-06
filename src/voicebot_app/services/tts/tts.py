@@ -9,6 +9,7 @@ from .providers.async_ai.async_ai_provider import AsyncAIProvider
 from .providers.kokoro_local.kokoro_local_provider import KokoroLocalProvider
 from .providers.deepgram.deepgram_provider import DeepgramProvider
 from .providers.elevenlabs.elevenlabs_provider import ElevenLabsProvider
+from services.agent.agent_manager import get_agent_manager
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,16 @@ class TTSService:
         self._initialize_provider()
 
     def _initialize_provider(self):
-        # For now, use the existing config system
-        # This will be updated to use agent-based configuration
-        provider_name = tts_config.get_provider()
-        logger.info(f"Initializing TTS provider: {provider_name}")
+        # Use agent-based configuration if agent_id is provided
+        if self.agent_id:
+            agent_manager = get_agent_manager()
+            agent_config = agent_manager.get_agent_config(self.agent_id)
+            provider_name = agent_config.get("tts_provider")
+            logger.info(f"Initializing TTS provider from agent {self.agent_id}: {provider_name}")
+        else:
+            # Fallback to environment-based configuration
+            provider_name = tts_config.get_provider()
+            logger.info(f"Initializing TTS provider from environment: {provider_name}")
 
         if provider_name == "async.ai":
             self.provider = AsyncAIProvider()

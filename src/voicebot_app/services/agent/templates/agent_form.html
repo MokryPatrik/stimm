@@ -126,7 +126,7 @@
         </div>
         {% endif %}
 
-        <form id="agentForm" method="POST" action="{% if action == 'create' %}/api/agent{% else %}/api/agent/{{ agent.id }}{% endif %}" data-method="{% if action == 'create' %}POST{% else %}PUT{% endif %}">
+        <form id="agentForm" method="POST" action="{% if action == 'create' %}/api/agents{% else %}/api/agents/{{ agent.id }}{% endif %}" data-method="{% if action == 'create' %}POST{% else %}PUT{% endif %}">
             <div class="form-section">
                 <h3>Basic Information</h3>
                 

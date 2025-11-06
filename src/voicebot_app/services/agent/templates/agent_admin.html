@@ -230,7 +230,7 @@
             if (!confirm('Set this agent as the default?')) return;
             
             try {
-                const response = await fetch(`/api/agent/${agentId}/set-default`, {
+                const response = await fetch(`/api/agents/${agentId}/set-default`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -252,7 +252,7 @@
             if (!confirm('Are you sure you want to delete this agent? This action cannot be undone.')) return;
             
             try {
-                const response = await fetch(`/api/agent/${agentId}`, {
+                const response = await fetch(`/api/agents/${agentId}`, {
                     method: 'DELETE'
                 });
                 
