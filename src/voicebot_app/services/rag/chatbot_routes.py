@@ -33,66 +33,85 @@ templates = Jinja2Templates(directory="/app/services/rag/templates")
 rag_state = None
 
 async def initialize_rag_state():
-    """Initialize the RAG state for chatbot functionality"""
+    """Initialize the RAG state for chatbot functionality - uses preloaded state when available"""
     global rag_state
+    
     if rag_state is None:
-        LOGGER.info("Initializing RAG state for chatbot...")
+        # Try to use preloaded RAG state first
+        from .rag_preloader import rag_preloader
         
-        try:
-            # Import required modules
-            from qdrant_client import QdrantClient
-            from sentence_transformers import CrossEncoder, SentenceTransformer
-            
-            # Initialize RAG state
-            rag_state = RagState()
-            
-            # Load embedding model
-            embed_model_name = retrieval_config.embed_model_name
-            LOGGER.info(f"Loading embedding model {embed_model_name}")
-            rag_state.embedder = SentenceTransformer(embed_model_name)
-            
-            # Connect to Qdrant
-            LOGGER.info(f"Connecting to Qdrant at {retrieval_config.qdrant_host}:{retrieval_config.qdrant_port}")
-            rag_state.client = QdrantClient(
-                host=retrieval_config.qdrant_host,
-                port=retrieval_config.qdrant_port,
-                https=retrieval_config.qdrant_use_tls,
-                api_key=retrieval_config.qdrant_api_key,
-            )
-            
-            # Initialize reranker if enabled
-            if retrieval_config.enable_reranker:
-                try:
-                    LOGGER.info(f"Loading reranker model {retrieval_config.reranker_model}")
-                    rag_state.reranker = CrossEncoder(retrieval_config.reranker_model)
-                except Exception as exc:
-                    LOGGER.warning(f"Failed to load reranker model: {exc}")
-                    rag_state.reranker = None
-            
-            # Ensure collection exists and bootstrap documents
-            await _ensure_collection(rag_state.embedder, rag_state.client)
-            try:
-                _bootstrap_documents(rag_state.client, rag_state.lexical_index, rag_state.documents)
-                LOGGER.info(f"Bootstrapped {len(rag_state.documents)} document chunks into lexical index")
-            except Exception as exc:
-                LOGGER.warning(f"Failed to bootstrap lexical index: {exc}")
-            
-            LOGGER.info("RAG state initialized for chatbot")
-            
-            # Pre-warm the chatbot service
-            LOGGER.info("Pre-warming chatbot service...")
-            await chatbot_service.prewarm_models()
-            LOGGER.info("Chatbot service pre-warmed successfully")
-            
-        except Exception as e:
-            LOGGER.error(f"Failed to initialize RAG state: {e}")
-            # Create a minimal RAG state that won't crash the application
-            rag_state = RagState()
-            rag_state.client = None
-            rag_state.embedder = None
-            rag_state.reranker = None
+        if rag_preloader.is_preloaded and rag_preloader.rag_state is not None:
+            # Use preloaded state
+            rag_state = rag_preloader.rag_state
+            LOGGER.info("✅ Using preloaded RAG state")
+        else:
+            # Fallback to lazy initialization
+            LOGGER.warning("⚠️ Using fallback lazy RAG initialization (preloading not available)")
+            rag_state = await _lazy_initialize_rag_state()
     
     return rag_state
+
+
+async def _lazy_initialize_rag_state():
+    """Fallback lazy initialization of RAG state (original implementation)"""
+    LOGGER.info("Initializing RAG state for chatbot...")
+    
+    try:
+        # Import required modules
+        from qdrant_client import QdrantClient
+        from sentence_transformers import CrossEncoder, SentenceTransformer
+        
+        # Initialize RAG state
+        rag_state = RagState()
+        
+        # Load embedding model
+        embed_model_name = retrieval_config.embed_model_name
+        LOGGER.info(f"Loading embedding model {embed_model_name}")
+        rag_state.embedder = SentenceTransformer(embed_model_name)
+        
+        # Connect to Qdrant
+        LOGGER.info(f"Connecting to Qdrant at {retrieval_config.qdrant_host}:{retrieval_config.qdrant_port}")
+        rag_state.client = QdrantClient(
+            host=retrieval_config.qdrant_host,
+            port=retrieval_config.qdrant_port,
+            https=retrieval_config.qdrant_use_tls,
+            api_key=retrieval_config.qdrant_api_key,
+        )
+        
+        # Initialize reranker if enabled
+        if retrieval_config.enable_reranker:
+            try:
+                LOGGER.info(f"Loading reranker model {retrieval_config.reranker_model}")
+                rag_state.reranker = CrossEncoder(retrieval_config.reranker_model)
+            except Exception as exc:
+                LOGGER.warning(f"Failed to load reranker model: {exc}")
+                rag_state.reranker = None
+        
+        # Ensure collection exists and bootstrap documents
+        await _ensure_collection(rag_state.embedder, rag_state.client)
+        try:
+            _bootstrap_documents(rag_state.client, rag_state.lexical_index, rag_state.documents)
+            LOGGER.info(f"Bootstrapped {len(rag_state.documents)} document chunks into lexical index")
+        except Exception as exc:
+            LOGGER.warning(f"Failed to bootstrap lexical index: {exc}")
+        
+        LOGGER.info("RAG state initialized for chatbot")
+        
+        # Pre-warm the chatbot service
+        LOGGER.info("Pre-warming chatbot service...")
+        await chatbot_service.prewarm_models()
+        LOGGER.info("Chatbot service pre-warmed successfully")
+        
+        return rag_state
+        
+    except Exception as e:
+        LOGGER.error(f"Failed to initialize RAG state: {e}")
+        # Create a minimal RAG state that won't crash the application
+        rag_state = RagState()
+        rag_state.client = None
+        rag_state.embedder = None
+        rag_state.reranker = None
+        return rag_state
 
 async def get_rag_state() -> RagState:
     """Dependency to get RAG state"""

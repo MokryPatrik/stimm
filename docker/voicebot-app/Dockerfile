@@ -21,5 +21,9 @@ RUN pip install -r requirements.txt
 # Install pytest for testing
 RUN pip install pytest pytest-asyncio
 
+# Preload RAG models during Docker build to cache them
+# This significantly speeds up server startup
+RUN python scripts/preload_rag_models.py
+
 # Start the FastAPI application with uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
