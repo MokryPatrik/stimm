@@ -27,9 +27,9 @@ app = FastAPI(title="Voicebot API", version="1.0.0")
 
 @app.on_event("startup")
 async def startup_event():
-    """Preload RAG models and state at server startup for immediate availability"""
+    """Preload RAG models and initialize agent system at server startup"""
     try:
-        logger.info("Starting RAG preloading at server startup...")
+        logger.info("Starting RAG preloading and agent initialization at server startup...")
         
         # Import here to avoid circular imports
         try:
@@ -51,8 +51,30 @@ async def startup_event():
         except Exception as e:
             logger.error(f"Failed to initialize RAG preloader: {e}")
         
+        # Initialize agent system
+        try:
+            from services.agent.dev_agent_creator import initialize_default_agent
+            from database.session import get_db
+            
+            # Get database session and initialize default agent
+            db_gen = get_db()
+            db = next(db_gen)
+            try:
+                success = initialize_default_agent(db)
+                if success:
+                    logger.info("✅ Default development agent initialized successfully")
+                else:
+                    logger.error("❌ Failed to initialize default development agent")
+            finally:
+                db_gen.close()
+                
+        except ImportError as e:
+            logger.warning(f"Agent system not available: {e}")
+        except Exception as e:
+            logger.error(f"Failed to initialize agent system: {e}")
+        
     except Exception as e:
-        logger.error(f"Failed to start RAG preloading: {e}")
+        logger.error(f"Failed to start startup procedures: {e}")
 
 
 # Add CORS middleware

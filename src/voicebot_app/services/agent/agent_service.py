@@ -1,0 +1,400 @@
+"""
+Agent Service for CRUD operations and agent management.
+"""
+import logging
+import uuid
+from typing import List, Optional, Dict, Any
+from uuid import UUID
+
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
+
+from ..database import get_db, User, Agent, AgentSession
+from .models import (
+    AgentCreate, 
+    AgentUpdate, 
+    AgentResponse,
+    AgentListResponse,
+    AgentSessionCreate
+)
+from .exceptions import (
+    AgentNotFoundError,
+    AgentAlreadyExistsError,
+    AgentValidationError,
+    DefaultAgentConflictError
+)
+
+logger = logging.getLogger(__name__)
+
+
+class AgentService:
+    """Service for managing agents and their configurations."""
+    
+    def __init__(self, db_session: Session = None):
+        """
+        Initialize AgentService.
+        
+        Args:
+            db_session: SQLAlchemy session (if None, will use dependency injection)
+        """
+        self.db_session = db_session
+    
+    def _get_session(self) -> Session:
+        """Get database session."""
+        if self.db_session:
+            return self.db_session
+        # For dependency injection, we'll get session from context
+        # This will be handled by FastAPI dependency injection
+        raise RuntimeError("Database session not provided")
+    
+    def _get_system_user_id(self) -> UUID:
+        """Get the system user ID."""
+        session = self._get_session()
+        system_user = session.query(User).filter(
+            User.username == 'system'
+        ).first()
+        
+        if not system_user:
+            # Create system user if it doesn't exist
+            system_user = User(
+                id=uuid.UUID('00000000-0000-0000-0000-000000000000'),
+                username='system',
+                email='system@voicebot.local'
+            )
+            session.add(system_user)
+            session.commit()
+            session.refresh(system_user)
+        
+        return system_user.id
+    
+    def create_agent(self, agent_data: AgentCreate, user_id: Optional[UUID] = None) -> AgentResponse:
+        """
+        Create a new agent.
+        
+        Args:
+            agent_data: Agent creation data
+            user_id: User ID (if None, uses system user)
+            
+        Returns:
+            AgentResponse: Created agent data
+            
+        Raises:
+            AgentAlreadyExistsError: If agent with same name exists
+            AgentValidationError: If validation fails
+        """
+        session = self._get_session()
+        user_id = user_id or self._get_system_user_id()
+        
+        # Check if agent with same name exists for this user
+        existing_agent = session.query(Agent).filter(
+            and_(
+                Agent.user_id == user_id,
+                Agent.name == agent_data.name
+            )
+        ).first()
+        
+        if existing_agent:
+            raise AgentAlreadyExistsError(name=agent_data.name)
+        
+        # Handle default agent logic
+        if agent_data.is_default:
+            # Unset any existing default agent for this user
+            session.query(Agent).filter(
+                and_(
+                    Agent.user_id == user_id,
+                    Agent.is_default == True
+                )
+            ).update({'is_default': False})
+        
+        # Create new agent
+        agent = Agent(
+            user_id=user_id,
+            name=agent_data.name,
+            description=agent_data.description,
+            llm_provider=agent_data.llm_config.provider,
+            tts_provider=agent_data.tts_config.provider,
+            stt_provider=agent_data.stt_config.provider,
+            llm_config=agent_data.llm_config.config,
+            tts_config=agent_data.tts_config.config,
+            stt_config=agent_data.stt_config.config,
+            is_default=agent_data.is_default,
+            is_active=True
+        )
+        
+        session.add(agent)
+        session.commit()
+        session.refresh(agent)
+        
+        logger.info(f"Created agent: {agent.name} (ID: {agent.id})")
+        return AgentResponse.model_validate(agent)
+    
+    def get_agent(self, agent_id: UUID, user_id: Optional[UUID] = None) -> AgentResponse:
+        """
+        Get agent by ID.
+        
+        Args:
+            agent_id: Agent ID
+            user_id: User ID (if None, uses system user)
+            
+        Returns:
+            AgentResponse: Agent data
+            
+        Raises:
+            AgentNotFoundError: If agent not found
+        """
+        session = self._get_session()
+        user_id = user_id or self._get_system_user_id()
+        
+        agent = session.query(Agent).filter(
+            and_(
+                Agent.id == agent_id,
+                Agent.user_id == user_id
+            )
+        ).first()
+        
+        if not agent:
+            raise AgentNotFoundError(agent_id=str(agent_id))
+        
+        return AgentResponse.model_validate(agent)
+    
+    def list_agents(
+        self, 
+        user_id: Optional[UUID] = None,
+        active_only: bool = True,
+        skip: int = 0,
+        limit: int = 100
+    ) -> AgentListResponse:
+        """
+        List agents for a user.
+        
+        Args:
+            user_id: User ID (if None, uses system user)
+            active_only: Only return active agents
+            skip: Number of agents to skip
+            limit: Maximum number of agents to return
+            
+        Returns:
+            AgentListResponse: List of agents and total count
+        """
+        session = self._get_session()
+        user_id = user_id or self._get_system_user_id()
+        
+        query = session.query(Agent).filter(Agent.user_id == user_id)
+        
+        if active_only:
+            query = query.filter(Agent.is_active == True)
+        
+        total = query.count()
+        agents = query.offset(skip).limit(limit).all()
+        
+        agent_responses = [AgentResponse.model_validate(agent) for agent in agents]
+        
+        return AgentListResponse(
+            agents=agent_responses,
+            total=total
+        )
+    
+    def update_agent(
+        self, 
+        agent_id: UUID, 
+        agent_data: AgentUpdate,
+        user_id: Optional[UUID] = None
+    ) -> AgentResponse:
+        """
+        Update an existing agent.
+        
+        Args:
+            agent_id: Agent ID
+            agent_data: Agent update data
+            user_id: User ID (if None, uses system user)
+            
+        Returns:
+            AgentResponse: Updated agent data
+            
+        Raises:
+            AgentNotFoundError: If agent not found
+            AgentAlreadyExistsError: If name conflict
+            DefaultAgentConflictError: If default agent conflict
+        """
+        session = self._get_session()
+        user_id = user_id or self._get_system_user_id()
+        
+        agent = session.query(Agent).filter(
+            and_(
+                Agent.id == agent_id,
+                Agent.user_id == user_id
+            )
+        ).first()
+        
+        if not agent:
+            raise AgentNotFoundError(agent_id=str(agent_id))
+        
+        # Check for name conflict
+        if agent_data.name and agent_data.name != agent.name:
+            existing_agent = session.query(Agent).filter(
+                and_(
+                    Agent.user_id == user_id,
+                    Agent.name == agent_data.name,
+                    Agent.id != agent_id
+                )
+            ).first()
+            
+            if existing_agent:
+                raise AgentAlreadyExistsError(name=agent_data.name)
+        
+        # Handle default agent logic
+        if agent_data.is_default is True and not agent.is_default:
+            # Unset any existing default agent for this user
+            session.query(Agent).filter(
+                and_(
+                    Agent.user_id == user_id,
+                    Agent.is_default == True,
+                    Agent.id != agent_id
+                )
+            ).update({'is_default': False})
+        
+        # Update fields
+        update_fields = {}
+        
+        if agent_data.name is not None:
+            update_fields['name'] = agent_data.name
+        if agent_data.description is not None:
+            update_fields['description'] = agent_data.description
+        if agent_data.is_default is not None:
+            update_fields['is_default'] = agent_data.is_default
+        if agent_data.is_active is not None:
+            update_fields['is_active'] = agent_data.is_active
+        
+        # Update provider configurations
+        if agent_data.llm_config is not None:
+            update_fields['llm_provider'] = agent_data.llm_config.provider
+            update_fields['llm_config'] = agent_data.llm_config.config
+        
+        if agent_data.tts_config is not None:
+            update_fields['tts_provider'] = agent_data.tts_config.provider
+            update_fields['tts_config'] = agent_data.tts_config.config
+        
+        if agent_data.stt_config is not None:
+            update_fields['stt_provider'] = agent_data.stt_config.provider
+            update_fields['stt_config'] = agent_data.stt_config.config
+        
+        # Apply updates
+        for field, value in update_fields.items():
+            setattr(agent, field, value)
+        
+        session.commit()
+        session.refresh(agent)
+        
+        logger.info(f"Updated agent: {agent.name} (ID: {agent.id})")
+        return AgentResponse.model_validate(agent)
+    
+    def delete_agent(self, agent_id: UUID, user_id: Optional[UUID] = None) -> bool:
+        """
+        Delete an agent.
+        
+        Args:
+            agent_id: Agent ID
+            user_id: User ID (if None, uses system user)
+            
+        Returns:
+            bool: True if deleted successfully
+            
+        Raises:
+            AgentNotFoundError: If agent not found
+            AgentValidationError: If trying to delete default agent
+        """
+        session = self._get_session()
+        user_id = user_id or self._get_system_user_id()
+        
+        agent = session.query(Agent).filter(
+            and_(
+                Agent.id == agent_id,
+                Agent.user_id == user_id
+            )
+        ).first()
+        
+        if not agent:
+            raise AgentNotFoundError(agent_id=str(agent_id))
+        
+        # Prevent deletion of default agent
+        if agent.is_default:
+            raise AgentValidationError("Cannot delete default agent")
+        
+        session.delete(agent)
+        session.commit()
+        
+        logger.info(f"Deleted agent: {agent.name} (ID: {agent.id})")
+        return True
+    
+    def get_default_agent(self, user_id: Optional[UUID] = None) -> AgentResponse:
+        """
+        Get the default agent for a user.
+        
+        Args:
+            user_id: User ID (if None, uses system user)
+            
+        Returns:
+            AgentResponse: Default agent data
+            
+        Raises:
+            AgentNotFoundError: If no default agent found
+        """
+        session = self._get_session()
+        user_id = user_id or self._get_system_user_id()
+        
+        agent = session.query(Agent).filter(
+            and_(
+                Agent.user_id == user_id,
+                Agent.is_default == True,
+                Agent.is_active == True
+            )
+        ).first()
+        
+        if not agent:
+            raise AgentNotFoundError("No default agent found")
+        
+        return AgentResponse.model_validate(agent)
+    
+    def set_default_agent(self, agent_id: UUID, user_id: Optional[UUID] = None) -> AgentResponse:
+        """
+        Set an agent as the default for a user.
+        
+        Args:
+            agent_id: Agent ID to set as default
+            user_id: User ID (if None, uses system user)
+            
+        Returns:
+            AgentResponse: Updated agent data
+            
+        Raises:
+            AgentNotFoundError: If agent not found
+        """
+        session = self._get_session()
+        user_id = user_id or self._get_system_user_id()
+        
+        # Verify agent exists and belongs to user
+        agent = session.query(Agent).filter(
+            and_(
+                Agent.id == agent_id,
+                Agent.user_id == user_id
+            )
+        ).first()
+        
+        if not agent:
+            raise AgentNotFoundError(agent_id=str(agent_id))
+        
+        # Unset any existing default agent
+        session.query(Agent).filter(
+            and_(
+                Agent.user_id == user_id,
+                Agent.is_default == True
+            )
+        ).update({'is_default': False})
+        
+        # Set new default agent
+        agent.is_default = True
+        session.commit()
+        session.refresh(agent)
+        
+        logger.info(f"Set default agent: {agent.name} (ID: {agent.id})")
+        return AgentResponse.model_validate(agent)
