@@ -30,19 +30,27 @@ class STTService:
         if self.agent_id:
             agent_manager = get_agent_manager()
             agent_config = agent_manager.get_agent_config(self.agent_id)
-            provider_name = agent_config.get("stt_provider")
+            provider_name = agent_config.stt_provider
+            provider_config = agent_config.stt_config
             logger.info(f"Initialized STT provider from agent {self.agent_id}: {provider_name}")
+            
+            if provider_name == "whisper.local":
+                self.provider = WhisperLocalProvider(provider_config)
+            elif provider_name == "deepgram.com":
+                self.provider = DeepgramProvider(provider_config)
+            else:
+                raise ValueError(f"Unsupported STT provider: {provider_name}")
         else:
             # Fallback to environment-based configuration
             provider_name = stt_config.get_provider()
             logger.info(f"Initialized STT provider from environment: {provider_name}")
         
-        if provider_name == "whisper.local":
-            self.provider = WhisperLocalProvider()
-        elif provider_name == "deepgram.com":
-            self.provider = DeepgramProvider()
-        else:
-            raise ValueError(f"Unsupported STT provider: {provider_name}")
+            if provider_name == "whisper.local":
+                self.provider = WhisperLocalProvider()
+            elif provider_name == "deepgram.com":
+                self.provider = DeepgramProvider()
+            else:
+                raise ValueError(f"Unsupported STT provider: {provider_name}")
 
 
 

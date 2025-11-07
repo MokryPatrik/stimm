@@ -58,12 +58,14 @@ async def create_agent_form(request: Request):
 
 
 @router.get("/edit/{agent_id}", response_class=HTMLResponse)
-async def edit_agent_form(request: Request, agent_id: int, db: Session = Depends(get_db)):
+async def edit_agent_form(request: Request, agent_id: str, db: Session = Depends(get_db)):
     """Form for editing an existing agent"""
     agent_service = AgentService(db)
     
     try:
-        agent = agent_service.get_agent(agent_id)
+        from uuid import UUID
+        agent_uuid = UUID(agent_id)
+        agent = agent_service.get_agent(agent_uuid)
         if not agent:
             raise HTTPException(status_code=404, detail="Agent not found")
             
@@ -76,6 +78,8 @@ async def edit_agent_form(request: Request, agent_id: int, db: Session = Depends
                 "error": None
             }
         )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid agent ID format")
     except Exception as e:
         return templates.TemplateResponse(
             "agent_form.html",

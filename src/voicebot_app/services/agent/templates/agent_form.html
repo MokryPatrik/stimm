@@ -154,14 +154,14 @@
                 <h3>LLM Provider Configuration</h3>
                 
                 <div class="form-group">
-                    <label for="llm_provider_type">LLM Provider Type</label>
-                    <select id="llm_provider_type" name="llm_provider_type">
+                    <label for="llm_provider">LLM Provider</label>
+                    <select id="llm_provider" name="llm_provider">
                         <option value="">No LLM Provider</option>
-                        <option value="openai" {% if agent and agent.llm_provider and agent.llm_provider.provider_type == 'openai' %}selected{% endif %}>OpenAI</option>
-                        <option value="groq" {% if agent and agent.llm_provider and agent.llm_provider.provider_type == 'groq' %}selected{% endif %}>Groq</option>
-                        <option value="mistral" {% if agent and agent.llm_provider and agent.llm_provider.provider_type == 'mistral' %}selected{% endif %}>Mistral</option>
-                        <option value="openrouter" {% if agent and agent.llm_provider and agent.llm_provider.provider_type == 'openrouter' %}selected{% endif %}>OpenRouter</option>
-                        <option value="llama_cpp" {% if agent and agent.llm_provider and agent.llm_provider.provider_type == 'llama_cpp' %}selected{% endif %}>Llama.cpp</option>
+                        <option value="openai.com" {% if agent and agent.llm_provider == 'openai.com' %}selected{% endif %}>OpenAI</option>
+                        <option value="groq.com" {% if agent and agent.llm_provider == 'groq.com' %}selected{% endif %}>Groq</option>
+                        <option value="mistral.ai" {% if agent and agent.llm_provider == 'mistral.ai' %}selected{% endif %}>Mistral</option>
+                        <option value="openrouter.ai" {% if agent and agent.llm_provider == 'openrouter.ai' %}selected{% endif %}>OpenRouter</option>
+                        <option value="llama-cpp.local" {% if agent and agent.llm_provider == 'llama-cpp.local' %}selected{% endif %}>Llama.cpp</option>
                     </select>
                 </div>
 
@@ -169,14 +169,14 @@
                     <div class="form-group">
                         <label for="llm_model_name">Model Name</label>
                         <input type="text" id="llm_model_name" name="llm_model_name"
-                               value="{% if agent and agent.llm_provider %}{{ agent.llm_provider.model_name or '' }}{% endif %}"
+                               value="{% if agent and agent.llm_config %}{{ agent.llm_config.model or '' }}{% endif %}"
                                placeholder="e.g., gpt-4, llama2-7b">
                     </div>
 
                     <div class="form-group">
                         <label for="llm_api_key">API Key</label>
                         <input type="password" id="llm_api_key" name="llm_api_key"
-                               value="{% if agent and agent.llm_provider and agent.llm_provider.api_key %}••••••••{% endif %}"
+                               value="{% if agent and agent.llm_config and agent.llm_config.api_key %}••••••••{% endif %}"
                                placeholder="Enter API key">
                     </div>
 
@@ -187,13 +187,13 @@
                 <h3>TTS Provider Configuration</h3>
                 
                 <div class="form-group">
-                    <label for="tts_provider_type">TTS Provider Type</label>
-                    <select id="tts_provider_type" name="tts_provider_type">
+                    <label for="tts_provider">TTS Provider</label>
+                    <select id="tts_provider" name="tts_provider">
                         <option value="">No TTS Provider</option>
-                        <option value="elevenlabs" {% if agent and agent.tts_provider and agent.tts_provider.provider_type == 'elevenlabs' %}selected{% endif %}>ElevenLabs</option>
-                        <option value="deepgram" {% if agent and agent.tts_provider and agent.tts_provider.provider_type == 'deepgram' %}selected{% endif %}>Deepgram</option>
-                        <option value="async_ai" {% if agent and agent.tts_provider and agent.tts_provider.provider_type == 'async_ai' %}selected{% endif %}>Async AI</option>
-                        <option value="kokoro_local" {% if agent and agent.tts_provider and agent.tts_provider.provider_type == 'kokoro_local' %}selected{% endif %}>Kokoro Local</option>
+                        <option value="elevenlabs.io" {% if agent and agent.tts_provider == 'elevenlabs.io' %}selected{% endif %}>ElevenLabs</option>
+                        <option value="deepgram.com" {% if agent and agent.tts_provider == 'deepgram.com' %}selected{% endif %}>Deepgram</option>
+                        <option value="async.ai" {% if agent and agent.tts_provider == 'async.ai' %}selected{% endif %}>Async AI</option>
+                        <option value="kokoro.local" {% if agent and agent.tts_provider == 'kokoro.local' %}selected{% endif %}>Kokoro Local</option>
                     </select>
                 </div>
 
@@ -201,14 +201,14 @@
                     <div class="form-group">
                         <label for="tts_voice_name">Voice Name</label>
                         <input type="text" id="tts_voice_name" name="tts_voice_name"
-                               value="{% if agent and agent.tts_provider %}{{ agent.tts_provider.voice_name or '' }}{% endif %}"
+                               value="{% if agent and agent.tts_config %}{{ agent.tts_config.voice or '' }}{% endif %}"
                                placeholder="e.g., Rachel, Adam">
                     </div>
 
                     <div class="form-group">
                         <label for="tts_api_key">API Key</label>
                         <input type="password" id="tts_api_key" name="tts_api_key"
-                               value="{% if agent and agent.tts_provider and agent.tts_provider.api_key %}••••••••{% endif %}"
+                               value="{% if agent and agent.tts_config and agent.tts_config.api_key %}••••••••{% endif %}"
                                placeholder="Enter API key">
                     </div>
 
@@ -219,11 +219,11 @@
                 <h3>STT Provider Configuration</h3>
                 
                 <div class="form-group">
-                    <label for="stt_provider_type">STT Provider Type</label>
-                    <select id="stt_provider_type" name="stt_provider_type">
+                    <label for="stt_provider">STT Provider</label>
+                    <select id="stt_provider" name="stt_provider">
                         <option value="">No STT Provider</option>
-                        <option value="deepgram" {% if agent and agent.stt_provider and agent.stt_provider.provider_type == 'deepgram' %}selected{% endif %}>Deepgram</option>
-                        <option value="whisper_local" {% if agent and agent.stt_provider and agent.stt_provider.provider_type == 'whisper_local' %}selected{% endif %}>Whisper Local</option>
+                        <option value="deepgram.com" {% if agent and agent.stt_provider == 'deepgram.com' %}selected{% endif %}>Deepgram</option>
+                        <option value="whisper.local" {% if agent and agent.stt_provider == 'whisper.local' %}selected{% endif %}>Whisper Local</option>
                     </select>
                 </div>
 
@@ -231,14 +231,14 @@
                     <div class="form-group">
                         <label for="stt_model_name">Model Name</label>
                         <input type="text" id="stt_model_name" name="stt_model_name"
-                               value="{% if agent and agent.stt_provider %}{{ agent.stt_provider.model_name or '' }}{% endif %}"
+                               value="{% if agent and agent.stt_config %}{{ agent.stt_config.model or '' }}{% endif %}"
                                placeholder="e.g., whisper-large-v3">
                     </div>
 
                     <div class="form-group">
                         <label for="stt_api_key">API Key</label>
                         <input type="password" id="stt_api_key" name="stt_api_key"
-                               value="{% if agent and agent.stt_provider and agent.stt_provider.api_key %}••••••••{% endif %}"
+                               value="{% if agent and agent.stt_config and agent.stt_config.api_key %}••••••••{% endif %}"
                                placeholder="Enter API key">
                     </div>
 
@@ -270,9 +270,9 @@
         }
 
         // Initialize provider config toggles
-        toggleProviderConfig('llm_provider_type', 'llm_config');
-        toggleProviderConfig('tts_provider_type', 'tts_config');
-        toggleProviderConfig('stt_provider_type', 'stt_config');
+        toggleProviderConfig('llm_provider', 'llm_config');
+        toggleProviderConfig('tts_provider', 'tts_config');
+        toggleProviderConfig('stt_provider', 'stt_config');
 
         // Form submission handling
         document.getElementById('agentForm').addEventListener('submit', async function(e) {

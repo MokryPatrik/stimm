@@ -23,12 +23,18 @@ class ProviderConfig(BaseModel):
 
 class AgentCreate(BaseModel):
     """Model for creating a new agent."""
-    
+
     name: str = Field(..., min_length=1, max_length=255, description="Agent name")
     description: Optional[str] = Field(None, description="Agent description")
-    llm_config: ProviderConfig = Field(..., description="LLM provider configuration")
-    tts_config: ProviderConfig = Field(..., description="TTS provider configuration")
-    stt_config: ProviderConfig = Field(..., description="STT provider configuration")
+    llm_provider: str = Field(..., description="LLM provider name")
+    llm_model_name: str = Field(..., description="LLM model name")
+    llm_api_key: str = Field(..., description="LLM API key")
+    tts_provider: str = Field(..., description="TTS provider name")
+    tts_voice_name: str = Field(..., description="TTS voice name")
+    tts_api_key: str = Field(..., description="TTS API key")
+    stt_provider: str = Field(..., description="STT provider name")
+    stt_model_name: str = Field(..., description="STT model name")
+    stt_api_key: str = Field(..., description="STT API key")
     is_default: bool = Field(False, description="Whether this agent should be the default")
     
     @validator('name')
@@ -36,6 +42,13 @@ class AgentCreate(BaseModel):
         """Validate agent name."""
         if not v or not v.strip():
             raise ValueError("Agent name cannot be empty")
+        return v.strip()
+
+    @validator('llm_api_key', 'tts_api_key', 'stt_api_key')
+    def validate_api_key(cls, v):
+        """Validate API keys."""
+        if not v or not v.strip():
+            raise ValueError("API key cannot be empty")
         return v.strip()
 
 

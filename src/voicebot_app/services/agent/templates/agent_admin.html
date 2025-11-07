@@ -180,10 +180,10 @@
                 
                 {% if agent.llm_provider %}
                 <div class="provider-info">
-                    <div class="provider-type">LLM: {{ agent.llm_provider.provider_type }}</div>
+                    <div class="provider-type">LLM: {{ agent.llm_provider }}</div>
                     <div class="provider-config">
-                        Model: {{ agent.llm_provider.model_name or "Default" }}<br>
-                        {% if agent.llm_provider.api_key %}
+                        Model: {{ agent.llm_config.model or "Default" }}<br>
+                        {% if agent.llm_config.api_key %}
                         API Key: ••••••••
                         {% endif %}
                     </div>
@@ -192,10 +192,10 @@
                 
                 {% if agent.tts_provider %}
                 <div class="provider-info">
-                    <div class="provider-type">TTS: {{ agent.tts_provider.provider_type }}</div>
+                    <div class="provider-type">TTS: {{ agent.tts_provider }}</div>
                     <div class="provider-config">
-                        Voice: {{ agent.tts_provider.voice_name or "Default" }}<br>
-                        {% if agent.tts_provider.api_key %}
+                        Voice: {{ agent.tts_config.voice or "Default" }}<br>
+                        {% if agent.tts_config.api_key %}
                         API Key: ••••••••
                         {% endif %}
                     </div>
@@ -204,10 +204,10 @@
                 
                 {% if agent.stt_provider %}
                 <div class="provider-info">
-                    <div class="provider-type">STT: {{ agent.stt_provider.provider_type }}</div>
+                    <div class="provider-type">STT: {{ agent.stt_provider }}</div>
                     <div class="provider-config">
-                        Model: {{ agent.stt_provider.model_name or "Default" }}<br>
-                        {% if agent.stt_provider.api_key %}
+                        Model: {{ agent.stt_config.model or "Default" }}<br>
+                        {% if agent.stt_config.api_key %}
                         API Key: ••••••••
                         {% endif %}
                     </div>
