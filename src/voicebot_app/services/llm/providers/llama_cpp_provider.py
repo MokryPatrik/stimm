@@ -12,6 +12,7 @@ import json
 from typing import AsyncIterator, Optional, Dict, Any
 from ..config import llm_config
 from .openai_compatible_provider import OpenAICompatibleProvider
+from services.provider_constants import LlamaCppLLMDefaults
 
 
 class LlamaCppProvider(OpenAICompatibleProvider):
@@ -30,22 +31,26 @@ class LlamaCppProvider(OpenAICompatibleProvider):
         super().__init__(config)
     
     def _validate_config(self):
-        """Validate that required configuration is present (API key is optional for local server)"""
-        if not self.config.get("api_url"):
+        """Validate that required configuration is present (API key is optional for local server)."""
+        # Use shared defaults as baseline; allow overrides via config/env.
+        api_url = self.config.get("api_url", LlamaCppLLMDefaults.API_URL)
+        completions_path = self.config.get("completions_path", LlamaCppLLMDefaults.COMPLETIONS_PATH)
+        if not api_url:
             raise ValueError(f"{self.__class__.__name__}: API URL is required")
-        # API key is optional for local llama.cpp server
+        if not completions_path:
+            raise ValueError(f"{self.__class__.__name__}: completions path is required")
+        # API key remains optional for local llama.cpp server
     
     def _get_api_url(self) -> str:
-        """Get the full API URL for llama.cpp completions"""
-        base_url = self.config["api_url"]
-        completions_path = self.config["completions_path"]
-        
-        # Ensure proper URL formatting
+        """Get the full API URL for llama.cpp completions using shared defaults."""
+        base_url = self.config.get("api_url", LlamaCppLLMDefaults.API_URL)
+        completions_path = self.config.get("completions_path", LlamaCppLLMDefaults.COMPLETIONS_PATH)
+
         if base_url.endswith('/'):
             base_url = base_url[:-1]
         if completions_path.startswith('/'):
             completions_path = completions_path[1:]
-            
+
         return f"{base_url}/{completions_path}"
     
     def _get_headers(self) -> Dict[str, str]:

@@ -10,6 +10,7 @@ from typing import AsyncGenerator
 import websockets
 
 from ...config import tts_config
+from services.provider_constants import AsyncAITTSDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,14 @@ class AsyncAIProvider:
 
     def __init__(self):
         self.config = tts_config
-        self.websocket_url = self.config.async_ai_url
+        # Use shared global defaults as baseline, allow overrides from config/env
+        self.websocket_url = getattr(self.config, "async_ai_url", AsyncAITTSDefaults.URL)
         self.api_key = self.config.async_ai_api_key
         self.voice_id = self.config.async_ai_voice_id
         self.model_id = self.config.async_ai_model_id
-        self.sample_rate = self.config.async_ai_sample_rate
-        self.encoding = self.config.async_ai_encoding
-        self.container = self.config.async_ai_container
+        self.sample_rate = getattr(self.config, "async_ai_sample_rate", AsyncAITTSDefaults.SAMPLE_RATE)
+        self.encoding = getattr(self.config, "async_ai_encoding", AsyncAITTSDefaults.ENCODING)
+        self.container = getattr(self.config, "async_ai_container", AsyncAITTSDefaults.CONTAINER)
 
 
     async def stream_synthesis(self, text_generator: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:

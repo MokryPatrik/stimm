@@ -14,6 +14,7 @@ import json
 from typing import AsyncIterator, Optional, Dict, Any
 from ..config import llm_config
 from .openai_compatible_provider import OpenAICompatibleProvider
+from services.provider_constants import OpenRouterLLMDefaults
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
@@ -33,16 +34,15 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         super().__init__(config)
     
     def _get_api_url(self) -> str:
-        """Get the full API URL for OpenRouter.ai completions"""
-        base_url = self.config["api_url"]
-        completions_path = self.config["completions_path"]
-        
-        # Ensure proper URL formatting
+        """Get the full API URL for OpenRouter.ai completions using shared defaults."""
+        base_url = self.config.get("api_url", OpenRouterLLMDefaults.API_URL)
+        completions_path = self.config.get("completions_path", OpenRouterLLMDefaults.COMPLETIONS_PATH)
+
         if base_url.endswith('/'):
             base_url = base_url[:-1]
         if completions_path.startswith('/'):
             completions_path = completions_path[1:]
-            
+
         return f"{base_url}/{completions_path}"
     
     def _get_headers(self) -> Dict[str, str]:

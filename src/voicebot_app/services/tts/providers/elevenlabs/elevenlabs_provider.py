@@ -14,6 +14,7 @@ from typing import AsyncGenerator
 import aiohttp
 
 from ...config import tts_config
+from services.provider_constants import ElevenLabsTTSDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,10 @@ class ElevenLabsProvider:
         self.api_key = self.config.elevenlabs_api_key
         self.voice_id = self.config.elevenlabs_voice_id
         self.model_id = self.config.elevenlabs_model_id
-        self.sample_rate = self.config.elevenlabs_sample_rate
-        self.encoding = self.config.elevenlabs_encoding
-        self.output_format = self.config.elevenlabs_output_format
+        # Use global defaults as baseline, allow config to override if set
+        self.sample_rate = getattr(self.config, "elevenlabs_sample_rate", ElevenLabsTTSDefaults.SAMPLE_RATE)
+        self.encoding = getattr(self.config, "elevenlabs_encoding", ElevenLabsTTSDefaults.ENCODING)
+        self.output_format = getattr(self.config, "elevenlabs_output_format", ElevenLabsTTSDefaults.OUTPUT_FORMAT)
         self.session = None
         self.websocket = None
         logger.info(f"ElevenLabsProvider initialized with voice: {self.voice_id}, model: {self.model_id}, sample_rate: {self.sample_rate}Hz")

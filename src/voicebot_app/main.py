@@ -21,8 +21,6 @@ from services.tts.web_routes import router as tts_web_router
 from services.voicebot_wrapper.routes import router as voicebot_router
 from services.agent.routes import router as agent_router
 from services.agent.web_routes import router as agent_web_router
-from services.agent.global_config_routes import router as global_config_router
-from services.agent.global_config_web_routes import router as global_config_web_router
 
 logger = logging.getLogger(__name__)
 
@@ -55,22 +53,14 @@ async def startup_event():
         except Exception as e:
             logger.error(f"Failed to initialize RAG preloader: {e}")
         
-        # Initialize agent system
+        # Initialize agent system (default agent only; no global provider config)
         try:
             from services.agent.dev_agent_creator import initialize_default_agent
-            from services.agent.global_config_service import GlobalConfigService
             from database.session import get_db
-            
-            # Get database session and initialize default agent
+
             db_gen = get_db()
             db = next(db_gen)
             try:
-                # Initialize global provider templates
-                global_config_service = GlobalConfigService(db)
-                global_config_service.initialize_templates()
-                logger.info("✅ Global provider templates initialized successfully")
-                
-                # Initialize default agent
                 success = initialize_default_agent(db)
                 if success:
                     logger.info("✅ Default development agent initialized successfully")
@@ -78,7 +68,7 @@ async def startup_event():
                     logger.error("❌ Failed to initialize default development agent")
             finally:
                 db_gen.close()
-                
+
         except ImportError as e:
             logger.warning(f"Agent system not available: {e}")
         except Exception as e:
@@ -113,8 +103,6 @@ app.include_router(tts_web_router, prefix="/tts", tags=["tts-web"])
 app.include_router(voicebot_router, prefix="/api", tags=["voicebot"])
 app.include_router(agent_router, prefix="/api", tags=["agents"])
 app.include_router(agent_web_router, tags=["agent-web"])
-app.include_router(global_config_router, tags=["global-config"])
-app.include_router(global_config_web_router, tags=["agent-web"])
 
 # Templates for voicebot interface
 templates = Jinja2Templates(directory="services/voicebot_wrapper/templates")

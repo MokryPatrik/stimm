@@ -13,7 +13,7 @@ from typing import AsyncGenerator
 import aiohttp
 
 from ...config import tts_config
-from services.agent.global_config_service import get_global_config_service
+from services.provider_constants import DeepgramTTSDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +23,15 @@ class DeepgramProvider:
 
     def __init__(self):
         self.config = tts_config
-        self.global_config_service = get_global_config_service()
         self.session = None
         self.websocket = None
         logger.info("DeepgramProvider initialized")
 
     async def stream_synthesis(self, text_generator: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:
-        """Stream synthesis using Deepgram TTS WebSocket API with aiohttp."""
-        # Get global configuration for Deepgram TTS
-        global_config = self.global_config_service.get_provider_config("tts", "deepgram")
-        if not global_config:
-            raise ValueError("Global configuration not found for Deepgram TTS provider")
+        """Stream synthesis using Deepgram TTS WebSocket API with aiohttp.
         
+        Uses hard-coded global defaults from DeepgramTTSDefaults plus agent/env config.
+        """
         # Get agent-specific settings (api_key, model, etc.)
         agent_config = self.config.get_agent_config() if hasattr(self.config, 'get_agent_config') else {}
         api_key = agent_config.get("api_key") or self.config.deepgram_tts_api_key
@@ -43,11 +40,10 @@ class DeepgramProvider:
         if not api_key:
             raise ValueError("Deepgram API key is required")
 
-        # Get global settings
-        global_settings = global_config.settings
-        base_url = global_settings.get("base_url", "https://api.deepgram.com")
-        sample_rate = global_settings.get("sample_rate", "16000")
-        encoding = global_settings.get("encoding", "linear16")
+        # Use shared global defaults for base URL and audio parameters
+        base_url = DeepgramTTSDefaults.BASE_URL
+        sample_rate = DeepgramTTSDefaults.SAMPLE_RATE
+        encoding = DeepgramTTSDefaults.ENCODING
         
         # Build WebSocket URL with query parameters
         url = f"{base_url.replace('https://', 'wss://').replace('http://', 'ws://')}/v1/speak?model={model}&encoding={encoding}&sample_rate={sample_rate}"

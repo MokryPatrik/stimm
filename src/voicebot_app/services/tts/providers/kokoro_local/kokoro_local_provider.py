@@ -12,6 +12,7 @@ import numpy as np
 from scipy import signal
 
 from ...config import tts_config
+from services.provider_constants import KokoroLocalTTSDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,15 @@ class KokoroLocalProvider:
 
     def __init__(self):
         self.config = tts_config
-        self.websocket_url = self.config.kokoro_local_url
+        # Use shared global defaults as baseline, allow overrides from config/env
+        self.websocket_url = getattr(self.config, "kokoro_local_url", KokoroLocalTTSDefaults.URL)
         self.voice_id = self.config.kokoro_local_voice_id
-        self.input_sample_rate = self.config.kokoro_local_sample_rate  # 24kHz from Kokoro
-        self.output_sample_rate = 44100  # Target for frontend compatibility
-        self.encoding = self.config.kokoro_local_encoding
-        self.container = self.config.kokoro_local_container
-        self.language = self.config.kokoro_local_language
-        self.speed = self.config.kokoro_local_speed
+        self.input_sample_rate = getattr(self.config, "kokoro_local_sample_rate", KokoroLocalTTSDefaults.SAMPLE_RATE)
+        self.output_sample_rate = 44100  # Target for frontend compatibility (kept as implementation choice)
+        self.encoding = getattr(self.config, "kokoro_local_encoding", KokoroLocalTTSDefaults.ENCODING)
+        self.container = getattr(self.config, "kokoro_local_container", KokoroLocalTTSDefaults.CONTAINER)
+        self.language = getattr(self.config, "kokoro_local_language", "fr-fr")
+        self.speed = getattr(self.config, "kokoro_local_speed", KokoroLocalTTSDefaults.SPEED)
         logger.info(f"KokoroLocalProvider initialized with URL: {self.websocket_url}, voice: {self.voice_id}, language: {self.language}, speed: {self.speed}")
         logger.info(f"Audio resampling: {self.input_sample_rate}Hz → {self.output_sample_rate}Hz")
 

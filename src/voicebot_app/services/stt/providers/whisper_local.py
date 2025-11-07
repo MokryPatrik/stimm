@@ -8,10 +8,11 @@ speech-to-text transcription.
 import asyncio
 import json
 import logging
-import os
-from typing import AsyncGenerator, Dict, List, Optional, Any
+from typing import AsyncGenerator, Dict, List, Any
 
 import websockets
+
+from services.provider_constants import WhisperLocalSTTDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,14 @@ class WhisperLocalProvider:
     """
 
     def __init__(self):
-        self.websocket_url = os.getenv("WHISPER_LOCAL_STT_URL", "ws://whisper-stt:8003")
-        self.websocket_path = os.getenv("WHISPER_STT_WS_PATH", "/api/stt/stream")
+        """
+        Initialize Whisper Local STT provider using centralized defaults.
+
+        Configuration is now fully code-defined via WhisperLocalSTTDefaults and
+        does not depend on database-backed global configuration.
+        """
+        self.websocket_url = WhisperLocalSTTDefaults.URL
+        self.websocket_path = WhisperLocalSTTDefaults.PATH
         self.full_url = f"{self.websocket_url}{self.websocket_path}"
         self.websocket = None
         self.connected = False
