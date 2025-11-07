@@ -38,8 +38,8 @@ async def get_available_agents(db: Session = Depends(get_db)) -> List[Agent]:
     """Get list of available agents for selection"""
     try:
         agent_service = AgentService(db)
-        agents = agent_service.get_all_agents()
-        return agents
+        agents_response = agent_service.list_agents()
+        return agents_response.agents
     except Exception as e:
         logger.error(f"Failed to fetch agents: {e}")
         return []

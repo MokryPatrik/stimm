@@ -36,6 +36,7 @@ class TTSService:
         provider_name = agent_config.tts_provider
         provider_config = agent_config.tts_config
         logger.info(f"Initializing TTS provider from agent configuration: {provider_name}")
+        logger.info(f"🔍 TTS provider config for {provider_name}: {provider_config}")
         
         # Initialize providers with agent configuration
         if provider_name == "async.ai":

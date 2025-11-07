@@ -163,28 +163,42 @@ async def voicebot_websocket_endpoint(websocket: WebSocket):
         await connection_manager.connect(websocket, conversation_id)
         
         # Get TTS provider configuration from agent if available
-        # For now, use the existing config system
-        from services.tts.config import tts_config
+        logger.info(f"🔍 Voicebot WebSocket - Using agent-based TTS configuration for agent_id: {agent_id}")
         
-        current_provider = tts_config.get_provider()
+        # Use agent-based TTS configuration instead of environment variables
+        from services.tts.tts import TTSService
+        tts_service = TTSService(agent_id=agent_id)
         
-        # Get provider-specific audio configuration
-        if current_provider == "elevenlabs.io":
-            tts_sample_rate = tts_config.elevenlabs_sample_rate
-            tts_encoding = tts_config.elevenlabs_encoding
-        elif current_provider == "async.ai":
-            tts_sample_rate = tts_config.async_ai_sample_rate
-            tts_encoding = tts_config.async_ai_encoding
-        elif current_provider == "kokoro.local":
-            tts_sample_rate = tts_config.kokoro_local_sample_rate
-            tts_encoding = tts_config.kokoro_local_encoding
-        elif current_provider == "deepgram.com":
-            tts_sample_rate = tts_config.deepgram_sample_rate
-            tts_encoding = tts_config.deepgram_encoding
+        # Get provider-specific audio configuration from agent
+        current_provider = tts_service.provider.__class__.__name__
+        logger.info(f"🔍 Voicebot WebSocket - Agent TTS provider: {current_provider}")
+        
+        # Get provider-specific audio configuration from constants
+        from services.provider_constants import get_provider_constants
+        provider_constants = get_provider_constants()
+        
+        if hasattr(tts_service.provider, 'sample_rate'):
+            tts_sample_rate = tts_service.provider.sample_rate
+            tts_encoding = tts_service.provider.encoding
         else:
-            # Default values
-            tts_sample_rate = 44100
-            tts_encoding = "pcm_s16le"
+            # Fallback to provider constants
+            provider_key = None
+            if "AsyncAIProvider" in current_provider:
+                provider_key = "async.ai"
+            elif "KokoroLocalProvider" in current_provider:
+                provider_key = "kokoro.local"
+            elif "DeepgramProvider" in current_provider:
+                provider_key = "deepgram.com"
+            elif "ElevenLabsProvider" in current_provider:
+                provider_key = "elevenlabs.io"
+            
+            if provider_key and provider_key in provider_constants['tts']:
+                tts_sample_rate = provider_constants['tts'][provider_key]['SAMPLE_RATE']
+                tts_encoding = provider_constants['tts'][provider_key]['ENCODING']
+            else:
+                # Default values
+                tts_sample_rate = 44100
+                tts_encoding = "pcm_s16le"
 
         await websocket.send_json({
             "type": "conversation_started",
@@ -489,6 +503,7 @@ async def _handle_streaming_text_chunk(conversation_id: str, data: Dict[str, Any
     """Handle text chunks for streaming with parallel audio generation."""
     text_chunk = data.get("text")
     is_final = data.get("is_final", False)
+    agent_id = data.get("agent_id")
     
     if not text_chunk:
         return
@@ -500,13 +515,17 @@ async def _handle_streaming_text_chunk(conversation_id: str, data: Dict[str, Any
             if is_final:
                 yield ""  # End of stream signal
         
+        # Use agent-based TTS service for streaming
+        logger.info(f"🔍 Voicebot Streaming - Using agent-based TTS for agent_id: {agent_id}")
+        from services.tts.tts import TTSService
+        tts_service = TTSService(agent_id=agent_id)
+        
         # Use shared streaming manager for parallel audio generation
-        if voicebot_service.tts_service:
-            async for audio_chunk in shared_streaming_manager.stream_text_to_audio(
-                websocket, text_generator(), voicebot_service.tts_service, conversation_id
-            ):
-                # Audio chunks are automatically sent via send_bytes
-                pass
+        async for audio_chunk in shared_streaming_manager.stream_text_to_audio(
+            websocket, text_generator(), tts_service, conversation_id
+        ):
+            # Audio chunks are automatically sent via send_bytes
+            pass
                 
         # Send progress update
         session = shared_streaming_manager.get_session(conversation_id)

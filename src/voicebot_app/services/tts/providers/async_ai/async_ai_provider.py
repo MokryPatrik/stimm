@@ -21,9 +21,22 @@ class AsyncAIProvider:
     def __init__(self, provider_config: dict = None):
         # Use agent configuration for non-constant values (API keys, voice/model IDs)
         if provider_config:
+            logger.info(f"🔍 AsyncAIProvider received config: {provider_config}")
             self.api_key = provider_config.get("api_key")
-            self.voice_id = provider_config.get("voice_id")
-            self.model_id = provider_config.get("model_id")
+            
+            # Support both 'voice' and 'voice_id' keys for flexibility
+            self.voice_id = provider_config.get("voice_id") or provider_config.get("voice")
+            
+            # model_id is required for AsyncAI, use a default if not provided
+            self.model_id = provider_config.get("model_id") or "tts-1"
+            
+            logger.info(f"🔍 AsyncAIProvider parsed - api_key: {bool(self.api_key)}, voice_id: {self.voice_id}, model_id: {self.model_id}")
+            
+            # Validate required parameters
+            if not self.api_key:
+                raise ValueError("API key is required for AsyncAIProvider")
+            if not self.voice_id:
+                raise ValueError("Voice ID is required for AsyncAIProvider")
         else:
             # No fallback - agent configuration is required
             raise ValueError("Agent configuration is required for AsyncAIProvider")
@@ -72,18 +85,29 @@ class AsyncAIProvider:
                                 text_content += " "
                             
                             # Convert our standard format to AsyncAI format
-                            asyncai_payload = {"transcript": text_content}
+                            asyncai_payload = {
+                                "transcript": text_content,
+                                "voice": {"mode": "id", "id": self.voice_id}
+                            }
                             await ws.send(json.dumps(asyncai_payload))
                             logger.info(f"Sent text chunk {text_count}: {text_content.strip()}")
                         except json.JSONDecodeError:
                             # Fallback: if it's plain text, use it directly
                             if not chunk.endswith(" "):
                                 chunk += " "
-                            await ws.send(json.dumps({"transcript": chunk}))
+                            asyncai_payload = {
+                                "transcript": chunk,
+                                "voice": {"mode": "id", "id": self.voice_id}
+                            }
+                            await ws.send(json.dumps(asyncai_payload))
                             logger.info(f"Sent text chunk {text_count}: {chunk.strip()} (converted from plain text)")
                     
-                    # Send close connection message as {"transcript": ""}
-                    await ws.send(json.dumps({"transcript": ""}))
+                    # Send close connection message with voice parameter
+                    close_payload = {
+                        "transcript": "",
+                        "voice": {"mode": "id", "id": self.voice_id}
+                    }
+                    await ws.send(json.dumps(close_payload))
                     logger.info("Sent close connection message")
                 except Exception as e:
                     logger.error(f"Sender error: {e}")
