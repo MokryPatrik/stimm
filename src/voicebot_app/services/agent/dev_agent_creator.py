@@ -29,46 +29,50 @@ class DevAgentCreator:
     
     def create_default_dev_agent(self) -> bool:
         """
-        Create default development agent from .env configuration.
+        Create development agent from .env configuration.
+        Only set as default if no other default agent exists.
         
         Returns:
             bool: True if agent was created or already exists
         """
         try:
-            # Check if default agent already exists
+            # Check if a default agent already exists
             try:
-                default_agent = self.agent_service.get_default_agent()
-                logger.info(f"Default agent already exists: {default_agent.name} (ID: {default_agent.id})")
+                existing_default = self.agent_service.get_default_agent()
+                logger.info(f"Default agent already exists: {existing_default.name} (ID: {existing_default.id})")
+                logger.info("Development agent will be created but not set as default")
                 
-                # Delete the existing default agent to recreate it with updated configuration
-                logger.info("Deleting existing default agent to recreate with updated configuration")
-                self.agent_service.delete_agent(default_agent.id)
+                # Create agent configuration from environment variables without setting as default
+                agent_data = self._build_agent_from_env()
+                agent_data.is_default = False
                 
             except Exception:
-                # Default agent doesn't exist, create it
-                pass
-            
-            # Create agent configuration from environment variables
-            agent_data = self._build_agent_from_env()
+                # No default agent exists, create this one as default
+                logger.info("No existing default agent found, creating development agent as default")
+                
+                # Create agent configuration from environment variables as default
+                agent_data = self._build_agent_from_env()
+                agent_data.is_default = True
             
             # Create the agent
             agent = self.agent_service.create_agent(agent_data)
             
-            logger.info(f"Created default development agent: {agent.name} (ID: {agent.id})")
+            logger.info(f"Created development agent: {agent.name} (ID: {agent.id})")
+            logger.info(f"  Is Default: {agent.is_default}")
             logger.info(f"  LLM Provider: {agent.llm_provider}")
             logger.info(f"  TTS Provider: {agent.tts_provider}")
             logger.info(f"  STT Provider: {agent.stt_provider}")
             logger.info(f"  LLM Model: {agent.llm_config.get('model', 'default')}")
-            logger.info(f"  TTS Voice: {agent.tts_config.get('voice', agent.tts_config.get('voice_id', 'default'))}")
+            logger.info(f"  TTS Voice: {self._get_tts_voice_name(agent.tts_provider, agent.tts_config)}")
             logger.info(f"  STT Model: {agent.stt_config.get('model', 'default')}")
             
             return True
             
         except AgentAlreadyExistsError:
-            logger.info("Default development agent already exists")
+            logger.info("Development agent already exists")
             return True
         except Exception as e:
-            logger.error(f"Failed to create default development agent: {e}")
+            logger.error(f"Failed to create development agent: {e}")
             return False
     
     def _build_agent_from_env(self) -> AgentCreate:
@@ -93,13 +97,13 @@ class DevAgentCreator:
             description="Default development agent created from .env configuration",
             llm_provider=llm_provider,
             llm_model_name=llm_config.get("model", "default"),
-            llm_api_key=llm_config.get("api_key", ""),
+            llm_api_key=llm_config.get("api_key", "local") if llm_provider.endswith(".local") else llm_config.get("api_key", ""),
             tts_provider=tts_provider,
             tts_voice_name=self._get_tts_voice_name(tts_provider, tts_config),
-            tts_api_key=tts_config.get("api_key", ""),
+            tts_api_key=tts_config.get("api_key", "local") if tts_provider.endswith(".local") else tts_config.get("api_key", ""),
             stt_provider=stt_provider,
             stt_model_name=stt_config.get("model", "default"),
-            stt_api_key=stt_config.get("api_key", ""),
+            stt_api_key=stt_config.get("api_key", "local") if stt_provider.endswith(".local") else stt_config.get("api_key", ""),
             is_default=True
         )
     
@@ -133,7 +137,7 @@ class DevAgentCreator:
         elif provider == "llama-cpp.local":
             config.update({
                 "api_url": os.getenv("LLAMA_CPP_LLM_API_URL", "http://llama-cpp-server:8002"),
-                "api_key": os.getenv("LLAMA_CPP_LLM_API_KEY", ""),
+                "api_key": os.getenv("LLAMA_CPP_LLM_API_KEY", "local"),
                 "model": os.getenv("LLAMA_CPP_LLM_MODEL", "default"),
                 "completions_path": os.getenv("LLAMA_CPP_LLM_COMPLETIONS_PATH", "/v1/chat/completions")
             })

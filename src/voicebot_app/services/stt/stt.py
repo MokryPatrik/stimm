@@ -26,31 +26,25 @@ class STTService:
 
     def _initialize_provider(self):
         """Initialize the configured STT provider"""
-        # Use agent-based configuration if agent_id is provided
-        if self.agent_id:
-            agent_manager = get_agent_manager()
+        # Always use agent-based configuration
+        agent_manager = get_agent_manager()
+        if self.session_id:
+            agent_config = agent_manager.get_session_agent(self.session_id)
+        elif self.agent_id:
             agent_config = agent_manager.get_agent_config(self.agent_id)
-            provider_name = agent_config.stt_provider
-            provider_config = agent_config.stt_config
-            logger.info(f"Initialized STT provider from agent {self.agent_id}: {provider_name}")
-            
-            if provider_name == "whisper.local":
-                self.provider = WhisperLocalProvider(provider_config)
-            elif provider_name == "deepgram.com":
-                self.provider = DeepgramProvider(provider_config)
-            else:
-                raise ValueError(f"Unsupported STT provider: {provider_name}")
         else:
-            # Fallback to environment-based configuration
-            provider_name = stt_config.get_provider()
-            logger.info(f"Initialized STT provider from environment: {provider_name}")
+            agent_config = agent_manager.get_agent_config()
+            
+        provider_name = agent_config.stt_provider
+        provider_config = agent_config.stt_config
+        logger.info(f"Initialized STT provider from agent configuration: {provider_name}")
         
-            if provider_name == "whisper.local":
-                self.provider = WhisperLocalProvider()
-            elif provider_name == "deepgram.com":
-                self.provider = DeepgramProvider()
-            else:
-                raise ValueError(f"Unsupported STT provider: {provider_name}")
+        if provider_name == "whisper.local":
+            self.provider = WhisperLocalProvider(provider_config)
+        elif provider_name == "deepgram.com":
+            self.provider = DeepgramProvider(provider_config)
+        else:
+            raise ValueError(f"Unsupported STT provider: {provider_name}")
 
 
 

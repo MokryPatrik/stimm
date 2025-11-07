@@ -51,7 +51,9 @@ class AgentManager:
         """Get database session."""
         if self.db_session:
             return self.db_session
-        raise RuntimeError("Database session not provided")
+        # Create a new session if none provided
+        from database.session import SessionLocal
+        return SessionLocal()
     
     def _clean_cache(self):
         """Clean expired cache entries."""

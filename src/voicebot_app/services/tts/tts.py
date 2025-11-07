@@ -24,39 +24,29 @@ class TTSService:
         self._initialize_provider()
 
     def _initialize_provider(self):
-        # Use agent-based configuration if agent_id is provided
-        if self.agent_id:
-            agent_manager = get_agent_manager()
+        # Always use agent-based configuration
+        agent_manager = get_agent_manager()
+        if self.session_id:
+            agent_config = agent_manager.get_session_agent(self.session_id)
+        elif self.agent_id:
             agent_config = agent_manager.get_agent_config(self.agent_id)
-            provider_name = agent_config.tts_provider
-            provider_config = agent_config.tts_config
-            logger.info(f"Initializing TTS provider from agent {self.agent_id}: {provider_name}")
-            
-            if provider_name == "async.ai":
-                self.provider = AsyncAIProvider(provider_config)
-            elif provider_name == "kokoro.local":
-                self.provider = KokoroLocalProvider(provider_config)
-            elif provider_name == "deepgram.com":
-                self.provider = DeepgramProvider(provider_config)
-            elif provider_name == "elevenlabs.io":
-                self.provider = ElevenLabsProvider(provider_config)
-            else:
-                raise ValueError(f"Unsupported TTS provider: {provider_name}")
         else:
-            # Fallback to environment-based configuration
-            provider_name = tts_config.get_provider()
-            logger.info(f"Initializing TTS provider from environment: {provider_name}")
-
-            if provider_name == "async.ai":
-                self.provider = AsyncAIProvider()
-            elif provider_name == "kokoro.local":
-                self.provider = KokoroLocalProvider()
-            elif provider_name == "deepgram.com":
-                self.provider = DeepgramProvider()
-            elif provider_name == "elevenlabs.io":
-                self.provider = ElevenLabsProvider()
-            else:
-                raise ValueError(f"Unsupported TTS provider: {provider_name}")
+            agent_config = agent_manager.get_agent_config()
+            
+        provider_name = agent_config.tts_provider
+        provider_config = agent_config.tts_config
+        logger.info(f"Initializing TTS provider from agent configuration: {provider_name}")
+        
+        if provider_name == "async.ai":
+            self.provider = AsyncAIProvider(provider_config)
+        elif provider_name == "kokoro.local":
+            self.provider = KokoroLocalProvider(provider_config)
+        elif provider_name == "deepgram.com":
+            self.provider = DeepgramProvider(provider_config)
+        elif provider_name == "elevenlabs.io":
+            self.provider = ElevenLabsProvider(provider_config)
+        else:
+            raise ValueError(f"Unsupported TTS provider: {provider_name}")
         
         logger.info(f"TTS provider initialized: {type(self.provider).__name__}")
 

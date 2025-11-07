@@ -43,9 +43,9 @@ class AgentService:
         """Get database session."""
         if self.db_session:
             return self.db_session
-        # For dependency injection, we'll get session from context
-        # This will be handled by FastAPI dependency injection
-        raise RuntimeError("Database session not provided")
+        # Create a new session if none provided
+        from database.session import SessionLocal
+        return SessionLocal()
     
     def _get_system_user_id(self) -> UUID:
         """Get the system user ID."""
