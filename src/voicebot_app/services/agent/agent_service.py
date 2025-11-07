@@ -134,6 +134,15 @@ class AgentService:
         session.commit()
         session.refresh(agent)
         
+        # Invalidate agent manager cache for the new agent
+        try:
+            from .agent_manager import get_agent_manager
+            agent_manager = get_agent_manager()
+            agent_manager.invalidate_cache(agent.id)
+            logger.debug(f"Invalidated cache for new agent {agent.id}")
+        except Exception as e:
+            logger.warning(f"Failed to invalidate agent cache: {e}")
+        
         logger.info(f"Created agent: {agent.name} (ID: {agent.id})")
         return AgentResponse.model_validate(agent)
     
@@ -204,8 +213,8 @@ class AgentService:
         )
     
     def update_agent(
-        self, 
-        agent_id: UUID, 
+        self,
+        agent_id: UUID,
         agent_data: AgentUpdate,
         user_id: Optional[UUID] = None
     ) -> AgentResponse:
@@ -293,6 +302,15 @@ class AgentService:
         
         session.commit()
         session.refresh(agent)
+        
+        # Invalidate agent manager cache to ensure real-time updates
+        try:
+            from .agent_manager import get_agent_manager
+            agent_manager = get_agent_manager()
+            agent_manager.invalidate_cache(agent_id)
+            logger.debug(f"Invalidated cache for agent {agent_id}")
+        except Exception as e:
+            logger.warning(f"Failed to invalidate agent cache: {e}")
         
         logger.info(f"Updated agent: {agent.name} (ID: {agent.id})")
         return AgentResponse.model_validate(agent)
@@ -404,6 +422,15 @@ class AgentService:
         agent.is_default = True
         session.commit()
         session.refresh(agent)
+        
+        # Invalidate agent manager cache for the new default agent
+        try:
+            from .agent_manager import get_agent_manager
+            agent_manager = get_agent_manager()
+            agent_manager.invalidate_cache(agent_id)
+            logger.debug(f"Invalidated cache for new default agent {agent_id}")
+        except Exception as e:
+            logger.warning(f"Failed to invalidate agent cache: {e}")
         
         logger.info(f"Set default agent: {agent.name} (ID: {agent.id})")
         return AgentResponse.model_validate(agent)
