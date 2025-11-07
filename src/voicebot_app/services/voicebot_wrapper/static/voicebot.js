@@ -36,7 +36,7 @@ class VoicebotInterface {
         
         // Agent management
         this.currentAgentId = null;
-        this.availableAgents = [];
+        this.agentSelector = null;
         
         // Debug logging removed for production
 
@@ -110,7 +110,7 @@ class VoicebotInterface {
         try {
             await this.initializeAudioContext();
             this.initializeEventListeners();
-            await this.loadAgents(); // Load available agents
+            await this.initializeAgentSelector(); // Initialize shared agent selector
             this.updateStatus('ready', 'Ready to connect');
             this.showError(''); // Clear any errors
         } catch (error) {
@@ -122,11 +122,6 @@ class VoicebotInterface {
 
     initializeEventListeners() {
         this.voiceButton.addEventListener('click', () => this.toggleListening());
-        
-        // Handle agent selection change
-        if (this.agentSelect) {
-            this.agentSelect.addEventListener('change', (e) => this.handleAgentChange(e));
-        }
         
         // Handle page visibility changes
         document.addEventListener('visibilitychange', () => {
@@ -765,50 +760,27 @@ class VoicebotInterface {
     }
 
     // Agent Management Methods
-    async loadAgents() {
+    async initializeAgentSelector() {
+        if (!this.agentSelect) {
+            console.warn('Agent select element not found');
+            return;
+        }
+
         try {
-            const response = await fetch('/api/agents/');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            // Initialize the shared agent selector
+            this.agentSelector = new AgentSelector('agentSelect', (agent, agentId) => this.handleAgentChange(agentId));
             
-            const agents = await response.json();
-            this.availableAgents = agents;
-            
-            if (this.agentSelect) {
-                this.agentSelect.innerHTML = '';
-                
-                // Add default option
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = 'Default Agent';
-                this.agentSelect.appendChild(defaultOption);
-                
-                // Add all agents
-                agents.forEach(agent => {
-                    const option = document.createElement('option');
-                    option.value = agent.id;
-                    option.textContent = agent.name;
-                    if (agent.is_default) {
-                        option.textContent += ' (Default)';
-                        this.currentAgentId = agent.id;
-                        this.agentSelect.value = agent.id;
-                    }
-                    this.agentSelect.appendChild(option);
-                });
-            }
+            // Get the initial agent ID
+            this.currentAgentId = this.agentSelector.getCurrentAgentId();
             
         } catch (error) {
-            console.error('Error loading agents:', error);
-            if (this.agentSelect) {
-                this.agentSelect.innerHTML = '<option value="">Error loading agents</option>';
-            }
+            console.error('Error initializing agent selector:', error);
         }
     }
 
-    handleAgentChange(event) {
-        this.currentAgentId = event.target.value;
-        console.log(`Agent changed to: ${this.currentAgentId}`);
+    handleAgentChange(agentId) {
+        this.currentAgentId = agentId;
+        console.log(`Agent changed to: ${agentId}`);
         
         // Update WebSocket connection with new agent if connected
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {

@@ -93,6 +93,9 @@ app.mount("/static", StaticFiles(directory="services/voicebot_wrapper/static"), 
 # Mount shared static files
 app.mount("/shared-static", StaticFiles(directory="static"), name="shared_static")
 
+# Mount app static files
+app.mount("/app-static", StaticFiles(directory="static"), name="app_static")
+
 # Include routers
 app.include_router(llm_router, prefix="/api", tags=["llm"])
 app.include_router(chatbot_router, prefix="/rag", tags=["chatbot"])

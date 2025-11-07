@@ -36,7 +36,7 @@ async def stt_interface(request: Request, db=Depends(get_db)):
     try:
         # Get available agents
         agent_service = AgentService(db)
-        agents = agent_service.get_all_agents()
+        agents_response = agent_service.list_agents()
         
         # Prepare agent data for template
         agent_list = [
@@ -46,7 +46,7 @@ async def stt_interface(request: Request, db=Depends(get_db)):
                 "description": agent.description,
                 "stt_provider": agent.stt_provider
             }
-            for agent in agents
+            for agent in agents_response.agents
         ]
         
         return templates.TemplateResponse(

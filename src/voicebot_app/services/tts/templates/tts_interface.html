@@ -333,14 +333,10 @@
                 <div class="agent-selection" style="margin-bottom: 15px;">
                     <label for="agentSelect" style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">Select Agent:</label>
                     <select id="agentSelect" style="width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; background: white;">
-                        {% for agent in agents %}
-                        <option value="{{ agent.id }}" data-provider="{{ agent.tts_provider }}">
-                            {{ agent.name }} ({{ agent.tts_provider }})
-                        </option>
-                        {% endfor %}
+                        <option value="">Loading agents...</option>
                     </select>
                     <div id="agentInfo" style="margin-top: 8px; font-size: 0.85rem; color: #6b7280;">
-                        TTS Provider: <span id="providerName">{{ agents[0].tts_provider if agents else 'None' }}</span>
+                        TTS Provider: <span id="providerName">None</span>
                     </div>
                 </div>
                 <div class="control-buttons">
@@ -418,15 +414,15 @@
         </div>
     </div>
 
-    <!-- Charger le module AudioStreamer partagé -->
+    <!-- Load shared modules -->
     <script src="/shared-static/audio_streamer.js"></script>
+    <script src="/app-static/agent_selector.js"></script>
 
     <script>
         class TTSInterface {
             constructor() {
                 this.streamButton = document.getElementById('streamButton');
                 this.stopButton = document.getElementById('stopButton');
-                this.agentSelect = document.getElementById('agentSelect');
                 this.providerName = document.getElementById('providerName');
                 this.textOutput = document.getElementById('textOutput');
                 this.statusDot = document.getElementById('statusDot');
@@ -446,7 +442,7 @@
                 this.audioChunkCounter = 0;
                 this.streamCompleted = false;
                 this.audioTimeout = null;
-                this.selectedAgentId = this.agentSelect.value;
+                this.selectedAgentId = null;
 
                 // Frontend pre-connection optimization
                 this.preConnectedWebSocket = null;
@@ -464,10 +460,10 @@
                 // Hard-coded text from the test file
                 this.hardCodedText = document.body.dataset.ttsText;
 
-                // Initialiser l'AudioStreamer partagé avec la configuration dynamique
+                // Initialize shared AudioStreamer with dynamic configuration
                 this.audioStreamer = new AudioStreamer({
-                    sampleRate: parseInt(document.body.dataset.ttsSampleRate), // Configuration dynamique du backend
-                    encoding: document.body.dataset.ttsEncoding, // Configuration dynamique du backend
+                    sampleRate: parseInt(document.body.dataset.ttsSampleRate), // Dynamic backend configuration
+                    encoding: document.body.dataset.ttsEncoding, // Dynamic backend configuration
                     onPlaybackStart: () => {
                         this.playbackStarted = true;
                         this.playbackStartTime = Date.now();
@@ -499,24 +495,28 @@
                     }
                 });
 
+                // Initialize shared agent selector
+                this.agentSelector = new AgentSelector('agentSelect', (agent, agentId) => this.onAgentChange(agent, agentId));
+
                 this.initializeEventListeners();
                 this.initializePreConnection();
                 
-                // Configuration audio déjà définie via les variables du template
-                console.log(`🎵 Configuration audio: provider=${document.body.dataset.ttsProvider}, sampleRate=${document.body.dataset.ttsSampleRate}, encoding=${document.body.dataset.ttsEncoding}`);
+                // Audio configuration already defined via template variables
+                console.log(`🎵 Audio configuration: provider=${document.body.dataset.ttsProvider}, sampleRate=${document.body.dataset.ttsSampleRate}, encoding=${document.body.dataset.ttsEncoding}`);
             }
 
             initializeEventListeners() {
                 this.streamButton.addEventListener('click', () => this.startStreaming());
                 this.stopButton.addEventListener('click', () => this.stopStreaming());
-                this.agentSelect.addEventListener('change', () => this.onAgentChange());
             }
 
-            onAgentChange() {
-                this.selectedAgentId = this.agentSelect.value;
-                const selectedOption = this.agentSelect.options[this.agentSelect.selectedIndex];
-                const provider = selectedOption.getAttribute('data-provider');
-                this.providerName.textContent = provider;
+            onAgentChange(agent, agentId) {
+                this.selectedAgentId = agentId;
+                if (agent) {
+                    this.providerName.textContent = agent.tts_provider;
+                } else {
+                    this.providerName.textContent = 'None';
+                }
                 
                 // Stop any ongoing streaming when changing agents
                 if (this.isStreaming) {

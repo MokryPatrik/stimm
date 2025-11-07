@@ -379,11 +379,15 @@
         </div>
     </div>
 
+    <!-- Load the shared agent selector -->
+    <script src="/app-static/agent_selector.js"></script>
+    
     <script>
         let currentConversationId = null;
         let isStreaming = false;
         let requestStartTime = null;
         let firstTokenTime = null;
+        let agentSelector = null;
 
         // Auto-resize textarea
         const messageInput = document.getElementById('messageInput');
@@ -596,46 +600,20 @@
 
         // Agent Management
         let currentAgentId = null;
-        let availableAgents = [];
 
-        // Load available agents
-        async function loadAgents() {
+        // Initialize shared agent selector
+        async function initializeAgentSelector() {
             try {
-                const response = await fetch('/api/agents/');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const agents = await response.json();
-                availableAgents = agents;
-                
-                const agentSelect = document.getElementById('agentSelect');
-                agentSelect.innerHTML = '';
-                
-                // Add default option
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = 'Default Agent';
-                agentSelect.appendChild(defaultOption);
-                
-                // Add all agents
-                agents.forEach(agent => {
-                    const option = document.createElement('option');
-                    option.value = agent.id;
-                    option.textContent = agent.name;
-                    if (agent.is_default) {
-                        option.textContent += ' (Default)';
-                        currentAgentId = agent.id;
-                        agentSelect.value = agent.id;
-                        updateCurrentAgentDisplay(agent);
-                    }
-                    agentSelect.appendChild(option);
+                agentSelector = new AgentSelector('agentSelect', (agent, agentId) => {
+                    currentAgentId = agentId;
+                    updateCurrentAgentDisplay(agent);
                 });
                 
+                // Get the initial agent ID
+                currentAgentId = agentSelector.getCurrentAgentId();
+                
             } catch (error) {
-                console.error('Error loading agents:', error);
-                const agentSelect = document.getElementById('agentSelect');
-                agentSelect.innerHTML = '<option value="">Error loading agents</option>';
+                console.error('Error initializing agent selector:', error);
             }
         }
 
@@ -648,13 +626,6 @@
                 currentAgentSpan.textContent = 'Default Agent';
             }
         }
-
-        // Handle agent selection change
-        document.getElementById('agentSelect').addEventListener('change', function(e) {
-            currentAgentId = e.target.value;
-            const selectedAgent = availableAgents.find(agent => agent.id === currentAgentId);
-            updateCurrentAgentDisplay(selectedAgent);
-        });
 
         // Update sendMessage function to include agent_id
         async function sendMessage(message) {
@@ -757,7 +728,7 @@
 
         // Initialize
         scrollToBottom();
-        loadAgents();
+        initializeAgentSelector();
     </script>
 </body>
 </html>
