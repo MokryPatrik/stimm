@@ -36,6 +36,11 @@ services:
       - voicebot-network
     env_file:
       - ./src/voicebot_app/front/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.front.rule=Host(`front.localhost`)"
+      - "traefik.http.routers.front.entrypoints=web"
+      - "traefik.http.services.front.loadbalancer.server.port=3000"
 
   qdrant:
     extends:
