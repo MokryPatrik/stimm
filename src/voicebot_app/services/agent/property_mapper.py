@@ -21,8 +21,8 @@ class PropertyMapper:
                 "model": "model_id"   # ElevenLabs uses model_id
             },
             "async.ai": {
-                "voice": "voice_name",  # Async.ai uses voice_name
-                "model": "model_name"   # Async.ai uses model_name
+                "voice": "voice_id",    # Async.ai uses voice_id (or voice as fallback)
+                "model": "model_id"     # Async.ai uses model_id
             },
             "kokoro.local": {
                 "voice": "speaker",     # Kokoro uses speaker
