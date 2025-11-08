@@ -7,7 +7,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-COPY . .
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
