@@ -37,19 +37,23 @@ class TTSService:
         logger.info(f"Initializing TTS provider from agent configuration: {provider_name}")
         logger.info(f"🔍 TTS provider config for {provider_name}: {provider_config}")
         
-        # Initialize providers with agent configuration
-        if provider_name == "async.ai":
-            self.provider = AsyncAIProvider(provider_config)
-        elif provider_name == "kokoro.local":
-            self.provider = KokoroLocalProvider(provider_config)
-        elif provider_name == "deepgram.com":
-            self.provider = DeepgramProvider(provider_config)
-        elif provider_name == "elevenlabs.io":
-            self.provider = ElevenLabsProvider(provider_config)
-        else:
-            raise ValueError(f"Unsupported TTS provider: {provider_name}")
-        
-        logger.info(f"TTS provider initialized: {type(self.provider).__name__}")
+        try:
+            # Initialize providers with agent configuration
+            if provider_name == "async.ai":
+                self.provider = AsyncAIProvider(provider_config)
+            elif provider_name == "kokoro.local":
+                self.provider = KokoroLocalProvider(provider_config)
+            elif provider_name == "deepgram.com":
+                self.provider = DeepgramProvider(provider_config)
+            elif provider_name == "elevenlabs.io":
+                self.provider = ElevenLabsProvider(provider_config)
+            else:
+                raise ValueError(f"Unsupported TTS provider: {provider_name}")
+            
+            logger.info(f"TTS provider initialized: {type(self.provider).__name__}")
+        except Exception as e:
+            logger.error(f"Failed to initialize TTS provider '{provider_name}': {e}")
+            raise
 
 
     async def stream_synthesis(self, text_generator: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:
