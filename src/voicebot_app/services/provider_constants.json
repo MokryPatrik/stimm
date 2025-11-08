@@ -21,7 +21,7 @@
       "SAMPLE_RATE": 22050,
       "ENCODING": "pcm_s16le",
       "CONTAINER": "raw",
-      "SPEED": 0.8
+      "SPEED": 1
     }
   },
   "stt": {

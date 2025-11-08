@@ -202,7 +202,7 @@ class DevAgentCreator:
                 "encoding": os.getenv("KOKORO_TTS_ENCODING", "pcm_s16le"),
                 "container": os.getenv("KOKORO_TTS_CONTAINER", "raw"),
                 "language": os.getenv("KOKORO_TTS_DEFAULT_LANGUAGE", "fr-fr"),
-                "speed": float(os.getenv("KOKORO_TTS_DEFAULT_SPEED", "0.8"))
+                "speed": float(os.getenv("KOKORO_TTS_DEFAULT_SPEED", "1"))
             })
         elif provider == "deepgram.com":
             config.update({
