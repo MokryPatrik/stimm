@@ -3,7 +3,6 @@ FROM python:3.10-slim
 
 # Set the working directory in the container
 WORKDIR /app
-COPY . .
 
 # Ensure /app is in Python path
 ENV PYTHONPATH=/app
