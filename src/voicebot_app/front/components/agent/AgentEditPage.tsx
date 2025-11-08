@@ -90,6 +90,35 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
       setSaving(true)
       setError(null)
 
+      // Filter out read-only fields that backend doesn't expect
+      // Ensure no undefined values are sent and include required provider fields
+      const payload = {
+        name: agent.name || '',
+        description: agent.description || '',
+        llm_provider: agent.llm_provider || '',
+        tts_provider: agent.tts_provider || '',
+        stt_provider: agent.stt_provider || '',
+        llm_config: {
+          ...agent.llm_config,
+          provider: agent.llm_provider || '',
+          model: agent.llm_config?.model || '',
+          api_key: agent.llm_config?.api_key || ''
+        },
+        tts_config: {
+          ...agent.tts_config,
+          provider: agent.tts_provider || '',
+          voice: agent.tts_config?.voice || '',
+          api_key: agent.tts_config?.api_key || '',
+          model_id: agent.tts_config?.model_id || ''
+        },
+        stt_config: {
+          ...agent.stt_config,
+          provider: agent.stt_provider || '',
+          model: agent.stt_config?.model || '',
+          api_key: agent.stt_config?.api_key || ''
+        }
+      }
+
       const url = agentId 
         ? `http://localhost:8001/api/agents/${agentId}/`
         : 'http://localhost:8001/api/agents/'
@@ -101,11 +130,12 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(agent),
+        body: JSON.stringify(payload),
       })
 
       if (!response.ok) {
-        throw new Error(`Failed to save agent: ${response.statusText}`)
+        const errorText = await response.text()
+        throw new Error(`Failed to save agent: ${response.statusText} - ${errorText}`)
       }
 
       // Redirect back to admin page after successful save
