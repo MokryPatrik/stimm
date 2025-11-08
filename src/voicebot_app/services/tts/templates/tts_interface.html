@@ -514,6 +514,7 @@
             }
 
             onAgentChange(agent, agentId) {
+                console.log(`🔄 Agent change detected: ${agentId}, previous agent: ${this.selectedAgentId}`);
                 this.selectedAgentId = agentId;
                 if (agent) {
                     this.providerName.textContent = agent.tts_provider;
@@ -524,7 +525,7 @@
                     // Update audio streamer configuration
                     this.updateAudioStreamer(agent);
                     
-                    // Pre-connect to TTS with the selected agent
+                    // Always pre-connect to TTS with the selected agent (even if same agent)
                     console.log(`🔌 Pre-connecting to TTS with agent: ${agentId}`);
                     this.preConnectToTTS();
                 } else {
@@ -666,11 +667,16 @@
                     console.log('🔌 Skipping pre-connection: no agent selected');
                     return;
                 }
-                
-                if (this.preConnectionAttempted) {
-                    console.log('🔌 Pre-connection already attempted, skipping');
-                    return;
+
+                // Close any existing pre-connection for different agent
+                if (this.preConnectedWebSocket) {
+                    console.log('🔌 Closing existing pre-connection for agent change');
+                    this.preConnectedWebSocket.close();
+                    this.preConnectedWebSocket = null;
                 }
+
+                // Reset pre-connection flag to allow new connection
+                this.preConnectionAttempted = false;
 
                 try {
                     console.log(`🔌 Pre-connecting to TTS WebSocket with agent: ${this.selectedAgentId}`);
