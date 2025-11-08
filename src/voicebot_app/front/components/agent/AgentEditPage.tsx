@@ -37,20 +37,34 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     llm_provider: '',
     tts_provider: '',
     stt_provider: '',
-    llm_config: {},
-    tts_config: {},
-    stt_config: {}
+    llm_config: { model: '', api_key: '' },
+    tts_config: { voice: '', api_key: '', model_id: '' },
+    stt_config: { model: '', api_key: '' }
   })
+  const [providers, setProviders] = useState<AvailableProviders | null>(null)
   const [loading, setLoading] = useState(!!agentId)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    loadProviders()
     if (agentId) {
       loadAgent()
     }
   }, [agentId])
 
+  const loadProviders = async () => {
+    try {
+      const response = await fetch('http://localhost:8001/api/agents/providers/available')
+      if (!response.ok) {
+        throw new Error(`Failed to load providers: ${response.statusText}`)
+      }
+      const providerData = await response.json()
+      setProviders(providerData)
+    } catch (err) {
+      console.error('Failed to load providers:', err)
+    }
+  }
 
   const loadAgent = async () => {
     try {
