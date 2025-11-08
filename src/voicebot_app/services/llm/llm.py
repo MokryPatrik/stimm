@@ -10,6 +10,7 @@ from uuid import UUID
 from .providers import create_groq_provider, create_mistral_provider, create_openrouter_provider, create_llama_cpp_provider
 from ..agent.agent_manager import get_agent_manager
 from ..agent.models import AgentConfig
+from ..agent.property_mapper import PropertyMapper
 
 logger = logging.getLogger(__name__)
 
