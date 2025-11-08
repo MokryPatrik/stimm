@@ -7,14 +7,17 @@ This module provides FastAPI routes for managing agents, including:
 - Provider configuration management
 """
 
+import json
 import logging
-from typing import List, Optional
+from pathlib import Path
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .agent_service import AgentService
 from .models import AgentResponse, AgentCreate, AgentUpdate, ProviderConfig
 from .exceptions import AgentNotFoundError, AgentValidationError
+from .property_mapper import PropertyMapper
 from database.session import get_db
 
 logger = logging.getLogger(__name__)
@@ -207,4 +210,47 @@ async def update_agent_providers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update agent providers"
+        )
+
+
+@router.get("/providers/available", response_model=Dict[str, Any])
+async def get_available_providers():
+    """Get available providers from provider_constants.json"""
+    try:
+        # Load provider constants from JSON file
+        provider_constants_path = Path(__file__).parent.parent / "provider_constants.json"
+        with open(provider_constants_path, 'r') as f:
+            provider_constants = json.load(f)
+        
+        # Transform the data to match the frontend format using property mapper
+        providers = {
+            "llm": {
+                "providers": [
+                    {"value": provider, "label": provider.replace('.com', '').replace('.ai', '').replace('.local', '').title()}
+                    for provider in provider_constants.get("llm", {}).keys()
+                ],
+                "configurable_fields": PropertyMapper.get_standardized_fields("llm")
+            },
+            "tts": {
+                "providers": [
+                    {"value": provider, "label": provider.replace('.com', '').replace('.io', '').replace('.local', '').replace('.ai', '').title()}
+                    for provider in provider_constants.get("tts", {}).keys()
+                ],
+                "configurable_fields": PropertyMapper.get_standardized_fields("tts")
+            },
+            "stt": {
+                "providers": [
+                    {"value": provider, "label": provider.replace('.com', '').replace('.local', '').title()}
+                    for provider in provider_constants.get("stt", {}).keys()
+                ],
+                "configurable_fields": PropertyMapper.get_standardized_fields("stt")
+            }
+        }
+        
+        return providers
+    except Exception as e:
+        logger.error(f"Failed to load provider constants: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load available providers"
         )
