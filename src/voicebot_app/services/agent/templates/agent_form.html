@@ -334,41 +334,65 @@
             if (data.tts_api_key === '••••••••' || data.tts_api_key === '') delete data.tts_api_key;
             if (data.stt_api_key === '••••••••' || data.stt_api_key === '') delete data.stt_api_key;
 
-            // Build ProviderConfig objects for API compatibility
+            // Build payload for API compatibility
             const updateData = {
                 name: data.name,
                 description: data.description,
                 is_default: data.is_default
             };
 
-            // Build LLM config if provider is selected
-            if (data.llm_provider) {
-                updateData.llm_config = {
-                    provider: data.llm_provider,
-                    config: {}
-                };
-                if (data.llm_model_name) updateData.llm_config.config.model = data.llm_model_name;
-                if (data.llm_api_key) updateData.llm_config.config.api_key = data.llm_api_key;
-            }
+            // Check if this is a create or update operation
+            const isCreate = this.dataset.method === 'POST';
 
-            // Build TTS config if provider is selected
-            if (data.tts_provider) {
-                updateData.tts_config = {
-                    provider: data.tts_provider,
-                    config: {}
-                };
-                if (data.tts_voice_name) updateData.tts_config.config.voice = data.tts_voice_name;
-                if (data.tts_api_key) updateData.tts_config.config.api_key = data.tts_api_key;
-            }
+            if (isCreate) {
+                // For CREATE: Use individual fields for AgentCreate model
+                if (data.llm_provider) {
+                    updateData.llm_provider = data.llm_provider;
+                    if (data.llm_model_name) updateData.llm_model_name = data.llm_model_name;
+                    if (data.llm_api_key) updateData.llm_api_key = data.llm_api_key;
+                }
 
-            // Build STT config if provider is selected
-            if (data.stt_provider) {
-                updateData.stt_config = {
-                    provider: data.stt_provider,
-                    config: {}
-                };
-                if (data.stt_model_name) updateData.stt_config.config.model = data.stt_model_name;
-                if (data.stt_api_key) updateData.stt_config.config.api_key = data.stt_api_key;
+                if (data.tts_provider) {
+                    updateData.tts_provider = data.tts_provider;
+                    if (data.tts_voice_name) updateData.tts_voice_name = data.tts_voice_name;
+                    if (data.tts_model_id) updateData.tts_model_id = data.tts_model_id;
+                    if (data.tts_api_key) updateData.tts_api_key = data.tts_api_key;
+                }
+
+                if (data.stt_provider) {
+                    updateData.stt_provider = data.stt_provider;
+                    if (data.stt_model_name) updateData.stt_model_name = data.stt_model_name;
+                    if (data.stt_api_key) updateData.stt_api_key = data.stt_api_key;
+                }
+            } else {
+                // For UPDATE: Use ProviderConfig objects for AgentUpdate model
+                if (data.llm_provider) {
+                    updateData.llm_config = {
+                        provider: data.llm_provider,
+                        config: {}
+                    };
+                    if (data.llm_model_name) updateData.llm_config.config.model = data.llm_model_name;
+                    if (data.llm_api_key) updateData.llm_config.config.api_key = data.llm_api_key;
+                }
+
+                if (data.tts_provider) {
+                    updateData.tts_config = {
+                        provider: data.tts_provider,
+                        config: {}
+                    };
+                    if (data.tts_voice_name) updateData.tts_config.config.voice = data.tts_voice_name;
+                    if (data.tts_model_id) updateData.tts_config.config.model_id = data.tts_model_id;
+                    if (data.tts_api_key) updateData.tts_config.config.api_key = data.tts_api_key;
+                }
+
+                if (data.stt_provider) {
+                    updateData.stt_config = {
+                        provider: data.stt_provider,
+                        config: {}
+                    };
+                    if (data.stt_model_name) updateData.stt_config.config.model = data.stt_model_name;
+                    if (data.stt_api_key) updateData.stt_config.config.api_key = data.stt_api_key;
+                }
             }
 
             try {
