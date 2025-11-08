@@ -22,6 +22,11 @@ services:
       - voicebot-network
     env_file:
       - ./src/voicebot_app/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=8001"
 
   voicebot-app-front:
     extends:
