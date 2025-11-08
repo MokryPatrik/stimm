@@ -1,0 +1,15 @@
+services:
+  voicebot-app-front:
+    build:
+      context: ../../src/voicebot_app/front
+      dockerfile: ../../../docker/voicebot-app-front/Dockerfile.dev
+    container_name: voicebot-app-front
+    volumes:
+      - ../../src/voicebot_app/front:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    # Environment variables are loaded from env_file in root docker-compose.yml
+    stdin_open: true
+    tty: true
