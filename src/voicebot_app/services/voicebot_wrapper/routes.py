@@ -14,7 +14,7 @@ from typing import Dict, Any, AsyncGenerator
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
-from .voicebot_service import voicebot_service
+from .voicebot_service import VoicebotService, voicebot_service
 from .config import voicebot_config
 from services.shared_streaming import shared_streaming_manager
 
@@ -273,6 +273,9 @@ async def _handle_websocket_message(conversation_id: str, data: Dict[str, Any], 
             
         elif message_type == "get_status":
             await _handle_get_status(conversation_id, websocket)
+            
+        elif message_type == "agent_change":
+            await _handle_agent_change(conversation_id, data, websocket)
             
         else:
             await websocket.send_json({
