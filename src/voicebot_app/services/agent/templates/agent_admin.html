@@ -233,7 +233,7 @@
             
             try {
                 const response = await fetch(`/api/agents/${agentId}/set-default`, {
-                    method: 'POST',
+                    method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                     }
