@@ -31,6 +31,7 @@ class AgentCreate(BaseModel):
     llm_api_key: str = Field(..., description="LLM API key")
     tts_provider: str = Field(..., description="TTS provider name")
     tts_voice_name: str = Field(..., description="TTS voice name")
+    tts_model_id: Optional[str] = Field(None, description="TTS model ID")
     tts_api_key: str = Field(..., description="TTS API key")
     stt_provider: str = Field(..., description="STT provider name")
     stt_model_name: str = Field(..., description="STT model name")

@@ -120,6 +120,7 @@ class AgentService:
             },
             tts_config={
                 "voice": agent_data.tts_voice_name,
+                "model_id": agent_data.tts_model_id,
                 "api_key": agent_data.tts_api_key
             },
             stt_config={
