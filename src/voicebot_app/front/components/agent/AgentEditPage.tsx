@@ -6,7 +6,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { Agent } from './types'
+
+interface ProviderConfig {
+  providers: { value: string; label: string }[]
+  configurable_fields: Record<string, { type: string; label: string; required: boolean }>
+}
+
+interface AvailableProviders {
+  llm: ProviderConfig
+  tts: ProviderConfig
+  stt: ProviderConfig
+}
 
 interface AgentEditPageProps {
   agentId?: string
@@ -151,104 +169,149 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
               />
             </div>
 
+            {/* Provider Selection */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="llm_provider">LLM Provider</Label>
-                <Input
-                  id="llm_provider"
-                  value={agent.llm_provider || ''}
-                  onChange={(e) => handleInputChange('llm_provider', e.target.value)}
-                  placeholder="e.g., groq.com"
-                />
+                <Select value={agent.llm_provider || ''} onValueChange={(value) => handleInputChange('llm_provider', value)}>
+                  <SelectTrigger id="llm_provider">
+                    <SelectValue placeholder="Select LLM Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers?.llm.providers.map((provider) => (
+                      <SelectItem key={provider.value} value={provider.value}>
+                        {provider.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
                 <Label htmlFor="tts_provider">TTS Provider</Label>
-                <Input
-                  id="tts_provider"
-                  value={agent.tts_provider || ''}
-                  onChange={(e) => handleInputChange('tts_provider', e.target.value)}
-                  placeholder="e.g., elevenlabs.io"
-                />
+                <Select value={agent.tts_provider || ''} onValueChange={(value) => handleInputChange('tts_provider', value)}>
+                  <SelectTrigger id="tts_provider">
+                    <SelectValue placeholder="Select TTS Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers?.tts.providers.map((provider) => (
+                      <SelectItem key={provider.value} value={provider.value}>
+                        {provider.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
                 <Label htmlFor="stt_provider">STT Provider</Label>
-                <Input
-                  id="stt_provider"
-                  value={agent.stt_provider || ''}
-                  onChange={(e) => handleInputChange('stt_provider', e.target.value)}
-                  placeholder="e.g., whisper.local"
-                />
+                <Select value={agent.stt_provider || ''} onValueChange={(value) => handleInputChange('stt_provider', value)}>
+                  <SelectTrigger id="stt_provider">
+                    <SelectValue placeholder="Select STT Provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers?.stt.providers.map((provider) => (
+                      <SelectItem key={provider.value} value={provider.value}>
+                        {provider.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="llm_model">LLM Model</Label>
-                <Input
-                  id="llm_model"
-                  value={agent.llm_config?.model || ''}
-                  onChange={(e) => handleConfigChange('llm_config', 'model', e.target.value)}
-                  placeholder="e.g., llama-3.1-8b-instant"
-                />
+            {/* LLM Configuration */}
+            {agent.llm_provider && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">LLM Configuration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="llm_model">Model</Label>
+                    <Input
+                      id="llm_model"
+                      value={agent.llm_config?.model || ''}
+                      onChange={(e) => handleConfigChange('llm_config', 'model', e.target.value)}
+                      placeholder="e.g., llama-3.1-8b-instant"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="llm_api_key">API Key</Label>
+                    <Input
+                      id="llm_api_key"
+                      type="password"
+                      value={agent.llm_config?.api_key || ''}
+                      onChange={(e) => handleConfigChange('llm_config', 'api_key', e.target.value)}
+                      placeholder="Enter LLM API key"
+                    />
+                  </div>
+                </div>
               </div>
+            )}
 
-              <div>
-                <Label htmlFor="tts_voice">TTS Voice</Label>
-                <Input
-                  id="tts_voice"
-                  value={agent.tts_config?.voice || ''}
-                  onChange={(e) => handleConfigChange('tts_config', 'voice', e.target.value)}
-                  placeholder="e.g., EXAVITQu4vr4xnSDxMaL"
-                />
+            {/* TTS Configuration */}
+            {agent.tts_provider && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">TTS Configuration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="tts_voice">Voice</Label>
+                    <Input
+                      id="tts_voice"
+                      value={agent.tts_config?.voice || ''}
+                      onChange={(e) => handleConfigChange('tts_config', 'voice', e.target.value)}
+                      placeholder="e.g., EXAVITQu4vr4xnSDxMaL"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tts_model_id">Model ID</Label>
+                    <Input
+                      id="tts_model_id"
+                      value={agent.tts_config?.model_id || ''}
+                      onChange={(e) => handleConfigChange('tts_config', 'model_id', e.target.value)}
+                      placeholder="e.g., eleven_multilingual_v2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tts_api_key">API Key</Label>
+                    <Input
+                      id="tts_api_key"
+                      type="password"
+                      value={agent.tts_config?.api_key || ''}
+                      onChange={(e) => handleConfigChange('tts_config', 'api_key', e.target.value)}
+                      placeholder="Enter TTS API key"
+                    />
+                  </div>
+                </div>
               </div>
+            )}
 
-              <div>
-                <Label htmlFor="tts_model">TTS Model ID</Label>
-                <Input
-                  id="tts_model"
-                  value={agent.tts_config?.model_id || ''}
-                  onChange={(e) => handleConfigChange('tts_config', 'model_id', e.target.value)}
-                  placeholder="e.g., eleven_multilingual_v2"
-                />
+            {/* STT Configuration */}
+            {agent.stt_provider && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">STT Configuration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="stt_model">Model</Label>
+                    <Input
+                      id="stt_model"
+                      value={agent.stt_config?.model || ''}
+                      onChange={(e) => handleConfigChange('stt_config', 'model', e.target.value)}
+                      placeholder="e.g., base, small, medium, large"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="stt_api_key">API Key</Label>
+                    <Input
+                      id="stt_api_key"
+                      type="password"
+                      value={agent.stt_config?.api_key || ''}
+                      onChange={(e) => handleConfigChange('stt_config', 'api_key', e.target.value)}
+                      placeholder="Enter STT API key"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="llm_api_key">LLM API Key</Label>
-                <Input
-                  id="llm_api_key"
-                  type="password"
-                  value={agent.llm_config?.api_key || ''}
-                  onChange={(e) => handleConfigChange('llm_config', 'api_key', e.target.value)}
-                  placeholder="Enter LLM API key"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="tts_api_key">TTS API Key</Label>
-                <Input
-                  id="tts_api_key"
-                  type="password"
-                  value={agent.tts_config?.api_key || ''}
-                  onChange={(e) => handleConfigChange('tts_config', 'api_key', e.target.value)}
-                  placeholder="Enter TTS API key"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="stt_api_key">STT API Key</Label>
-                <Input
-                  id="stt_api_key"
-                  type="password"
-                  value={agent.stt_config?.api_key || ''}
-                  onChange={(e) => handleConfigChange('stt_config', 'api_key', e.target.value)}
-                  placeholder="Enter STT API key"
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="flex gap-4">
