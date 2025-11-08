@@ -23,6 +23,15 @@ services:
     env_file:
       - ./src/voicebot_app/.env
 
+  voicebot-app-front:
+    extends:
+      file: ./docker/voicebot-app-front/docker-compose.yml
+      service: voicebot-app-front
+    networks:
+      - voicebot-network
+    env_file:
+      - ./src/voicebot_app/front/.env
+
   qdrant:
     extends:
       file: ./docker/qdrant/docker-compose.yml
