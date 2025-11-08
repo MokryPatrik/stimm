@@ -35,19 +35,24 @@ class TTSService:
             
         provider_name = agent_config.tts_provider
         provider_config = agent_config.tts_config
+        
+        # Apply property mapping to convert standardized fields to provider-specific format
+        mapped_config = PropertyMapper.to_provider_format("tts", provider_name, provider_config)
+        
         logger.info(f"Initializing TTS provider from agent configuration: {provider_name}")
         logger.info(f"🔍 TTS provider config for {provider_name}: {provider_config}")
+        logger.info(f"🔍 Mapped TTS provider config for {provider_name}: {mapped_config}")
         
         try:
-            # Initialize providers with agent configuration
+            # Initialize providers with mapped configuration
             if provider_name == "async.ai":
-                self.provider = AsyncAIProvider(provider_config)
+                self.provider = AsyncAIProvider(mapped_config)
             elif provider_name == "kokoro.local":
-                self.provider = KokoroLocalProvider(provider_config)
+                self.provider = KokoroLocalProvider(mapped_config)
             elif provider_name == "deepgram.com":
-                self.provider = DeepgramProvider(provider_config)
+                self.provider = DeepgramProvider(mapped_config)
             elif provider_name == "elevenlabs.io":
-                self.provider = ElevenLabsProvider(provider_config)
+                self.provider = ElevenLabsProvider(mapped_config)
             else:
                 raise ValueError(f"Unsupported TTS provider: {provider_name}")
             
