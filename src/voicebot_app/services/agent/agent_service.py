@@ -23,7 +23,6 @@ from .exceptions import (
     AgentValidationError,
     DefaultAgentConflictError
 )
-from .property_mapper import PropertyMapper
 
 logger = logging.getLogger(__name__)
 
