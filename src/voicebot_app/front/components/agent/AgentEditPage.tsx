@@ -62,6 +62,26 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     }
   }, [agentId])
 
+  // Load provider fields when agent data is loaded and providers are available
+  useEffect(() => {
+    if (agent && providers) {
+      // Load provider fields for existing agent providers
+      const loadExistingProviderFields = async () => {
+        if (agent.llm_provider) {
+          await loadProviderFields('llm', agent.llm_provider)
+        }
+        if (agent.tts_provider) {
+          await loadProviderFields('tts', agent.tts_provider)
+        }
+        if (agent.stt_provider) {
+          await loadProviderFields('stt', agent.stt_provider)
+        }
+      }
+      
+      loadExistingProviderFields()
+    }
+  }, [agent, providers])
+
   const loadProviders = async () => {
     try {
       const response = await fetch('http://localhost:8001/api/agents/providers/available')
