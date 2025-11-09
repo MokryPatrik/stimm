@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 class KokoroLocalProvider:
     """Kokoro Local TTS Provider with zero-latency audio resampling."""
 
+    @classmethod
+    def get_expected_properties(cls) -> list:
+        """
+        Get the list of expected properties for this provider.
+
+        Returns:
+            List of property names that this provider expects
+        """
+        return ["voice", "model", "api_key"]
+
     def __init__(self, provider_config: dict = None):
         # Use agent configuration for non-constant values (voice, language)
         # Speed is NOT configurable - it's an immutable provider constant

@@ -22,6 +22,16 @@ class WhisperLocalProvider:
     STT provider that connects to whisper-stt service via WebSocket.
     """
 
+    @classmethod
+    def get_expected_properties(cls) -> list:
+        """
+        Get the list of expected properties for this provider.
+
+        Returns:
+            List of property names that this provider expects
+        """
+        return ["model", "api_key"]
+
     def __init__(self):
         """
         Initialize Whisper Local STT provider using immutable constants.

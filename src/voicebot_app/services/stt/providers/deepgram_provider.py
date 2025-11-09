@@ -23,6 +23,16 @@ class DeepgramProvider:
     STT provider that connects to Deepgram API via WebSocket using raw API.
     """
 
+    @classmethod
+    def get_expected_properties(cls) -> list:
+        """
+        Get the list of expected properties for this provider.
+
+        Returns:
+            List of property names that this provider expects
+        """
+        return ["model", "api_key"]
+
     def __init__(self):
         self.api_key = os.getenv("DEEPGRAM_STT_API_KEY")
         self.model = os.getenv("DEEPGRAM_MODEL", "nova-2")
