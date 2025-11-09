@@ -12,7 +12,6 @@ import aiohttp
 import json
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Optional, Dict, Any
-from .base_provider import BaseProvider
 
 
 class OpenAICompatibleProvider(ABC):
