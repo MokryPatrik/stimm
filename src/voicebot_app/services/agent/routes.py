@@ -227,28 +227,45 @@ async def get_available_providers():
         with open(provider_constants_path, 'r') as f:
             provider_constants = json.load(f)
         
-        # Transform the data to match the frontend format using property mapper
+        # Define standardized field definitions for each provider type
+        field_definitions = {
+            "llm": {
+                "model": {"type": "text", "label": "Model", "required": True},
+                "api_key": {"type": "password", "label": "API Key", "required": True}
+            },
+            "tts": {
+                "voice": {"type": "text", "label": "Voice", "required": True},
+                "model": {"type": "text", "label": "Model", "required": False},
+                "api_key": {"type": "password", "label": "API Key", "required": True}
+            },
+            "stt": {
+                "model": {"type": "text", "label": "Model", "required": True},
+                "api_key": {"type": "password", "label": "API Key", "required": True}
+            }
+        }
+        
+        # Transform the data to match the frontend format
         providers = {
             "llm": {
                 "providers": [
                     {"value": provider, "label": provider.replace('.com', '').replace('.ai', '').replace('.local', '').title()}
                     for provider in provider_constants.get("llm", {}).keys()
                 ],
-                "configurable_fields": PropertyMapper.get_standardized_fields("llm")
+                "configurable_fields": field_definitions["llm"]
             },
             "tts": {
                 "providers": [
                     {"value": provider, "label": provider.replace('.com', '').replace('.io', '').replace('.local', '').replace('.ai', '').title()}
                     for provider in provider_constants.get("tts", {}).keys()
                 ],
-                "configurable_fields": PropertyMapper.get_standardized_fields("tts")
+                "configurable_fields": field_definitions["tts"]
             },
             "stt": {
                 "providers": [
                     {"value": provider, "label": provider.replace('.com', '').replace('.local', '').title()}
                     for provider in provider_constants.get("stt", {}).keys()
                 ],
-                "configurable_fields": PropertyMapper.get_standardized_fields("stt")
+                "configurable_fields": field_definitions["stt"]
             }
         }
         
