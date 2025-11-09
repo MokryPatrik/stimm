@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 from .agent_service import AgentService
 from .models import AgentResponse, AgentCreate, AgentUpdate, ProviderConfig
 from .exceptions import AgentNotFoundError, AgentValidationError
-from .property_mapper import PropertyMapper
 from database.session import get_db
 
 logger = logging.getLogger(__name__)
