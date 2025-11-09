@@ -28,22 +28,9 @@ class VoicebotConfig:
     CHUNK_SIZE_MS: int = int(os.getenv("VOICEBOT_CHUNK_SIZE_MS", "20"))
     CHANNELS: int = 1  # Mono audio
 
-    # WebSocket settings
-    WEBSOCKET_PING_INTERVAL: int = 20
-    WEBSOCKET_PING_TIMEOUT: int = 20
-    WEBSOCKET_MAX_SIZE: Optional[int] = None
 
-    # Conversation management settings
-    MAX_CONVERSATION_LENGTH: int = int(os.getenv("VOICEBOT_MAX_CONVERSATION_LENGTH", "10"))
-    CONVERSATION_TIMEOUT_MINUTES: int = int(os.getenv("VOICEBOT_CONVERSATION_TIMEOUT_MINUTES", "30"))
 
-    # Performance and latency targets for the wrapper
-    MAX_VAD_LATENCY_MS: int = 50
-    MAX_END_TO_END_LATENCY_MS: int = 1500
 
-    # Audio format settings for WebSocket transmission
-    AUDIO_FORMAT: str = "pcm_s16le"
-    AUDIO_BITS_PER_SAMPLE: int = 16
 
     # TTS Interface text for simulation
     TTS_INTERFACE_TEXT: str = os.getenv("TTS_INTERFACE_TEXT", "Cette démonstration met en avant la diffusion en temps réel des jetons d'un modèle de langage. Merci d'avoir écouté ce texte. Ce test permer, grâce à des sliders de visualisation, de vérifier si la réception de chunks auidio se fait bien en parrallèlle avec l'envoie des tokens issue du LLM. J'éspère que cela vous aidera. A bientôt pour de nouvelles aventures. Et surtout prenez soin de vous. Au revoir.")
