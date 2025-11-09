@@ -43,12 +43,15 @@ class WhisperLocalProvider:
         return {
         }
 
-    def __init__(self):
+    def __init__(self, provider_config: dict = None):
         """
         Initialize Whisper Local STT provider using immutable constants.
 
         Configuration is now fully code-defined via WhisperLocalSTTConstants and
         does not depend on database-backed global configuration.
+        
+        Args:
+            provider_config: Configuration dictionary (currently unused but kept for API consistency)
         """
         constants = get_provider_constants()
         self.websocket_url = constants['stt']['whisper.local']['URL']

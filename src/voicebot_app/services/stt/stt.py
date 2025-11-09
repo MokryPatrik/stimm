@@ -35,12 +35,14 @@ class STTService:
             agent_config = agent_manager.get_agent_config()
             
         provider_name = agent_config.stt_provider
+        provider_config = agent_config.stt_config or {}
         logger.info(f"Initialized STT provider from agent configuration: {provider_name}")
+        logger.info(f"🔍 STT provider config for {provider_name}: {provider_config}")
         
         if provider_name == "whisper.local":
-            self.provider = WhisperLocalProvider()
+            self.provider = WhisperLocalProvider(provider_config)
         elif provider_name == "deepgram.com":
-            self.provider = DeepgramProvider()
+            self.provider = DeepgramProvider(provider_config)
         else:
             raise ValueError(f"Unsupported STT provider: {provider_name}")
 
