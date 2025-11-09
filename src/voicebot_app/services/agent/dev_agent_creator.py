@@ -129,15 +129,9 @@ class DevAgentCreator:
         return AgentCreate(
             name="Development Agent",
             description="Default development agent created from .env configuration",
-            llm_provider=llm_provider,
-            llm_model_name=llm_config.get("model", "default"),
-            llm_api_key=llm_config.get("api_key", "local") if llm_provider.endswith(".local") else llm_config.get("api_key", ""),
-            tts_provider=tts_provider,
-            tts_voice_name=self._get_tts_voice_name(tts_provider, tts_config),
-            tts_api_key=tts_config.get("api_key", "local") if tts_provider.endswith(".local") else tts_config.get("api_key", ""),
-            stt_provider=stt_provider,
-            stt_model_name=stt_config.get("model", "default"),
-            stt_api_key=stt_config.get("api_key", "local") if stt_provider.endswith(".local") else stt_config.get("api_key", ""),
+            llm_config=ProviderConfig(provider=llm_provider, config=llm_config),
+            tts_config=ProviderConfig(provider=tts_provider, config=tts_config),
+            stt_config=ProviderConfig(provider=stt_provider, config=stt_config),
             is_default=True
         )
     
