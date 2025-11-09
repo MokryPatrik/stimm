@@ -17,13 +17,17 @@ import { Agent } from './types'
 
 interface ProviderConfig {
   providers: { value: string; label: string }[]
-  configurable_fields: Record<string, { type: string; label: string; required: boolean }>
+  configurable_fields: Record<string, Record<string, { type: string; label: string; required: boolean }>>
 }
 
 interface AvailableProviders {
   llm: ProviderConfig
   tts: ProviderConfig
   stt: ProviderConfig
+}
+
+interface ProviderFields {
+  [key: string]: { type: string; label: string; required: boolean }
 }
 
 interface AgentEditPageProps {
@@ -37,11 +41,16 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     llm_provider: '',
     tts_provider: '',
     stt_provider: '',
-    llm_config: { model: '', api_key: '' },
-    tts_config: { voice: '', api_key: '', model: '' },
-    stt_config: { model: '', api_key: '' }
+    llm_config: {},
+    tts_config: {},
+    stt_config: {}
   })
   const [providers, setProviders] = useState<AvailableProviders | null>(null)
+  const [providerFields, setProviderFields] = useState<Record<string, ProviderFields>>({
+    llm: {},
+    tts: {},
+    stt: {}
+  })
   const [loading, setLoading] = useState(!!agentId)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -85,36 +94,66 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     }
   }
 
+  const loadProviderFields = async (providerType: string, providerName: string) => {
+    try {
+      const response = await fetch(`http://localhost:8001/api/agents/providers/${providerType}/${providerName}/fields`)
+      if (!response.ok) {
+        throw new Error(`Failed to load provider fields: ${response.statusText}`)
+      }
+      const fields = await response.json()
+      
+      setProviderFields(prev => ({
+        ...prev,
+        [providerType]: fields
+      }))
+    } catch (err) {
+      console.error(`Failed to load fields for ${providerType}.${providerName}:`, err)
+    }
+  }
+
+  const handleProviderChange = async (providerType: string, providerName: string) => {
+    // Update the provider selection
+    handleInputChange(`${providerType}_provider`, providerName)
+    
+    // Load provider-specific fields
+    if (providerName) {
+      await loadProviderFields(providerType, providerName)
+      
+      // Initialize config with empty values for the new provider
+      const configFields = providerFields[providerType]
+      const newConfig: Record<string, string> = {}
+      
+      Object.keys(configFields).forEach(field => {
+        newConfig[field] = ''
+      })
+      
+      handleInputChange(`${providerType}_config`, newConfig)
+    } else {
+      // Clear config when no provider is selected
+      handleInputChange(`${providerType}_config`, {})
+    }
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true)
       setError(null)
 
-      // Build payload with proper ProviderConfig structure
+      // Build payload with proper ProviderConfig structure using dynamic fields
       const payload = {
         name: agent.name || '',
         description: agent.description || '',
         llm_config: agent.llm_provider ? {
           provider: agent.llm_provider,
-          config: {
-            model: agent.llm_config?.model || '',
-            api_key: agent.llm_config?.api_key || ''
-          }
+          config: agent.llm_config as Record<string, string> || {}
         } : undefined,
         tts_config: agent.tts_provider ? {
           provider: agent.tts_provider,
-          config: {
-            voice: agent.tts_config?.voice || '',
-            model: agent.tts_config?.model || '',
-            api_key: agent.tts_config?.api_key || ''
-          }
+          config: agent.tts_config as Record<string, string> || {}
         } : undefined,
         stt_config: agent.stt_provider ? {
           provider: agent.stt_provider,
-          config: {
-            model: agent.stt_config?.model || '',
-            api_key: agent.stt_config?.api_key || ''
-          }
+          config: agent.stt_config as Record<string, string> || {}
         } : undefined
       }
 
@@ -217,7 +256,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
               <h3 className="text-lg font-semibold">LLM</h3>
               <div>
                 <Label htmlFor="llm_provider">Provider</Label>
-                <Select value={agent.llm_provider || ''} onValueChange={(value) => handleInputChange('llm_provider', value)}>
+                <Select value={agent.llm_provider || ''} onValueChange={(value) => handleProviderChange('llm', value)}>
                   <SelectTrigger id="llm_provider">
                     <SelectValue placeholder="Select LLM Provider" />
                   </SelectTrigger>
@@ -236,25 +275,18 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
                 <div className="space-y-4 pl-4 border-l-2 border-gray-200">
                   <h4 className="text-md font-medium">Configuration</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="llm_model">Model</Label>
-                      <Input
-                        id="llm_model"
-                        value={agent.llm_config?.model || ''}
-                        onChange={(e) => handleConfigChange('llm_config', 'model', e.target.value)}
-                        placeholder="e.g., llama-3.1-8b-instant"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="llm_api_key">API Key</Label>
-                      <Input
-                        id="llm_api_key"
-                        type="password"
-                        value={agent.llm_config?.api_key || ''}
-                        onChange={(e) => handleConfigChange('llm_config', 'api_key', e.target.value)}
-                        placeholder="Enter LLM API key"
-                      />
-                    </div>
+                    {Object.entries(providerFields.llm).map(([field, fieldDef]) => (
+                      <div key={field}>
+                        <Label htmlFor={`llm_${field}`}>{fieldDef.label}</Label>
+                        <Input
+                          id={`llm_${field}`}
+                          type={fieldDef.type === 'password' ? 'password' : 'text'}
+                          value={(agent.llm_config as Record<string, string>)?.[field] || ''}
+                          onChange={(e) => handleConfigChange('llm_config', field, e.target.value)}
+                          placeholder={`Enter ${fieldDef.label}`}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -265,7 +297,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
               <h3 className="text-lg font-semibold">TTS</h3>
               <div>
                 <Label htmlFor="tts_provider">Provider</Label>
-                <Select value={agent.tts_provider || ''} onValueChange={(value) => handleInputChange('tts_provider', value)}>
+                <Select value={agent.tts_provider || ''} onValueChange={(value) => handleProviderChange('tts', value)}>
                   <SelectTrigger id="tts_provider">
                     <SelectValue placeholder="Select TTS Provider" />
                   </SelectTrigger>
@@ -284,34 +316,18 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
                 <div className="space-y-4 pl-4 border-l-2 border-gray-200">
                   <h4 className="text-md font-medium">Configuration</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="tts_voice">Voice</Label>
-                      <Input
-                        id="tts_voice"
-                        value={agent.tts_config?.voice || ''}
-                        onChange={(e) => handleConfigChange('tts_config', 'voice', e.target.value)}
-                        placeholder="e.g., EXAVITQu4vr4xnSDxMaL"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="tts_model">Model</Label>
-                      <Input
-                        id="tts_model"
-                        value={agent.tts_config?.model || ''}
-                        onChange={(e) => handleConfigChange('tts_config', 'model', e.target.value)}
-                        placeholder="e.g., eleven_multilingual_v2"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="tts_api_key">API Key</Label>
-                      <Input
-                        id="tts_api_key"
-                        type="password"
-                        value={agent.tts_config?.api_key || ''}
-                        onChange={(e) => handleConfigChange('tts_config', 'api_key', e.target.value)}
-                        placeholder="Enter TTS API key"
-                      />
-                    </div>
+                    {Object.entries(providerFields.tts).map(([field, fieldDef]) => (
+                      <div key={field}>
+                        <Label htmlFor={`tts_${field}`}>{fieldDef.label}</Label>
+                        <Input
+                          id={`tts_${field}`}
+                          type={fieldDef.type === 'password' ? 'password' : 'text'}
+                          value={(agent.tts_config as Record<string, string>)?.[field] || ''}
+                          onChange={(e) => handleConfigChange('tts_config', field, e.target.value)}
+                          placeholder={`Enter ${fieldDef.label}`}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -322,7 +338,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
               <h3 className="text-lg font-semibold">STT</h3>
               <div>
                 <Label htmlFor="stt_provider">Provider</Label>
-                <Select value={agent.stt_provider || ''} onValueChange={(value) => handleInputChange('stt_provider', value)}>
+                <Select value={agent.stt_provider || ''} onValueChange={(value) => handleProviderChange('stt', value)}>
                   <SelectTrigger id="stt_provider">
                     <SelectValue placeholder="Select STT Provider" />
                   </SelectTrigger>
@@ -341,25 +357,18 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
                 <div className="space-y-4 pl-4 border-l-2 border-gray-200">
                   <h4 className="text-md font-medium">Configuration</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="stt_model">Model</Label>
-                      <Input
-                        id="stt_model"
-                        value={agent.stt_config?.model || ''}
-                        onChange={(e) => handleConfigChange('stt_config', 'model', e.target.value)}
-                        placeholder="e.g., base, small, medium, large"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="stt_api_key">API Key</Label>
-                      <Input
-                        id="stt_api_key"
-                        type="password"
-                        value={agent.stt_config?.api_key || ''}
-                        onChange={(e) => handleConfigChange('stt_config', 'api_key', e.target.value)}
-                        placeholder="Enter STT API key"
-                      />
-                    </div>
+                    {Object.entries(providerFields.stt).map(([field, fieldDef]) => (
+                      <div key={field}>
+                        <Label htmlFor={`stt_${field}`}>{fieldDef.label}</Label>
+                        <Input
+                          id={`stt_${field}`}
+                          type={fieldDef.type === 'password' ? 'password' : 'text'}
+                          value={(agent.stt_config as Record<string, string>)?.[field] || ''}
+                          onChange={(e) => handleConfigChange('stt_config', field, e.target.value)}
+                          placeholder={`Enter ${fieldDef.label}`}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
