@@ -12,7 +12,7 @@ import asyncio
 import aiohttp
 import json
 from typing import AsyncIterator, Optional, Dict, Any
-from .openai_compatible_provider import OpenAICompatibleProvider
+from ..openai_compatible_provider import OpenAICompatibleProvider
 from services.provider_constants import get_provider_constants
 
 
@@ -58,6 +58,51 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             headers["HTTP-Referer"] = self.config["app_url"]
         
         return headers
+
+    @classmethod
+    def get_expected_properties(cls) -> list:
+        """
+        Get the list of expected properties for this provider.
+
+        Returns:
+            List of property names that this provider expects
+        """
+        return ["model", "api_key", "app_name", "app_url"]
+
+    @classmethod
+    def get_field_definitions(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Get the field definitions for this provider.
+        
+        Returns:
+            Dictionary mapping field names to field metadata
+        """
+        return {
+            "model": {
+                "type": "text",
+                "label": "Model",
+                "required": True,
+                "description": "OpenRouter model name (e.g., anthropic/claude-3.5-sonnet, google/gemini-flash-1.5)"
+            },
+            "api_key": {
+                "type": "password",
+                "label": "API Key",
+                "required": True,
+                "description": "OpenRouter.ai API key"
+            },
+            "app_name": {
+                "type": "text",
+                "label": "App Name",
+                "required": False,
+                "description": "Your application name for tracking (optional)"
+            },
+            "app_url": {
+                "type": "text",
+                "label": "App URL",
+                "required": False,
+                "description": "Your application URL for tracking (optional)"
+            }
+        }
 
 
 def create_openrouter_provider(config: Optional[Dict[str, Any]] = None) -> OpenRouterProvider:

@@ -10,7 +10,7 @@ import asyncio
 import aiohttp
 import json
 from typing import AsyncIterator, Optional, Dict, Any
-from .openai_compatible_provider import OpenAICompatibleProvider
+from ..openai_compatible_provider import OpenAICompatibleProvider
 from services.provider_constants import get_provider_constants
 
 
@@ -45,6 +45,39 @@ class MistralProvider(OpenAICompatibleProvider):
         return {
             "Authorization": f"Bearer {self.config['api_key']}",
             "Content-Type": "application/json"
+        }
+
+    @classmethod
+    def get_expected_properties(cls) -> list:
+        """
+        Get the list of expected properties for this provider.
+
+        Returns:
+            List of property names that this provider expects
+        """
+        return ["model", "api_key"]
+
+    @classmethod
+    def get_field_definitions(cls) -> Dict[str, Dict[str, Any]]:
+        """
+        Get the field definitions for this provider.
+        
+        Returns:
+            Dictionary mapping field names to field metadata
+        """
+        return {
+            "model": {
+                "type": "text",
+                "label": "Model",
+                "required": True,
+                "description": "Mistral model name (e.g., mistral-large-latest, mistral-medium-latest)"
+            },
+            "api_key": {
+                "type": "password",
+                "label": "API Key",
+                "required": True,
+                "description": "Mistral.ai API key"
+            }
         }
 
 

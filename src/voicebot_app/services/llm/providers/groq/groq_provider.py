@@ -7,7 +7,7 @@ import asyncio
 import aiohttp
 import json
 from typing import AsyncIterator, Optional, Dict, Any
-from .openai_compatible_provider import OpenAICompatibleProvider
+from ..openai_compatible_provider import OpenAICompatibleProvider
 from services.provider_constants import get_provider_constants
 
 
@@ -23,6 +23,24 @@ class GroqProvider(OpenAICompatibleProvider):
     def get_expected_properties(cls) -> list:
         """Get the list of expected properties for Groq provider."""
         return ["model", "api_key"]
+
+    @classmethod
+    def get_field_definitions(cls) -> dict:
+        """Get field definitions for Groq provider."""
+        return {
+            "model": {
+                "type": "text",
+                "label": "Model",
+                "required": True,
+                "description": "Model name (e.g., llama-3.1-8b-instant)"
+            },
+            "api_key": {
+                "type": "password",
+                "label": "API Key",
+                "required": True,
+                "description": "Groq API key"
+            }
+        }
     
     @classmethod
     def to_provider_format(cls, config: Dict[str, Any]) -> Dict[str, Any]:

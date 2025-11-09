@@ -196,11 +196,24 @@ class OpenAICompatibleProvider(ABC):
         return ["model", "api_key"]
 
     @classmethod
-    def get_expected_properties(cls) -> list:
+    def get_field_definitions(cls) -> Dict[str, Dict[str, Any]]:
         """
-        Get the list of expected properties for this provider.
-
+        Get the field definitions for this provider.
+        
         Returns:
-            List of property names that this provider expects
+            Dictionary mapping field names to field metadata
         """
-        return ["model", "api_key"]
+        return {
+            "model": {
+                "type": "text",
+                "label": "Model",
+                "required": True,
+                "description": "Model name for generation"
+            },
+            "api_key": {
+                "type": "password",
+                "label": "API Key",
+                "required": True,
+                "description": "API key for authentication"
+            }
+        }
