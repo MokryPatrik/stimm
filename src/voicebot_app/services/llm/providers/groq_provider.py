@@ -15,7 +15,32 @@ class GroqProvider(OpenAICompatibleProvider):
     """Groq.com LLM provider implementation using OpenAI-compatible API"""
     
     def __init__(self, config: Dict[str, Any]):
-        super().__init__(config)
+        # Apply provider-specific mapping before initializing
+        mapped_config = self.to_provider_format(config)
+        super().__init__(mapped_config)
+    
+    @classmethod
+    def get_expected_properties(cls) -> list:
+        """Get the list of expected properties for Groq provider."""
+        return ["model", "api_key"]
+    
+    @classmethod
+    def to_provider_format(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert standardized frontend config to provider-specific format.
+        
+        Groq uses standard field names, so no mapping needed.
+        """
+        return config.copy()
+    
+    @classmethod
+    def from_provider_format(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert provider-specific config to standardized frontend format.
+        
+        Groq uses standard field names, so no mapping needed.
+        """
+        return config.copy()
     
     def _get_api_url(self) -> str:
         """Get the full API URL using immutable constants."""
