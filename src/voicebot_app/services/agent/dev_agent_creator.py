@@ -218,59 +218,7 @@ class DevAgentCreator:
         # Remove None values
         return {k: v for k, v in config.items() if v is not None}
     
-    def _get_tts_voice_name(self, provider: str, tts_config: Dict[str, Any]) -> str:
-        """Get the appropriate voice name/ID based on provider requirements."""
-        if provider == "kokoro.local":
-            # Kokoro uses voice names (e.g., "ff_siwis")
-            return tts_config.get("voice", "default")
-        elif provider == "async.ai":
-            # Async AI uses voice IDs (UUID format)
-            return tts_config.get("voice_id", "default")
-        elif provider == "elevenlabs.io":
-            # ElevenLabs uses voice IDs
-            return tts_config.get("voice_id", "default")
-        elif provider == "deepgram.com":
-            # Deepgram uses model names for voices
-            return tts_config.get("model", "default")
-        else:
-            return "default"
     
-    def _build_tts_config_for_update(self, provider: str, agent_data) -> Dict[str, Any]:
-        """Build TTS configuration for agent update with provider-specific fields."""
-        config = {
-            "api_key": agent_data.tts_api_key
-        }
-        
-        if provider == "kokoro.local":
-            # Kokoro requires voice_id and language
-            tts_config = self._build_tts_config(provider)
-            config.update({
-                "voice_id": tts_config.get("voice_id", "af_sarah"),
-                "language": tts_config.get("language", "fr-fr"),
-                # Note: speed is now handled by provider constants, not agent config
-            })
-        elif provider == "async.ai":
-            config.update({
-                "voice_id": agent_data.tts_voice_name,
-                "model_id": os.getenv("ASYNC_AI_TTS_MODEL_ID", "asyncflow_v2.0")
-            })
-        elif provider == "elevenlabs.io":
-            config.update({
-                "voice_id": agent_data.tts_voice_name,
-                "model_id": os.getenv("ELEVENLABS_TTS_MODEL_ID", "eleven_multilingual_v2")
-            })
-        elif provider == "deepgram.com":
-            config.update({
-                "model": agent_data.tts_voice_name
-            })
-        else:
-            # Default case
-            config.update({
-                "voice": agent_data.tts_voice_name
-            })
-        
-        # Remove None values
-        return {k: v for k, v in config.items() if v is not None}
 
     def _build_stt_config(self, provider: str) -> Dict[str, Any]:
         """Build STT provider configuration from environment."""
