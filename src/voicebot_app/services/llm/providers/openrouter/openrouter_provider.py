@@ -67,7 +67,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         Returns:
             List of property names that this provider expects
         """
-        return ["model", "api_key", "app_name", "app_url"]
+        return ["model", "api_key"]
 
     @classmethod
     def get_field_definitions(cls) -> Dict[str, Dict[str, Any]]:
@@ -89,18 +89,6 @@ class OpenRouterProvider(OpenAICompatibleProvider):
                 "label": "API Key",
                 "required": True,
                 "description": "OpenRouter.ai API key"
-            },
-            "app_name": {
-                "type": "text",
-                "label": "App Name",
-                "required": False,
-                "description": "Your application name for tracking (optional)"
-            },
-            "app_url": {
-                "type": "text",
-                "label": "App URL",
-                "required": False,
-                "description": "Your application URL for tracking (optional)"
             }
         }
 
