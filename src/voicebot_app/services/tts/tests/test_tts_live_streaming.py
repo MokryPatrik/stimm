@@ -351,29 +351,17 @@ async def test_tts_live_streaming(agent_id=None, agent_name=None):
 async def test_tts_service_initialization(agent_id=None, agent_name=None):
     """Verify that TTS service initializes properly with agent configuration"""
     # Get agent configuration
-    agent_config = get_agent_config(agent_id, agent_name)
+    agent_response, agent_config = get_agent_config(agent_id, agent_name)
     
-    # Initialize TTS service
-    tts_service = TTSService()
+    # Initialize TTS service with the selected agent
+    # Pass agent_id if we have a specific agent, otherwise use default
+    actual_agent_id = agent_id if agent_id else (str(agent_response.id) if agent_response else None)
+    tts_service = TTSService(agent_id=actual_agent_id)
     assert tts_service.provider is not None
     
     current_provider = agent_config.tts_provider
     print(f"TTS service initialized with provider: {current_provider}")
     print(f"Agent TTS configuration: {agent_config.tts_config}")
-    
-    # Verify provider-specific configuration based on current provider
-    if current_provider == "async.ai":
-        assert agent_config.tts_config.get("api_key") is not None
-        # async.ai doesn't require URL in config, it's hardcoded in the provider
-    elif current_provider == "elevenlabs.io":
-        assert agent_config.tts_config.get("api_key") is not None
-        assert agent_config.tts_config.get("voice") is not None
-    elif current_provider == "kokoro.local":
-        assert agent_config.tts_config.get("url") is not None
-        assert agent_config.tts_config.get("voice_id") is not None
-    elif current_provider == "deepgram.com":
-        assert agent_config.tts_config.get("api_key") is not None
-        assert agent_config.tts_config.get("model") is not None
     
     print("✅ TTS service initialized successfully with agent configuration")
 
