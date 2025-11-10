@@ -107,13 +107,23 @@ class AsyncAIProvider:
                 }
             }
             await ws.send(json.dumps(init_payload))
-            logger.info(f"Sent initialization: {init_payload}")
+            logger.info(f"🔧 DEBUG: Sent initialization: {init_payload}")
 
             queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
             async def sender():
                 try:
                     text_count = 0
+                    
+                    # Send a warm-up message first to prime the service
+                    warm_up_payload = {
+                        "transcript": ".",
+                        "voice": {"mode": "id", "id": self.voice_id}
+                    }
+                    await ws.send(json.dumps(warm_up_payload))
+                    logger.info("🔧 DEBUG: Sent minimal warm-up text: '.'")
+                    # No artificial delay - rely on async processing for ultra-low latency
+                    
                     async for chunk in text_generator:
                         text_count += 1
                         
