@@ -469,7 +469,7 @@ async def main():
     await test_tts_service_initialization(args.agent_id, args.agent_name)
     
     # Run live streaming test with selected agent
-    await test_tts_live_streaming(args.agent_id, args.agent_name)
+    await test_tts_live_streaming(args.agent_id, args.agent_name, tokens_per_chunk=args.tokens_per_chunk)
     
     print("✅ Live streaming tests passed!")
 
