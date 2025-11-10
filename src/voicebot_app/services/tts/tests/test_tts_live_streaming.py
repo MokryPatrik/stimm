@@ -296,21 +296,47 @@ async def test_tts_live_streaming(agent_id=None, agent_name=None, tokens_per_chu
                 f.write(f"Total bytes: {sum(len(c) for c in audio_chunks):,}\n")
             
             # Update send_progress from the shared counter
-            send_progress = send_counter
+            send_progress = shared_gen.get_count()
 
             # Show both progress bars on the same line
             send_bar = create_progress_bar(send_progress, total_send_chunks, prefix="🔄 LLM Sending")
             receive_bar = create_progress_bar(chunk_count, max(chunk_count + 5, total_send_chunks), prefix="🔊 TTS Receiving")
             print(f"\r{send_bar} | {receive_bar}", end="", flush=True)
 
-    # Track sending progress by counting the chunks sent
+    # Create a shared generator system to track progress
+    class SharedGenerator:
+        def __init__(self, generator):
+            self.generator = generator
+            self.counter = 0
+            self.queue = asyncio.Queue()
+            
+        async def track_and_forward(self):
+            async for chunk in self.generator:
+                self.counter += 1
+                await self.queue.put(chunk)
+            await self.queue.put(None)
+            
+        async def get_generator(self):
+            while True:
+                chunk = await self.queue.get()
+                if chunk is None:
+                    break
+                yield chunk
+                
+        def get_count(self):
+            return self.counter
+
+    # Create shared generator
+    shared_gen = SharedGenerator(text_gen)
+    
+    # Track sending progress
     async def track_sending():
-        nonlocal send_counter
-        async for _ in llm_token_generator(text):
-            send_counter += 1
+        await shared_gen.track_and_forward()
 
     # Run both tasks concurrently
     send_task = asyncio.create_task(track_sending())
+    # Use the shared generator for the TTS stream
+    text_gen = shared_gen.get_generator()
 
     # Timeout global de 15s to ensure both sending and receiving complete
     try:
