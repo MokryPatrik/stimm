@@ -180,6 +180,10 @@ async def test_tts_live_streaming(agent_id=None, agent_name=None):
     # Use the environment variable for the test text
     text = os.getenv("TTS_INTERFACE_TEXT", "Cette démonstration met en avant la diffusion en temps réel des jetons d’un modèle de langage. Merci d'avoir écouté ce texte. Ce test permer, grâce à des sliders de visualisation, de vérifier si la réception de chunks auidio se fait bien en parrallèlle avec l'envoie des tokens issue du LLM. J'éspère que cela vous aidera. A bientôt pour de nouvelles aventures. Et surtout prenez soin de vous. Au revoir.")
 
+    #print text content string
+    print(f"Test text : {text}")
+    
+
     async def llm_token_generator(text, tokens_per_chunk=2):
         """Simulates LLM token streaming behavior"""
         words = text.split()
