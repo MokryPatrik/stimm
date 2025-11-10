@@ -190,10 +190,15 @@ async def test_tts_live_streaming(agent_id=None, agent_name=None, tokens_per_chu
     print(f"Test text : {text}")
     
 
-    async def llm_token_generator(text, tokens_per_chunk=2):
+    async def llm_token_generator(text, tokens_per_chunk=tokens_per_chunk):
         """Simulates LLM token streaming behavior"""
         words = text.split()
         total_chunks = (len(words) + tokens_per_chunk - 1) // tokens_per_chunk
+
+        # Always yield at least one chunk, even if text is empty
+        if len(words) == 0:
+            yield ""
+            return
 
         for i in range(0, len(words), tokens_per_chunk):
             chunk = " ".join(words[i:i + tokens_per_chunk]) + " "
