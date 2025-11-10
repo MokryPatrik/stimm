@@ -165,10 +165,12 @@ async def test_tts_live_streaming(agent_id=None, agent_name=None):
     """Test TTS live streaming with optional agent selection."""
     
     # Get agent configuration
-    agent_config = get_agent_config(agent_id, agent_name)
+    agent_response, agent_config = get_agent_config(agent_id, agent_name)
     
     # Initialize TTS service with the selected agent
-    tts_service = TTSService()
+    # Pass agent_id if we have a specific agent, otherwise use default
+    actual_agent_id = agent_id if agent_id else (str(agent_response.id) if agent_response else None)
+    tts_service = TTSService(agent_id=actual_agent_id)
     
     # Verify the provider matches the agent configuration
     current_provider = agent_config.tts_provider
