@@ -92,6 +92,7 @@ class AsyncAIProvider:
         """Concurrent streaming passthrough for use by TTSService."""
         url = f"{self.websocket_url}?api_key={self.api_key}&version=v1"
         logger.info(f"Connecting to AsyncAI WebSocket: {url.split('?')[0]}...")
+        logger.info(f"🔧 DEBUG: Using model_id: {self.model_id}, voice_id: {self.voice_id}")
 
         async with websockets.connect(url, ping_interval=20, ping_timeout=20, max_size=None) as ws:
             logger.info("WebSocket connected, sending initialization...")
