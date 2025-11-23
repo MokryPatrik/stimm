@@ -30,23 +30,23 @@
 - [x] Verify VAD integration tests pass (1 passed) ✓
 - [x] Verify imports work correctly ✓
 
-### 🔲 Remaining Tasks
-- [x] **Frontend Testing** <!-- id: 28 -->
-    - [x] Test with real frontend WebSocket connection
-    - [x] Verify VAD events are properly triggered in UI
-    - [x] Test interruption latency (speak while bot is responding)
-    - [ ] Validate audio quality and responsiveness
 
-
-## 🔮 Phase 4: WebRTC Migration (FUTURE)
+## 🔮 Phase 4: WebRTC Migration
 - [ ] Add `aiortc` to requirements.txt
 - [ ] Create `services/webrtc/signaling.py` (FastAPI routes for SDP exchange)
 - [ ] Create `services/webrtc/media_handler.py` to wrap VAD/STT/TTS
 - [ ] Update Frontend to use `RTCPeerConnection` instead of `WebSocket`
 - [ ] Verify Echo Cancellation works natively in the browser
 
+## 🔮 Phase 5: Frontend Testing
+- [ ] **Frontend Testing** <!-- id: 28 -->
+    - [ ] Test with real frontend WebSocket connection
+    - [ ] Verify VAD events are properly triggered in UI
+    - [ ] Test interruption latency (speak while bot is responding)
+    - [ ] Validate audio quality and responsiveness
+
+## 🔮 Phase 6: Performance Optimization
 - [ ] **Performance Optimization** <!-- id: 32 -->
-    - [ ] Measure and compare V1 vs V2 interruption latency
     - [ ] Tune pre-speech buffer size (currently 500ms)
     - [ ] Monitor STT API call reduction (target: ~60% less)
     - [ ] Profile CPU/memory usage improvements
