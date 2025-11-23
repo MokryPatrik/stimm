@@ -39,23 +39,38 @@
 - [ ] Verify Echo Cancellation works natively in the browser
 
 ## 🔮 Phase 5: Frontend Testing
-- [ ] **Frontend Testing** <!-- id: 28 -->
-    - [ ] Test with real frontend WebSocket connection
-    - [ ] Verify VAD events are properly triggered in UI
-    - [ ] Test interruption latency (speak while bot is responding)
-    - [ ] Validate audio quality and responsiveness
+- [ ] Test with real frontend WebSocket connection
+- [ ] Verify VAD events are properly triggered in UI
+- [ ] Test interruption latency (speak while bot is responding)
+- [ ] Validate audio quality and responsiveness
 
-## 🔮 Phase 6: Performance Optimization
-- [ ] **Performance Optimization** <!-- id: 32 -->
-    - [ ] Tune pre-speech buffer size (currently 500ms)
-    - [ ] Monitor STT API call reduction (target: ~60% less)
-    - [ ] Profile CPU/memory usage improvements
-    - [ ] Adjust VAD threshold if needed (currently 0.5)
+## 🔮 Phase 7 : Checking that optimization and standardization is applied all the way
+- [ ] Check providers specific code
+- [ ] Check configuration files
+- [ ] Check 
 
-- [ ] **Documentation** <!-- id: 38 -->
-    - [ ] Update main README with event-driven architecture info
-    - [ ] Document performance benchmarks
-    - [ ] Add troubleshooting guide for common issues
+## 🔮 Phase 9: Cleaning
+- [ ] Remove old code
+- [ ] Remove old tests
+- [ ] Remove old documentation
+- [ ] Remove old configuration files
+- [ ] Remove old files
+- [ ] Remove old directories
+- [ ] Remove old dependencies
+    
+
+
+
+## 🔮 Phase 10: Performance Optimization
+- [ ] Tune pre-speech buffer size (currently 500ms)
+- [ ] Monitor STT API call reduction (target: ~60% less)
+- [ ] Profile CPU/memory usage improvements
+- [ ] Adjust VAD threshold if needed (currently 0.5)
+
+## 🔮 Phase 11: Documentation
+- [ ] Update main README with event-driven architecture info
+- [ ] Document performance benchmarks
+- [ ] Add troubleshooting guide for common issues
 
 ---
 
