@@ -32,10 +32,10 @@
 
 
 ## 🔮 Phase 4: WebRTC Migration
-- [ ] Add `aiortc` to requirements.txt
-- [ ] Create `services/webrtc/signaling.py` (FastAPI routes for SDP exchange)
-- [ ] Create `services/webrtc/media_handler.py` to wrap VAD/STT/TTS
-- [ ] Update Frontend to use `RTCPeerConnection` instead of `WebSocket`
+- [x] Add `aiortc` to requirements.txt
+- [x] Create `services/webrtc/signaling.py` (FastAPI routes for SDP exchange)
+- [x] Create `services/webrtc/media_handler.py` to wrap VAD/STT/TTS
+- [x] Update Frontend to use `RTCPeerConnection` instead of `WebSocket`
 - [ ] Verify Echo Cancellation works natively in the browser
 
 ## 🔮 Phase 5: Frontend Testing
