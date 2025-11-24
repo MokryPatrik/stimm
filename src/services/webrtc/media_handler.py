@@ -5,7 +5,7 @@ import fractions
 import av
 import numpy as np
 from aiortc import MediaStreamTrack
-from services.voicebot_wrapper.event_loop import VoicebotEventLoop
+from services.agents.event_loop import VoicebotEventLoop
 
 logger = logging.getLogger(__name__)
 

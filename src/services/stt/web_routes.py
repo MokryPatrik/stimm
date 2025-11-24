@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 
 from database.session import get_db
-from services.agent.agent_service import AgentService
+from services.agents_admin.agent_service import AgentService
 
 logger = logging.getLogger(__name__)
 

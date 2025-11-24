@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
 from database.session import get_db
-from ..agent.agent_service import AgentService
+from ..agents_admin.agent_service import AgentService
 from database.models import Agent
 
 logger = logging.getLogger(__name__)

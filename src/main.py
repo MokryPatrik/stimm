@@ -18,8 +18,8 @@ from services.stt.routes import router as stt_router
 from services.stt.web_routes import router as stt_web_router
 from services.tts.routes import router as tts_router
 from services.tts.web_routes import router as tts_web_router
-from services.voicebot_wrapper.routes import router as voicebot_router
-from services.agent.routes import router as agent_router
+from services.agents.routes import router as voicebot_router
+from services.agents_admin.routes import router as agent_router
 from services.provider_constants import get_provider_constants
 from services.webrtc.signaling import router as signaling_router
 
@@ -56,7 +56,7 @@ async def startup_event():
         
         # Initialize agent system (default agent only; no global provider config)
         try:
-            from services.agent.dev_agent_creator import initialize_default_agent
+            from services.agents_admin.dev_agent_creator import initialize_default_agent
             from database.session import get_db
 
             db_gen = get_db()
@@ -89,7 +89,7 @@ app.add_middleware(
 )
 
 # Mount static files for voicebot wrapper
-app.mount("/static", StaticFiles(directory="services/voicebot_wrapper/static"), name="voicebot_static")
+app.mount("/static", StaticFiles(directory="services/agents/static"), name="voicebot_static")
 
 # Mount shared static files
 app.mount("/shared-static", StaticFiles(directory="static"), name="shared_static")
@@ -109,7 +109,7 @@ app.include_router(agent_router, prefix="/api", tags=["agents"])
 app.include_router(signaling_router, prefix="/api", tags=["webrtc"])
 
 # Templates for voicebot interface
-templates = Jinja2Templates(directory="services/voicebot_wrapper/templates")
+templates = Jinja2Templates(directory="services/agents/templates")
 
 @app.get("/")
 def read_root():

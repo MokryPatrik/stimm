@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.session import SessionLocal
 from database.models import Agent
-from services.agent.provider_registry import get_provider_registry
+from services.agents_admin.provider_registry import get_provider_registry
 
 def clean_agent_configurations():
     """Clean up agent configurations to match provider-specific expected properties."""

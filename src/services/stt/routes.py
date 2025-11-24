@@ -13,7 +13,7 @@ import numpy as np
 import soundfile as sf
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from .stt import STTService
-from services.agent.agent_manager import get_agent_manager
+from services.agents_admin.agent_manager import get_agent_manager
 
 logger = logging.getLogger(__name__)
 

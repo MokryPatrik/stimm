@@ -19,8 +19,8 @@ import struct
 from uuid import UUID
 from services.tts.tts import TTSService
 from services.shared_streaming import shared_streaming_manager
-from services.agent.agent_manager import get_agent_manager
-from services.agent.agent_service import AgentService
+from services.agents_admin.agent_manager import get_agent_manager
+from services.agents_admin.agent_service import AgentService
 
 def create_progress_bar(current, total, width=20, prefix=""):
     """Create a simple text-based progress bar"""

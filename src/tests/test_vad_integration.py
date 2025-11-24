@@ -7,7 +7,7 @@ import sys
 # Add src to path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from services.voicebot_wrapper.vad_service import vad_processor
+from services.agents.vad_service import vad_processor
 
 class TestVADIntegration(unittest.IsolatedAsyncioTestCase):
     async def test_vad_processor_stream(self):

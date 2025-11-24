@@ -8,7 +8,7 @@ from .providers.async_ai.async_ai_provider import AsyncAIProvider
 from .providers.kokoro_local.kokoro_local_provider import KokoroLocalProvider
 from .providers.deepgram.deepgram_provider import DeepgramProvider
 from .providers.elevenlabs.elevenlabs_provider import ElevenLabsProvider
-from services.agent.agent_manager import get_agent_manager
+from services.agents_admin.agent_manager import get_agent_manager
 
 logger = logging.getLogger(__name__)
 

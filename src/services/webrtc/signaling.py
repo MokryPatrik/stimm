@@ -29,7 +29,7 @@ except ImportError as e:
             self.type = type
 
 from services.webrtc.media_handler import WebRTCMediaHandler
-from services.voicebot_wrapper.event_loop import VoicebotEventLoop
+from services.agents.event_loop import VoicebotEventLoop
 from services.vad.silero_service import SileroVADService
 from services.stt.stt import STTService
 from services.tts.tts import TTSService
