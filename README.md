@@ -130,13 +130,13 @@ To push additional documents manually use the helper script so content is chunke
 consistently with the automated seeding:
 
 ```bash
-python scripts/ingest_documents.py knowledge_base/bayview_horizon_banking_agent_guide.md \
+python src/scripts/ingest_documents.py knowledge_base/bayview_horizon_banking_agent_guide.md \
   --base-url http://localhost:8002 \
   --namespace bayview-banking
 ```
 
 Documents are chunked and de-duplicated before ingestion. The helper script
-`scripts/ingest_documents.py` splits Markdown by heading, emits ~200-word
+`src/scripts/ingest_documents.py` splits Markdown by heading, emits ~200-word
 segments with stable SHA256 IDs, and enriches them with section metadata so the
 retriever can cite precise snippets. By default the RAG service runs with
 `BAAI/bge-base-en-v1.5` embeddings, a hybrid dense + BM25 retriever, and a
@@ -147,7 +147,7 @@ in `docker-compose.yml`.
 You can sanity-check retrieval quality after modifying the knowledge base with:
 
 ```bash
-python scripts/evaluate_rag.py --base-url http://localhost:8002
+python src/scripts/evaluate_rag.py --base-url http://localhost:8002
 ```
 
 The script hits `/rag/query` using prompts stored in
