@@ -22,6 +22,7 @@ from services.agents.routes import router as voicebot_router
 from services.agents_admin.routes import router as agent_router
 from services.provider_constants import get_provider_constants
 from services.webrtc.signaling import router as signaling_router
+from services.livekit.routes import router as livekit_router
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ app.include_router(tts_web_router, prefix="/tts", tags=["tts-web"])
 app.include_router(voicebot_router, prefix="/api", tags=["voicebot"])
 app.include_router(agent_router, prefix="/api", tags=["agents"])
 app.include_router(signaling_router, prefix="/api", tags=["webrtc"])
+app.include_router(livekit_router, prefix="/api", tags=["livekit"])
 
 # Templates for voicebot interface
 templates = Jinja2Templates(directory="services/agents/templates")

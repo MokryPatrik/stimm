@@ -64,6 +64,29 @@ services:
     labels:
       - "traefik.enable=true"
 
+  livekit:
+    extends:
+      file: ./docker-compose.livekit.yml
+      service: livekit
+    networks:
+      - voicebot-network
+    env_file:
+      - .env
+
+  redis:
+    extends:
+      file: ./docker-compose.livekit.yml
+      service: redis
+    networks:
+      - voicebot-network
+
+  sip:
+    extends:
+      file: ./docker-compose.livekit.yml
+      service: sip
+    networks:
+      - voicebot-network
+
 networks:
   voicebot-network:
     name: voicebot-network
@@ -73,3 +96,4 @@ volumes:
   llm-models:
   qdrant_storage:
   postgres_storage:
+  redis_data:
