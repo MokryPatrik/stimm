@@ -35,10 +35,56 @@ graph TD
     end
 ```
 
+### Data Flow: Audio-to-Audio Pipeline
+
+The core of the voicebot is the real-time audio processing pipeline. Here is how data flows from the user's microphone back to their speakers:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant WebRTC as WebRTC/WebSocket
+    participant Media as MediaHandler
+    participant VAD as Silero VAD
+    participant EvLoop as VoicebotEventLoop
+    participant STT as STT Service
+    participant RAG as RAG/LLM Service
+    participant TTS as TTS Service
+
+    User->>WebRTC: Microphone Audio Stream
+    WebRTC->>Media: Incoming Audio Track
+    Media->>VAD: Raw Audio Frames
+    
+    alt Voice Detected
+        VAD->>EvLoop: Speech Start Event
+        EvLoop->>STT: Start Transcribing
+    end
+    
+    alt Voice Ended
+        VAD->>EvLoop: Speech End Event
+        EvLoop->>STT: Finalize Transcription
+        STT->>EvLoop: Transcribed Text
+        EvLoop->>RAG: User Query
+        RAG->>EvLoop: LLM Response Stream
+        EvLoop->>TTS: Text Stream
+        TTS->>Media: Audio Stream
+        Media->>WebRTC: Outgoing Audio Track
+        WebRTC->>User: Voice Response
+    end
+```
+
+1.  **Ingestion**: Audio is captured by the client (browser) and sent via **WebRTC** (preferred) or **WebSocket** to the backend.
+2.  **Media Handling**: The `WebRTCMediaHandler` receives the incoming audio track and buffers the raw audio frames.
+3.  **Voice Activity Detection (VAD)**: The `SileroVADService` analyzes the audio frames in real-time to detect speech segments. It triggers events for "speech start" and "speech end".
+4.  **Orchestration**: The `VoicebotEventLoop` acts as the central brain. It receives VAD events and coordinates the other services.
+5.  **Speech-to-Text (STT)**: When speech is detected, audio is buffered. On "speech end", the `STTService` (e.g., Deepgram, Whisper) transcribes the audio buffer into text.
+6.  **Intelligence (RAG/LLM)**: The transcribed text is sent to the `ChatbotService`. This service may query the **Qdrant** vector database for context (RAG) before sending the prompt to the **LLM** (e.g., Groq, Mistral).
+7.  **Text-to-Speech (TTS)**: The LLM's response is streamed token-by-token to the `TTSService` (e.g., Deepgram, ElevenLabs). The TTS service converts the text stream into an audio stream.
+8.  **Output**: The generated audio is sent back to the `WebRTCMediaHandler`, which pushes it to the outgoing WebRTC track, playing it back to the user.
+
 ### Key Components
 
 - **Backend (`src/`)**: FastAPI application handling API requests, WebSocket/WebRTC connections, and business logic.
-  - `services/agents`: Core voicebot logic.
+  - `services/agents`: Core voicebot logic and event loop.
   - `services/agents_admin`: Agent configuration management.
   - `services/rag`: Knowledge base and retrieval logic.
   - `services/webrtc`: WebRTC signaling and media handling.
