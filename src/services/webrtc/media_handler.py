@@ -106,6 +106,32 @@ class WebRTCMediaHandler:
         self.event_loop = event_loop
         self.audio_sender = None
         self.audio_queue = asyncio.Queue() # Queue for outgoing audio frames (bytes)
+        self.data_channel = None  # Data channel for control messages
+        self.pc = None  # Peer connection reference
+        
+    def set_data_channel(self, channel):
+        """Set the data channel for control messages"""
+        self.data_channel = channel
+        
+    def set_peer_connection(self, pc):
+        """Set the peer connection reference"""
+        self.pc = pc
+        
+    async def send_control_message(self, message_type: str, data: dict):
+        """Send a control message via data channel"""
+        if self.data_channel and self.data_channel.readyState == 'open':
+            try:
+                import json
+                message = {
+                    "type": message_type,
+                    **data
+                }
+                self.data_channel.send(json.dumps(message))
+                logger.debug(f"📡 Sent data channel message: {message_type}")
+            except Exception as e:
+                logger.error(f"Failed to send data channel message: {e}")
+        else:
+            logger.warning("Data channel not ready for control messages")
 
     def add_outgoing_audio_track(self):
         """Creates and returns the outgoing audio track."""
@@ -161,23 +187,72 @@ class WebRTCMediaHandler:
 
     async def process_event_loop_output(self):
         """
-        Reads from event_loop.output_queue and routes audio to audio_sender.
+        Reads from event_loop.output_queue and routes events appropriately.
         """
-        logger.info("Started processing event loop output")
+        logger.info("📡 Started processing event loop output")
         try:
             while True:
                 event = await self.event_loop.output_queue.get()
+                event_type = event.get("type", "unknown")
                 
-                if event["type"] == "audio_chunk":
+                # Route events based on type
+                if event_type == "audio_chunk":
                     # This is audio for the user
                     data = event["data"]
                     if self.audio_sender:
                         await self.audio_queue.put(data)
+                        logger.debug(f"🎵 Sent audio chunk to sender: {len(data)} bytes")
                         
-                # We can handle other events here if we want to send data channel messages
-                # e.g. transcript updates
+                elif event_type == "vad_update":
+                    # Send VAD status to client via data channel
+                    await self.send_control_message("vad_update", {
+                        "energy": event.get("energy", 0),
+                        "state": event.get("state", "silence")
+                    })
+                    logger.debug(f"👁️ Sent VAD update: {event.get('state')} (energy: {event.get('energy', 0):.2f})")
+                    
+                elif event_type == "transcript_update":
+                    # Send transcript to client via data channel
+                    await self.send_control_message("transcription", {
+                        "text": event.get("text", ""),
+                        "is_final": event.get("is_final", False)
+                    })
+                    logger.debug(f"📝 Sent transcript: '{event.get('text', '')[:50]}...' (final: {event.get('is_final', False)})")
+                    
+                elif event_type == "assistant_response":
+                    # Send assistant response to client via data channel
+                    await self.send_control_message("response", {
+                        "text": event.get("text", ""),
+                        "is_complete": event.get("is_complete", False)
+                    })
+                    logger.debug(f"🤖 Sent response: '{event.get('text', '')[:50]}...' (complete: {event.get('is_complete', False)})")
+                    
+                elif event_type == "speech_start":
+                    await self.send_control_message("speech_start", {})
+                    logger.debug("🗣️ Speech start")
+                    
+                elif event_type == "speech_end":
+                    await self.send_control_message("speech_end", {})
+                    logger.debug("🤫 Speech end")
+                    
+                elif event_type == "bot_responding_start":
+                    await self.send_control_message("status_update", {"state": "responding"})
+                    logger.debug("🤖 Bot responding start")
+                    
+                elif event_type == "bot_responding_end":
+                    await self.send_control_message("status_update", {"state": "listening"})
+                    logger.debug("🤖 Bot responding end")
+                    
+                elif event_type == "error":
+                    # Send error to client via data channel
+                    await self.send_control_message("error", event.get("data", {}))
+                    logger.error(f"❌ Sent error: {event.get('data', {})}")
+                    
+                else:
+                    logger.warning(f"⚠️ Unknown event type: {event_type}")
                 
                 self.event_loop.output_queue.task_done()
+                
         except asyncio.CancelledError:
             logger.info("Event loop output processor cancelled")
         except Exception as e:

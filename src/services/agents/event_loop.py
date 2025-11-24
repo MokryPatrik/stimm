@@ -27,8 +27,8 @@ class VoicebotEventLoop:
     """
     
     def __init__(
-        self, 
-        conversation_id: str, 
+        self,
+        conversation_id: str,
         output_queue: asyncio.Queue,
         stt_service,
         chatbot_service,
@@ -70,6 +70,18 @@ class VoicebotEventLoop:
         self.stt_audio_queue = asyncio.Queue()
         self.tts_text_queue = asyncio.Queue() # Queue for LLM tokens -> TTS
         
+        # DEBUG: Track audio processing
+        self.audio_chunks_received = 0
+        self.audio_chunks_sent_to_stt = 0
+        self.vad_events_logged = []
+        self.last_transcript_received = None
+        
+        logger.info(f"🎙️ VoicebotEventLoop initialized for conversation {conversation_id}")
+        logger.info(f"🔧 Agent ID: {agent_id}, Session ID: {session_id}")
+        logger.info(f"🎤 STT Service: {stt_service.provider.__class__.__name__ if stt_service.provider else 'None'}")
+        logger.info(f"🔊 TTS Service: {tts_service.provider.__class__.__name__ if tts_service.provider else 'None'}")
+        logger.info(f"👁️ VAD Service: {vad_service.__class__.__name__}")
+        
     async def start(self):
         """Start the event loop."""
         logger.info(f"Starting event loop for {self.conversation_id}")
@@ -94,14 +106,19 @@ class VoicebotEventLoop:
                     
     async def process_audio_chunk(self, chunk: bytes):
         """
-        Process incoming audio chunk through VAD and gate STT accordingly.
+        Process incoming audio chunk through VAD and STT.
         
-        This implements the VAD-gated STT pattern:
+        This implements continuous STT streaming with VAD gating:
         1. All audio goes through VAD first
-        2. Pre-speech buffer maintains context (500ms)
-        3. Only speech segments are sent to STT
-        4. VAD events trigger state transitions
+        2. ALL audio is sent to STT (no gating)
+        3. VAD events trigger state transitions and UI updates
+        4. STT processes continuously and we filter results based on VAD
         """
+        # DEBUG: Track audio chunks
+        self.audio_chunks_received += 1
+        if self.audio_chunks_received % 50 == 0:  # Log every 50 chunks
+            logger.info(f"🎤 Received {self.audio_chunks_received} audio chunks")
+        
         # Process chunk through Silero VAD
         # SileroVADService.process_audio_chunk returns a list of events
         events = self.vad_service.process_audio_chunk(chunk)
@@ -110,42 +127,52 @@ class VoicebotEventLoop:
         is_speech = self.vad_service.triggered
         probability = self.vad_service.current_probability
         
-        # Handle VAD events (speech_start, speech_end)
+        # CRITICAL FIX: Always send audio to STT, regardless of VAD state
+        # This is the main fix - STT needs continuous audio to work properly
+        try:
+            await self.stt_audio_queue.put(chunk)
+            self.audio_chunks_sent_to_stt += 1
+            
+            if self.audio_chunks_sent_to_stt % 50 == 0:  # Log every 50 chunks
+                logger.info(f"📤 Sent {self.audio_chunks_sent_to_stt}/{self.audio_chunks_received} chunks to STT")
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to send audio to STT queue: {e}")
+        
+        # Handle VAD events (speech_start, speech_end) for state management
         for event in events:
-            if event["type"] == "speech_start":
+            event_type = event["type"]
+            self.vad_events_logged.append({
+                "type": event_type,
+                "timestamp": time.time(),
+                "probability": probability,
+                "is_speech": is_speech
+            })
+            
+            # Keep only last 10 events
+            if len(self.vad_events_logged) > 10:
+                self.vad_events_logged.pop(0)
+                
+            if event_type == "speech_start":
                 # Speech detected - transition to recording
                 if not self.is_recording:
                     self.is_recording = True
-                    logger.info(f"VAD: Speech started (prob={probability:.2f})")
+                    logger.info(f"🗣️ VAD: Speech started (prob={probability:.2f}) - Total chunks sent to STT: {self.audio_chunks_sent_to_stt}")
                     await self.push_event("vad_start")
                     
-                    # Flush pre-speech buffer to STT for context
-                    # This ensures STT catches the first syllable
-                    for buffered_chunk in self.audio_buffer:
-                        await self.stt_audio_queue.put(buffered_chunk)
-                    self.audio_buffer = []
-                    
-            elif event["type"] == "speech_end":
+            elif event_type == "speech_end":
                 # Speech ended - stop recording
                 if self.is_recording:
                     self.is_recording = False
-                    logger.info(f"VAD: Speech ended (prob={probability:.2f})")
+                    logger.info(f"🤫 VAD: Speech ended (prob={probability:.2f})")
                     await self.push_event("vad_end")
-                    # Note: We don't send post-speech padding to avoid STT hallucinations
         
-        # Route audio based on VAD state
-        if is_speech and self.is_recording:
-            # Active speech - send to STT
-            await self.stt_audio_queue.put(chunk)
-            
-        elif not is_speech and not self.is_recording:
-            # Silence - maintain pre-speech buffer (circular buffer)
-            self.audio_buffer.append(chunk)
-            if len(self.audio_buffer) > self.max_pre_speech_buffer_size:
-                self.audio_buffer.pop(0)  # Remove oldest chunk
-                
-        # If is_recording but not is_speech, we're in the transition period
-        # (VAD hysteresis). Keep sending to STT until triggered goes False.
+        # Send VAD status to client for UI updates
+        await self.output_queue.put({
+            "type": "vad_update",
+            "energy": probability,
+            "state": "speaking" if is_speech else "silence"
+        })
 
     async def _process_stt_stream(self):
         """
@@ -176,12 +203,30 @@ class VoicebotEventLoop:
         try:
             # This assumes STTService.transcribe_streaming takes a generator
             # and yields transcripts.
+            logger.info("🎤 Starting STT stream processing")
+            transcript_count = 0
+            
             async for transcript in self.stt_service.transcribe_streaming(audio_generator()):
+                transcript_count += 1
+                self.last_transcript_received = transcript
+                
+                # Log transcript reception
+                transcript_text = transcript.get('transcript', '')
+                is_final = transcript.get('is_final', False)
+                logger.info(f"📝 STT Transcript #{transcript_count}: '{transcript_text[:50]}...' (final: {is_final})")
+                
                 await self.push_event("transcript_update", transcript)
+                
+                # Log every 10 transcripts
+                if transcript_count % 10 == 0:
+                    logger.info(f"📊 STT Processing Stats: {transcript_count} transcripts received, {self.audio_chunks_sent_to_stt} chunks sent")
+                    
         except asyncio.CancelledError:
             logger.info("STT stream processing cancelled")
         except Exception as e:
             logger.error(f"STT stream error: {e}")
+            # Don't re-raise to prevent stopping the entire event loop
+            await self.push_event("error", {"service": "stt", "error": str(e)})
 
     async def push_event(self, event_type: str, data: Any = None):
         """Push an external event to the loop."""
@@ -287,49 +332,131 @@ class VoicebotEventLoop:
     async def _process_llm_response(self, text: str):
         """Process text with LLM and feed TTS."""
         try:
-            # Get RAG state (mocked or imported)
-            # Ideally passed in or fetched via service
-            # For now, assume chatbot_service handles it or we pass None
-            rag_state = None 
+            logger.info(f"🔄 Starting LLM processing for: '{text[:50]}...'")
             
-            # Start TTS task
-            self.tts_task = asyncio.create_task(self._process_tts_stream())
-            
-            async for response_chunk in self.chatbot_service.process_chat_message(
-                text,
-                self.conversation_id,
-                rag_state=rag_state,
-                agent_id=self.agent_id,
-                session_id=self.session_id
-            ):
-                chunk_type = response_chunk.get('type')
-                if chunk_type in ['first_token', 'chunk']:
+            # CRITICAL FIX: Add timeout and debugging
+            async def process_with_timeout():
+                # Get RAG state - with full initialization
+                try:
+                    from services.rag.rag_state import RagState
+                    from services.retrieval.config import retrieval_config
+                    from sentence_transformers import SentenceTransformer
+                    from qdrant_client import QdrantClient
+                    
+                    # Create and initialize RagState
+                    rag_state = RagState()
+                    logger.info("🔧 Initializing RagState with full components...")
+                    
+                    # Initialize embedder with correct model (768D for Qdrant compatibility)
+                    if retrieval_config.ultra_low_latency_mode:
+                        # For ultra-low latency, we need to be careful about model choice
+                        # But Qdrant expects 768D, so we use the main model
+                        embed_model_name = retrieval_config.embed_model_name
+                    else:
+                        embed_model_name = retrieval_config.embed_model_name
+                    
+                    logger.info(f"📚 Loading embedder: {embed_model_name}")
+                    rag_state.embedder = SentenceTransformer(embed_model_name)
+                    embed_dim = rag_state.embedder.get_sentence_embedding_dimension()
+                    logger.info(f"✅ Embedder loaded: {embed_dim}D")
+                    
+                    # Initialize Qdrant client
+                    logger.info("🗄️ Connecting to Qdrant...")
+                    rag_state.client = QdrantClient(
+                        host=retrieval_config.qdrant_host,
+                        port=retrieval_config.qdrant_port
+                    )
+                    logger.info("✅ Qdrant client connected")
+                    
+                    # Verify Qdrant collection compatibility
+                    try:
+                        collection_info = rag_state.client.get_collection(retrieval_config.qdrant_collection)
+                        logger.info(f"✅ Qdrant collection '{retrieval_config.qdrant_collection}': {collection_info.points_count} documents")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Qdrant collection check failed: {e}")
+                    
+                    logger.info("✅ RagState fully initialized with RAG capabilities!")
+                    
+                except Exception as e:
+                    logger.warning(f"⚠️ Could not fully initialize RagState: {e}")
+                    logger.info("🔄 Falling back to basic RAG state...")
+                    from services.rag.rag_state import RagState
+                    rag_state = RagState()  # Empty fallback
+                
+                # Start TTS task
+                self.tts_task = asyncio.create_task(self._process_tts_stream())
+                
+                response_count = 0
+                async for response_chunk in self.chatbot_service.process_chat_message(
+                    text,
+                    self.conversation_id,
+                    rag_state=rag_state,
+                    agent_id=self.agent_id,
+                    session_id=self.session_id
+                ):
+                    response_count += 1
+                    logger.info(f"📨 Received response chunk #{response_count}: {response_chunk.get('type')}")
+                    
+                    chunk_type = response_chunk.get('type')
                     content = response_chunk.get('content', '')
+                    
                     if content:
-                        await self.tts_text_queue.put(content)
-                        # Also notify client of text
+                        logger.info(f"📝 Content: '{content[:30]}...'")
+                    
+                    if chunk_type in ['first_token', 'chunk']:
+                        if content:
+                            await self.tts_text_queue.put(content)
+                            # Also notify client of text
+                            await self.output_queue.put({
+                                "type": "assistant_response",
+                                "text": content,
+                                "is_complete": False
+                            })
+                    elif chunk_type == 'complete':
+                        logger.info("✅ Chatbot response complete")
+                        await self.tts_text_queue.put(None) # End of stream
                         await self.output_queue.put({
                             "type": "assistant_response",
-                            "text": content, # This should be accumulated text ideally, or just chunk
-                            "is_complete": False
+                            "text": "",
+                            "is_complete": True
                         })
-                elif chunk_type == 'complete':
-                    await self.tts_text_queue.put(None) # End of stream
-                    await self.output_queue.put({
-                        "type": "assistant_response",
-                        "text": "",
-                        "is_complete": True
-                    })
-                    break
-                elif chunk_type == 'error':
-                    logger.error(f"LLM error: {response_chunk.get('content')}")
-                    await self.tts_text_queue.put(None)
-                    break
+                        break
+                    elif chunk_type == 'error':
+                        logger.error(f"❌ Chatbot error: {content}")
+                        await self.tts_text_queue.put(None)
+                        break
+                    
+                    # Safety: Stop if we get too many chunks without completion
+                    if response_count > 100:
+                        logger.warning(f"⚠️ Too many chunks ({response_count}), stopping")
+                        break
+                
+                logger.info(f"✅ LLM processing completed: {response_count} chunks received")
+                return response_count
+            
+            # Add timeout to prevent hanging
+            try:
+                result = await asyncio.wait_for(process_with_timeout(), timeout=30.0)
+                logger.info(f"🎉 LLM processing successful: {result} chunks")
+            except asyncio.TimeoutError:
+                logger.error("⏰ LLM processing timeout (30s) - stopping TTS")
+                await self.output_queue.put({
+                    "type": "error",
+                    "message": "Response timeout - please try again"
+                })
+                await self.tts_text_queue.put(None)
                     
         except asyncio.CancelledError:
-            pass
+            logger.info("LLM processing cancelled")
+            await self.tts_text_queue.put(None)
         except Exception as e:
-            logger.error(f"LLM processing error: {e}")
+            logger.error(f"❌ LLM processing error: {e}")
+            import traceback
+            traceback.print_exc()
+            await self.output_queue.put({
+                "type": "error",
+                "message": f"Processing error: {str(e)}"
+            })
             await self.tts_text_queue.put(None)
 
     async def _process_tts_stream(self):
