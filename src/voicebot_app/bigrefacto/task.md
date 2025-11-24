@@ -2,12 +2,12 @@
 
 ## ✅ Phase 1: Silero VAD Implementation (COMPLETE)
 - [x] Add dependencies (`onnxruntime`, `numpy`)
-- [x] Create [SileroVADService](file:///home/etienne/repos/voicebot/src/voicebot_app/services/vad/silero_service.py#17-212) class
+- [x] Create [SileroVADService](file:///home/etienne/repos/voicebot/src/services/vad/silero_service.py#17-212) class
 - [x] Add unit tests
 - [x] Rebuild Docker container and run tests
 
 ## ✅ Phase 2: Pipeline Integration (COMPLETE)
-- [x] Modify [VoicebotService](file:///home/etienne/repos/voicebot/src/voicebot_app/services/voicebot_wrapper/voicebot_service.py) to use [SileroVADService](file:///home/etienne/repos/voicebot/src/voicebot_app/services/vad/silero_service.py#17-212)
+- [x] Modify [VoicebotService](file:///home/etienne/repos/voicebot/src/services/voicebot_wrapper/voicebot_service.py) to use [SileroVADService](file:///home/etienne/repos/voicebot/src/services/vad/silero_service.py#17-212)
 - [x] Verify VAD performance (via integration tests)
 
 ## ✅ Phase 3: Central Event Loop & Audio Harmonization (COMPLETE)
@@ -16,10 +16,10 @@
 - [x] **Audio Optimization**: Switch to Binary WebSocket & Standardize 16kHz
 - [x] Design Audio Harmonization strategy (Binary WS, Sample Rate Standardization)
 - [x] Analyze Orchestration patterns (Flag-based vs Event-loop)
-- [x] Create [event_loop.py](file:///home/etienne/repos/voicebot/src/voicebot_app/services/voicebot_wrapper/event_loop.py) with state machine
+- [x] Create [event_loop.py](file:///home/etienne/repos/voicebot/src/services/voicebot_wrapper/event_loop.py) with state machine
 - [x] Implement VAD-gated STT with pre-speech buffering
-- [x] Create event-driven [VoicebotService](file:///home/etienne/repos/voicebot/src/voicebot_app/services/voicebot_wrapper/voicebot_service.py)
-- [x] Create [EVENT_LOOP_GUIDE.md](file:///home/etienne/repos/voicebot/src/voicebot_app/bigrefacto/EVENT_LOOP_GUIDE.md) documentation
+- [x] Create event-driven [VoicebotService](file:///home/etienne/repos/voicebot/src/services/voicebot_wrapper/voicebot_service.py)
+- [x] Create [EVENT_LOOP_GUIDE.md](file:///home/etienne/repos/voicebot/src/bigrefacto/EVENT_LOOP_GUIDE.md) documentation
 - [x] Create integration examples
 
 ### ✅ Integration & Testing

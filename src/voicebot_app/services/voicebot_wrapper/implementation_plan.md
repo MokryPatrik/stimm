@@ -83,7 +83,7 @@ flowchart TD
 
 ## File Structure
 ```
-src/voicebot_app/services/voicebot_wrapper/
+src/services/voicebot_wrapper/
 ├── __init__.py
 ├── config.py              # Voicebot configuration
 ├── voicebot_service.py    # Main service orchestrator

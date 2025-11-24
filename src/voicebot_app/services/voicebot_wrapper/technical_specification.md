@@ -158,7 +158,7 @@ class VoicebotInterface {
 ### 4.1 Required Files
 
 ```
-src/voicebot_app/services/voicebot_wrapper/
+src/services/voicebot_wrapper/
 ├── __init__.py
 ├── config.py
 ├── voicebot_service.py

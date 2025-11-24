@@ -237,7 +237,7 @@ async def test_tts_live_streaming(agent_id=None, agent_name=None, tokens_per_chu
                 os.remove(file_path)
         chunks_dir = accessible_chunks_dir
         print(f"📁 Audio chunk recording ENABLED - saving to: {chunks_dir}")
-        print(f"   Audio files are accessible from host at: src/voicebot_app/services/tts/tests/audio_chunks/")
+        print(f"   Audio files are accessible from host at: src/services/tts/tests/audio_chunks/")
         print(f"   Set TTS_RECORD_CHUNKS=false to disable recording")
     else:
         # Fallback to temporary directory if recording is disabled

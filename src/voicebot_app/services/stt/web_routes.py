@@ -26,7 +26,7 @@ router = APIRouter()
 templates_dir = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_dir))
 
-# Test audio file path (relative to the voicebot_app directory)
+# Test audio file path (relative to the src directory)
 TEST_AUDIO_PATH = Path(__file__).parent.parent.parent / "services" / "stt" / "tests" / "Enregistrement.wav"
 
 

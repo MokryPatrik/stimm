@@ -1,1 +1,0 @@
-# Make whisper.local a proper Python package

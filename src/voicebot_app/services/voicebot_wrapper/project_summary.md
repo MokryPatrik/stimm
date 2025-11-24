@@ -9,13 +9,13 @@ Create a complete voicebot wrapper that integrates STT, RAG/LLM, and TTS modules
 ## What We've Accomplished in Architect Mode
 
 ### 1. Complete Technical Architecture
-- **Service Structure**: Designed [`VoicebotService`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:25) orchestrator
+- **Service Structure**: Designed [`VoicebotService`](src/services/voicebot_wrapper/technical_specification.md:25) orchestrator
 - **Configuration System**: Defined VAD thresholds, audio settings, and service endpoints
 - **Integration Strategy**: Leveraged existing STT, TTS, and RAG services
 
 ### 2. Voice Activity Detection (VAD) Design
 - **Web Audio API**: Real-time energy-based voice detection
-- **AudioWorklet Processor**: [`VADProcessor`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:56) for low-latency processing
+- **AudioWorklet Processor**: [`VADProcessor`](src/services/voicebot_wrapper/technical_specification.md:56) for low-latency processing
 - **Visual Feedback**: Gray/green button indicator with energy visualization
 
 ### 3. WebSocket Protocol
@@ -32,25 +32,25 @@ Create a complete voicebot wrapper that integrates STT, RAG/LLM, and TTS modules
 
 ### Phase 1: Microphone Capture & VAD (Ready for Implementation)
 - **Files to Create**:
-  - [`voicebot_service.py`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:25) - Main orchestrator
-  - [`config.py`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:35) - Configuration
-  - [`routes.py`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:122) - WebSocket endpoints
-  - [`voicebot.js`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:72) - Frontend logic
-  - [`audio-processor.js`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:56) - VAD AudioWorklet
-  - [`voicebot.html`](src/voicebot_app/services/voicebot_wrapper/technical_specification.md:148) - Interface template
+  - [`voicebot_service.py`](src/services/voicebot_wrapper/technical_specification.md:25) - Main orchestrator
+  - [`config.py`](src/services/voicebot_wrapper/technical_specification.md:35) - Configuration
+  - [`routes.py`](src/services/voicebot_wrapper/technical_specification.md:122) - WebSocket endpoints
+  - [`voicebot.js`](src/services/voicebot_wrapper/technical_specification.md:72) - Frontend logic
+  - [`audio-processor.js`](src/services/voicebot_wrapper/technical_specification.md:56) - VAD AudioWorklet
+  - [`voicebot.html`](src/services/voicebot_wrapper/technical_specification.md:148) - Interface template
 
 ### Phase 2: STT Integration
-- Integrate existing [`STTService`](src/voicebot_app/services/stt/stt.py:16)
+- Integrate existing [`STTService`](src/services/stt/stt.py:16)
 - Real-time audio streaming to whisper.local
 - Handle interim and final transcripts
 
 ### Phase 3: RAG/LLM Integration
-- Connect to [`ChatbotService`](src/voicebot_app/services/rag/chatbot_service.py:22)
+- Connect to [`ChatbotService`](src/services/rag/chatbot_service.py:22)
 - Implement conversation context management
 - Stream intelligent responses
 
 ### Phase 4: TTS Integration
-- Integrate [`TTSService`](src/voicebot_app/services/tts/tts.py:15)
+- Integrate [`TTSService`](src/services/tts/tts.py:15)
 - Real-time audio streaming from async.ai
 - Synchronized playback
 
@@ -85,9 +85,9 @@ Microphone → Web Audio API → VAD Processor → STT Service → RAG/LLM → T
 ## Dependencies and Integration Points
 
 ### Existing Services to Integrate
-- **STT**: [`services.stt.stt.STTService`](src/voicebot_app/services/stt/stt.py:16)
-- **TTS**: [`services.tts.tts.TTSService`](src/voicebot_app/services/tts/tts.py:15)
-- **RAG/LLM**: [`services.rag.chatbot_service.ChatbotService`](src/voicebot_app/services/rag/chatbot_service.py:22)
+- **STT**: [`services.stt.stt.STTService`](src/voicot_app/services/stt/stt.py:16)
+- **TTS**: [`services.tts.tts.TTSService`](src/services/tts/tts.py:15)
+- **RAG/LLM**: [`services.rag.chatbot_service.ChatbotService`](src/services/rag/chatbot_service.py:22)
 
 ### External Dependencies
 - Web Audio API (browser-native)

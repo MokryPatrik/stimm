@@ -1,11 +1,11 @@
 services:
   voicebot-app:
     build:
-      context: ../../src/voicebot_app
+      context: ../../src
       dockerfile: ../../docker/voicebot-app/Dockerfile
     container_name: voicebot-app
     volumes:
-      - ../../src/voicebot_app:/app
+      - ../../src:/app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
     ports:
       - "8001:8001"

@@ -1,2 +1,0 @@
-"""Kokoro TTS service package."""
-

@@ -13,7 +13,7 @@ from services.vad.silero_service import SileroVADService
 class TestSileroVADService(unittest.TestCase):
     def setUp(self):
         self.vad = SileroVADService(threshold=0.5)
-        self.test_wav_path = "src/voicebot_app/services/stt/tests/Enregistrement.wav"
+        self.test_wav_path = "src/services/stt/tests/Enregistrement.wav"
 
     def test_initialization(self):
         """Test that the model loads correctly."""
