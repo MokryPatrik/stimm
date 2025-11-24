@@ -250,7 +250,74 @@ If you prefer to run services locally (not recommended), you can set up the deve
 │   ├── main.py           # Application entry point
 │   └── requirements.txt  # Python dependencies
 ├── docker-compose.yml    # Main Docker Compose file
+├── pyproject.toml        # CLI dependencies (UV)
 └── README.md             # Project documentation
+```
+
+## 🖥️ CLI Tool
+
+The VoiceBot platform includes a powerful CLI tool for testing agents directly from the command line, without using the web interface.
+
+### Installation
+
+```bash
+# Install dependencies with UV (recommended)
+uv sync
+
+# Or install manually
+pip install -r src/requirements.txt
+```
+
+### Usage
+
+#### List Available Agents
+
+```bash
+python -m src.cli.main --list-agents
+```
+
+#### Text Mode (Recommended for quick testing)
+
+```bash
+# Basic text conversation
+python -m src.cli.main --agent-name "Etienne" --mode text
+
+# With RAG enabled (default)
+python -m src.cli.main --agent-name "Etienne" --mode text --use-rag
+
+# With verbose logging
+python -m src.cli.main --agent-name "Etienne" --mode text --verbose
+```
+
+#### Full Audio Mode (LiveKit WebRTC)
+
+```bash
+# Audio conversation via LiveKit
+python -m src.cli.main --agent-name "Etienne" --mode full
+
+# With custom room name
+python -m src.cli.main --agent-name "Etienne" --mode full --room-name "test-conversation"
+```
+
+### Features
+
+- **Text Mode**: Interactive text conversation with the agent
+- **Full Audio Mode**: Real-time audio conversation via LiveKit WebRTC
+- **RAG Integration**: Retrieval-Augmented Generation with knowledge base context
+- **Agent Configuration**: Uses the specific LLM/TTS/STT configuration of each agent
+- **LiveKit Integration**: WebRTC audio streaming for low-latency conversations
+
+### Examples
+
+```bash
+# List all available agents
+python -m src.cli.main --list-agents
+
+# Test agent in text mode
+python -m src.cli.main --agent-name "Etienne" --mode text
+
+# Test with audio via LiveKit
+python -m src.cli.main --agent-name "Etienne" --mode full --verbose
 ```
 
 ## 🤝 Contributing

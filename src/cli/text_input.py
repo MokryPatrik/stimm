@@ -3,6 +3,7 @@ Text-only interface for testing agents without audio
 """
 
 import asyncio
+import json
 import logging
 from typing import Optional
 
@@ -12,8 +13,9 @@ import aiohttp
 class TextInterface:
     """Text-only interface for agent testing"""
     
-    def __init__(self, agent_name: str, verbose: bool = False):
+    def __init__(self, agent_name: str, use_rag: bool = True, verbose: bool = False):
         self.agent_name = agent_name
+        self.use_rag = use_rag
         self.verbose = verbose
         self.base_url = "http://localhost:8001"
         self.session: Optional[aiohttp.ClientSession] = None
@@ -33,22 +35,51 @@ class TextInterface:
             raise RuntimeError("Session not initialized")
             
         try:
-            # Use the LLM endpoint to get response
-            url = f"{self.base_url}/api/llm/generate"
-            payload = {
-                "prompt": message,
-                "agent_name": self.agent_name,
-                "stream": False
-            }
-            
-            async with self.session.post(url, json=payload) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result.get("response", "No response received")
-                else:
-                    error_text = await response.text()
-                    self.logger.error(f"API error {response.status}: {error_text}")
-                    return f"Error: {response.status} - {error_text}"
+            if self.use_rag:
+                # Use RAG chatbot endpoint
+                url = f"{self.base_url}/rag/chat/message"
+                
+                # Get agent UUID from name
+                agent_uuid = await self._get_agent_uuid()
+                payload = {
+                    "message": message
+                }
+                
+                # Add agent_id only if we found the UUID
+                if agent_uuid:
+                    payload["agent_id"] = agent_uuid
+                
+                async with self.session.post(url, json=payload) as response:
+                    if response.status == 200:
+                        # RAG returns streaming response, we need to collect it
+                        full_response = ""
+                        async for line in response.content:
+                            line = line.decode('utf-8').strip()
+                            if line.startswith('data: '):
+                                try:
+                                    data = json.loads(line[6:])  # Remove 'data: ' prefix
+                                    if data.get('type') in ['chunk', 'complete'] and 'content' in data:
+                                        full_response += data['content']
+                                except json.JSONDecodeError:
+                                    continue
+                        return full_response if full_response else "No response received"
+                    else:
+                        error_text = await response.text()
+                        self.logger.error(f"API error {response.status}: {error_text}")
+                        return f"Error: {response.status} - {error_text}"
+            else:
+                # Use direct LLM endpoint
+                url = f"{self.base_url}/api/llm/generate"
+                params = {"prompt": message}
+                
+                async with self.session.post(url, params=params) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result.get("result", "No response received")
+                    else:
+                        error_text = await response.text()
+                        self.logger.error(f"API error {response.status}: {error_text}")
+                        return f"Error: {response.status} - {error_text}"
                     
         except aiohttp.ClientError as e:
             self.logger.error(f"Network error: {e}")
@@ -85,6 +116,30 @@ class TextInterface:
             self.logger.error(f"Error checking agent: {e}")
             return False
             
+    async def _get_agent_uuid(self) -> Optional[str]:
+        """Get agent UUID from agent name"""
+        if not self.session:
+            raise RuntimeError("Session not initialized")
+            
+        try:
+            url = f"{self.base_url}/api/agents/"
+            timeout = aiohttp.ClientTimeout(total=10)
+            
+            async with self.session.get(url, timeout=timeout) as response:
+                if response.status == 200:
+                    agents = await response.json()
+                    for agent in agents:
+                        if agent.get("name") == self.agent_name:
+                            return agent.get("id")
+                    self.logger.warning(f"Agent '{self.agent_name}' not found in agents list")
+                    return None
+                else:
+                    self.logger.warning(f"Failed to get agents list: {response.status}")
+                    return None
+        except Exception as e:
+            self.logger.error(f"Error getting agent UUID: {e}")
+            return None
+            
     async def run(self):
         """Run the text interface"""
         print(f"\n🤖 Text Interface for Agent: {self.agent_name}")
@@ -107,6 +162,7 @@ class TextInterface:
                 return
                 
             print(f"✅ Agent '{self.agent_name}' found!")
+            print(f"📚 RAG enabled: {self.use_rag}")
             print()
             
             conversation_history = []
