@@ -154,7 +154,39 @@ sequenceDiagram
 
 ## 💻 Development
 
-### Backend Setup
+### Preferred Development Setup (Docker Compose)
+
+The **best development context** is within Docker Compose, which provides automatic reload capabilities:
+
+1. **Clone and configure** (same as installation steps above)
+
+2. **Start development environment with hot reload**:
+   ```bash
+   docker-compose up --build
+   ```
+
+   This will start:
+   - **Backend**: FastAPI with `--reload` flag, automatically restarting on code changes
+   - **Frontend**: Next.js with hot module replacement, updating on file changes
+   - **Database**: PostgreSQL with persistent storage
+   - **Vector Store**: Qdrant for RAG functionality
+   - **Reverse Proxy**: Traefik routing to services
+
+3. **Access the development environment**:
+   - **Frontend**: [http://front.localhost](http://front.localhost)
+   - **API Documentation**: [http://api.localhost/docs](http://api.localhost/docs)
+
+The Docker Compose setup automatically:
+- Mounts source directories for live code reloading
+- Enables debug ports and development features
+- Provides persistent database and vector storage
+- Handles all service dependencies
+
+### Alternative: Local Development (Not Preferred)
+
+If you prefer to run services locally (not recommended), you can set up the development environment manually:
+
+#### Backend Setup
 
 1. Create a virtual environment:
    ```bash
@@ -172,13 +204,13 @@ sequenceDiagram
    alembic upgrade head
    ```
 
-4. Run locally (without Docker):
+4. Run locally:
    ```bash
    cd src
    uvicorn main:app --reload --port 8000
    ```
 
-### Frontend Setup
+#### Frontend Setup
 
 1. Navigate to the frontend directory:
    ```bash
@@ -194,6 +226,8 @@ sequenceDiagram
    ```bash
    npm run dev
    ```
+
+**Note**: This approach requires manually managing database connections, external service dependencies, and doesn't provide the same development experience as Docker Compose.
 
 ## 📂 Project Structure
 
