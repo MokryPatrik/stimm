@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     libpulse0 \
     portaudio19-dev \
     python3-pyaudio \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
     
 

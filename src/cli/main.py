@@ -122,6 +122,13 @@ Examples:
         help="List all available agents"
     )
     
+    parser.add_argument(
+        "--test-mic",
+        type=float,
+        metavar="SECONDS",
+        help="Test microphone by recording N seconds to test_recording.wav"
+    )
+    
     return parser.parse_args()
 
 
@@ -158,6 +165,38 @@ async def run_full_mode(agent_name: str, room_name: Optional[str] = None, verbos
     return 0
 
 
+def test_microphone(duration: float):
+    """Test microphone by recording to a WAV file"""
+    from cli.audio_capture import AudioCapture
+    
+    print(f"\n🎤 Testing Microphone")
+    print("=" * 80)
+    print(f"Recording {duration} seconds to test_recording.wav...")
+    print("Speak into your microphone now!")
+    print()
+    
+    try:
+        capture = AudioCapture(sample_rate=16000, channels=1, chunk_size=1024)
+        capture.record_to_file("test_recording.wav", duration)
+        
+        print()
+        print("✅ Recording complete!")
+        print(f"📁 Saved to: test_recording.wav")
+        print("🔊 Play it back to verify your microphone works:")
+        print("   aplay test_recording.wav  (Linux)")
+        print("   afplay test_recording.wav  (Mac)")
+        print()
+        return 0
+        
+    except Exception as e:
+        print(f"\n❌ Microphone test failed: {e}")
+        print("\nTroubleshooting:")
+        print("• Make sure your microphone is connected and not muted")
+        print("• Check that pyaudio is installed: pip install pyaudio")
+        print("• On Linux, you may need: sudo apt-get install portaudio19-dev")
+        return 1
+
+
 async def main():
     """Main entry point - synchronous wrapper for async code"""
     return await async_main()
@@ -166,6 +205,11 @@ async def async_main():
     """Async main entry point"""
     args = parse_args()
     setup_logging(args.verbose)
+    
+    # Handle microphone test mode
+    if args.test_mic:
+        logging.info(f"Testing microphone for {args.test_mic} seconds")
+        return test_microphone(args.test_mic)
     
     if args.list_agents:
         logging.info("Listing available agents")
