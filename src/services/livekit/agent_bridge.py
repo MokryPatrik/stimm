@@ -126,7 +126,14 @@ class LiveKitAgentBridge:
             tracks_to_remove = [track_id for track_id, track_info in self.user_audio_tracks.items()
                               if track_info["participant_sid"] == participant.sid]
             for track_id in tracks_to_remove:
-                self.user_audio_tracks.pop(track_id, None)
+                track_info = self.user_audio_tracks.pop(track_id, None)
+                if track_info:
+                    # Cancel task and close stream
+                    if "task" in track_info:
+                        track_info["task"].cancel()
+                    if "stream" in track_info:
+                        # AudioStream doesn't have a close method, it's closed when track is unsubscribed
+                        pass
             
         @self.room.on("track_published")
         def on_track_published(
@@ -148,32 +155,42 @@ class LiveKitAgentBridge:
             
         logger.info(f"🎤 Setting up audio processing for user {participant.identity}")
         
-        # Store track information
+        # Create audio stream for this track
+        stream = rtc.AudioStream(track)
+        
+        async def process_audio_stream():
+            try:
+                async for event in stream:
+                    # AudioStream yields AudioFrameEvent
+                    frame = event.frame
+                    
+                    # Convert audio frame to bytes
+                    if hasattr(frame, 'data'):
+                        audio_data = frame.data.tobytes() if hasattr(frame.data, 'tobytes') else frame.data
+                        
+                        # Send to voicebot service for processing
+                        if self.voicebot_service:
+                            asyncio.create_task(
+                                self.voicebot_service.process_audio(self.conversation_id, audio_data)
+                            )
+                    else:
+                        logger.warning(f"⚠️ Audio frame from {participant.identity} has no data attribute")
+            except Exception as e:
+                logger.error(f"❌ Error processing audio stream from {participant.identity}: {e}")
+            finally:
+                logger.info(f"🛑 Audio stream ended for {participant.identity}")
+
+        # Start processing task
+        task = asyncio.create_task(process_audio_stream())
+        
+        # Store track information and task
         self.user_audio_tracks[track.sid] = {
             "track": track,
+            "stream": stream,
+            "task": task,
             "participant_sid": participant.sid,
             "participant_identity": participant.identity
         }
-        
-        # Set up frame received event handler
-        @track.on("frame_received")
-        def on_audio_frame(frame):
-            try:
-                # Convert audio frame to bytes
-                if hasattr(frame, 'data'):
-                    audio_data = frame.data
-                    
-                    # Send to voicebot service for processing
-                    asyncio.create_task(
-                        self.voicebot_service.process_audio(self.conversation_id, audio_data)
-                    )
-                    
-                    logger.debug(f"📥 Received audio frame from {participant.identity}: {len(audio_data)} bytes")
-                else:
-                    logger.warning(f"⚠️ Audio frame from {participant.identity} has no data attribute")
-                    
-            except Exception as e:
-                logger.error(f"❌ Error processing audio frame from {participant.identity}: {e}")
     
     async def send_agent_audio(self, audio_chunk: bytes):
         """
