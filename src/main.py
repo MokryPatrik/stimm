@@ -76,6 +76,9 @@ async def startup_event():
         except Exception as e:
             logger.error(f"Failed to initialize agent system: {e}")
         
+        # Note: Voicebot services are now initialized per-session in LiveKit service
+        # to avoid concurrency issues with providers like Deepgram
+        
     except Exception as e:
         logger.error(f"Failed to start startup procedures: {e}")
 

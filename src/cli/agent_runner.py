@@ -33,15 +33,45 @@ class AgentRunner:
         if self.session:
             await self.session.close()
             
+    async def _get_agent_uuid(self) -> Optional[str]:
+        """Get agent UUID from agent name"""
+        if not self.session:
+            raise RuntimeError("Session not initialized")
+            
+        try:
+            url = f"{self.base_url}/api/agents/"
+            timeout = aiohttp.ClientTimeout(total=10)
+            
+            async with self.session.get(url, timeout=timeout) as response:
+                if response.status == 200:
+                    agents = await response.json()
+                    for agent in agents:
+                        if agent.get("name") == self.agent_name:
+                            return agent.get("id")
+                    self.logger.warning(f"Agent '{self.agent_name}' not found in agents list")
+                    return None
+                else:
+                    self.logger.warning(f"Failed to get agents list: {response.status}")
+                    return None
+        except Exception as e:
+            self.logger.error(f"Error getting agent UUID: {e}")
+            return None
+            
     async def create_livekit_room(self) -> Optional[str]:
         """Create a LiveKit room for the agent"""
         if not self.session:
             raise RuntimeError("Session not initialized")
             
         try:
+            # Get agent UUID from name
+            agent_uuid = await self._get_agent_uuid()
+            if not agent_uuid:
+                self.logger.error(f"Agent '{self.agent_name}' not found")
+                return None
+                
             url = f"{self.base_url}/api/livekit/create-room"
             payload = {
-                "agent_id": self.agent_name,
+                "agent_id": agent_uuid,
                 "room_name": self.room_name
             }
             
@@ -71,9 +101,15 @@ class AgentRunner:
             raise RuntimeError("Session not initialized")
             
         try:
+            # Get agent UUID from name
+            agent_uuid = await self._get_agent_uuid()
+            if not agent_uuid:
+                self.logger.error(f"Agent '{self.agent_name}' not found")
+                return False
+                
             url = f"{self.base_url}/api/livekit/job-notification"
             payload = {
-                "agent_id": self.agent_name,
+                "agent_id": agent_uuid,
                 "room_name": self.room_name
             }
             

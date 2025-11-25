@@ -24,7 +24,7 @@ class LiveKitService:
         self.api_secret = api_secret
         
         # Initialiser les services existants
-        self.voicebot_service = get_voicebot_service()
+        self.voicebot_service = None  # Sera initialisé plus tard si nécessaire
         self.agent_service = AgentService()
         
         # Suivi des sessions actives
@@ -95,20 +95,22 @@ class LiveKitService:
             
             agent_access_token = agent_token.to_jwt()
             
-            # Create a voicebot service for this agent using the existing services
-            # Check if services are properly initialized
-            if (not self.voicebot_service.stt_service or
-                not self.voicebot_service.chatbot_service or
-                not self.voicebot_service.tts_service or
-                not self.voicebot_service.vad_service):
-                logger.error("❌ Voicebot services not properly initialized")
-                raise RuntimeError("Voicebot services not properly initialized")
+            # Create new service instances for this session to avoid concurrency issues
+            from services.stt.stt import STTService
+            from services.tts.tts import TTSService
+            from services.vad.silero_service import SileroVADService
+            from services.rag.chatbot_service import chatbot_service
+            
+            # Create new instances for this session
+            stt_service = STTService(agent_id=agent_id)
+            tts_service = TTSService(agent_id=agent_id)
+            vad_service = SileroVADService()
             
             voicebot_service = VoicebotService(
-                stt_service=self.voicebot_service.stt_service,
-                chatbot_service=self.voicebot_service.chatbot_service,
-                tts_service=self.voicebot_service.tts_service,
-                vad_service=self.voicebot_service.vad_service,
+                stt_service=stt_service,
+                chatbot_service=chatbot_service,
+                tts_service=tts_service,
+                vad_service=vad_service,
                 agent_id=agent_id
             )
             

@@ -45,8 +45,9 @@ class LiveKitAgentBridge:
         self.event_loop = None
         self.conversation_id = f"livekit_{agent_id}_{room_name}_{uuid.uuid4().hex[:8]}"
         
-        # Track user participants
+        # Track user participants and their audio tracks
         self.user_participants = {}
+        self.user_audio_tracks = {}
         
         logger.info(f"🎯 Agent bridge initialized for agent {agent_id} in room {room_name}")
     
@@ -121,6 +122,11 @@ class LiveKitAgentBridge:
         def on_participant_disconnected(participant: rtc.RemoteParticipant):
             logger.info(f"👤 Participant disconnected: {participant.identity}")
             self.user_participants.pop(participant.sid, None)
+            # Remove any audio tracks from this participant
+            tracks_to_remove = [track_id for track_id, track_info in self.user_audio_tracks.items()
+                              if track_info["participant_sid"] == participant.sid]
+            for track_id in tracks_to_remove:
+                self.user_audio_tracks.pop(track_id, None)
             
         @self.room.on("track_published")
         def on_track_published(
@@ -136,28 +142,38 @@ class LiveKitAgentBridge:
             track: Audio track from user participant
             participant: Remote participant who published the track
         """
-        if not self.voicebot_service or not self.event_loop:
+        if not self.voicebot_service:
             logger.warning("⚠️ Voicebot service not connected, cannot process user audio")
             return
             
         logger.info(f"🎤 Setting up audio processing for user {participant.identity}")
         
-        # Set up audio frame handler
+        # Store track information
+        self.user_audio_tracks[track.sid] = {
+            "track": track,
+            "participant_sid": participant.sid,
+            "participant_identity": participant.identity
+        }
+        
+        # Set up frame received event handler
         @track.on("frame_received")
-        def on_audio_frame(frame: rtc.AudioFrame):
+        def on_audio_frame(frame):
             try:
                 # Convert audio frame to bytes
-                audio_data = frame.data
-                
-                # Send to voicebot service for processing
-                asyncio.create_task(
-                    self.voicebot_service.process_audio(self.conversation_id, audio_data)
-                )
-                
-                logger.debug(f"📥 Received audio frame from {participant.identity}: {len(audio_data)} bytes")
-                
+                if hasattr(frame, 'data'):
+                    audio_data = frame.data
+                    
+                    # Send to voicebot service for processing
+                    asyncio.create_task(
+                        self.voicebot_service.process_audio(self.conversation_id, audio_data)
+                    )
+                    
+                    logger.debug(f"📥 Received audio frame from {participant.identity}: {len(audio_data)} bytes")
+                else:
+                    logger.warning(f"⚠️ Audio frame from {participant.identity} has no data attribute")
+                    
             except Exception as e:
-                logger.error(f"❌ Error processing audio frame: {e}")
+                logger.error(f"❌ Error processing audio frame from {participant.identity}: {e}")
     
     async def send_agent_audio(self, audio_chunk: bytes):
         """
