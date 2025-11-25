@@ -12,10 +12,17 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     build-essential \
+    pulseaudio-utils \
+    libpulse0 \
+    portaudio19-dev \
+    python3-pyaudio \
     && rm -rf /var/lib/apt/lists/*
+    
 
 # Install any needed packages specified in requirements.txt
 COPY . .
+
+
 
 RUN pip install -r requirements.txt
 

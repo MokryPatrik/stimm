@@ -6,7 +6,13 @@ services:
     container_name: voicebot-app
     volumes:
       - ../../src:/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+      # PulseAudio socket (host -> container)
+      - /mnt/wslg:/mnt/wslg
+    devices:
+      - /dev/snd:/dev/snd
+    environment:
+      - PULSE_SERVER=unix:/mnt/wslg/PulseServer
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload" ]
     ports:
       - "8001:8001"
     # Environment variables are loaded from env_file in root docker-compose.yml
