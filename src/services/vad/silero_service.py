@@ -39,8 +39,8 @@ class SileroVADService:
             opts.inter_op_num_threads = 1
             opts.intra_op_num_threads = 1
             self.session = onnxruntime.InferenceSession(model_path, providers=['CPUExecutionProvider'], sess_options=opts)
-            self._h = np.zeros((2, 1, 64)).astype('float32')
-            self._c = np.zeros((2, 1, 64)).astype('float32')
+            # V5 model uses a single state tensor of shape (2, 1, 128)
+            self._state = np.zeros((2, 1, 128)).astype('float32')
             logger.info("Silero VAD model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load Silero VAD model: {e}")
@@ -62,8 +62,7 @@ class SileroVADService:
         self.current_probability = 0.0
         self.temp_end = 0
         self.current_speech = {}
-        self._h = np.zeros((2, 1, 64)).astype('float32')
-        self._c = np.zeros((2, 1, 64)).astype('float32')
+        self._state = np.zeros((2, 1, 128)).astype('float32')
 
     def process_audio_chunk(self, audio_chunk: bytes) -> List[Dict[str, Any]]:
         """
@@ -80,12 +79,11 @@ class SileroVADService:
         # Run inference
         ort_inputs = {
             'input': input_tensor,
-            'h': self._h,
-            'c': self._c,
-            'sr': np.array([self.sampling_rate], dtype=np.int64)
+            'state': self._state,
+            'sr': np.array(self.sampling_rate, dtype=np.int64)
         }
         ort_outs = self.session.run(None, ort_inputs)
-        out, self._h, self._c = ort_outs
+        out, self._state = ort_outs
         
         self.current_probability = out[0][0]
         
