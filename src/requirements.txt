@@ -17,6 +17,8 @@ onnxruntime>=1.16.0
 scipy==1.13.0
 deepgram-sdk>=3.0.0
 websockets>=12.0
+pytest
+pytest-asyncio
 
 # Database dependencies for agent management
 sqlalchemy>=2.0.0

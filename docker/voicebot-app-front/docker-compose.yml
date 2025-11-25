@@ -2,7 +2,7 @@ services:
   voicebot-app-front:
     build:
       context: ../../src/front
-      dockerfile: ../../../docker/voicebot-app-front/Dockerfile.dev
+      dockerfile: ../../docker/voicebot-app-front/Dockerfile.dev
     container_name: voicebot-app-front
     volumes:
       - ../../src/front:/app
