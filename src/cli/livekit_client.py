@@ -344,13 +344,11 @@ class LiveKitClient:
                         current_time = asyncio.get_event_loop().time()
                         if current_time - last_log_time > 2.0:  # Every 2 seconds
                             original_rms = np.sqrt(np.mean(audio_array**2))
-                            amplified_rms = np.sqrt(np.mean(amplified_audio**2))
                             logger.info(f"📤 LiveKit transmission stats:")
                             logger.info(f"   - Frames sent: {frame_counter}")
                             logger.info(f"   - Errors: {error_counter}")
                             logger.info(f"   - Queue backlog: {self.audio_queue.qsize()}")
                             logger.info(f"   - Original RMS: {original_rms:.2f}")
-                            logger.info(f"   - Amplified RMS: {amplified_rms:.2f}")
                             last_log_time = current_time
                             
                     except Exception as e:
