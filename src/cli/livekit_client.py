@@ -38,6 +38,7 @@ class LiveKitClient:
         
         # Real audio capture
         self.audio_queue = queue.Queue()
+        self.recording_queue = queue.Queue()  # Separate queue for recording
         self.audio_thread = None
         self.is_capturing = False
         
@@ -53,8 +54,8 @@ class LiveKitClient:
             # Set up event handlers
             self._setup_event_handlers()
             
-            # Create audio source for microphone capture
-            self.audio_source = rtc.AudioSource(sample_rate=48000, num_channels=1)
+            # Create audio source for microphone capture at 16kHz (required for VAD/STT)
+            self.audio_source = rtc.AudioSource(sample_rate=16000, num_channels=1)
             self.audio_track = rtc.LocalAudioTrack.create_audio_track("microphone", self.audio_source)
             
             # Connect to the room
@@ -189,7 +190,7 @@ class LiveKitClient:
                 # Create audio frame from the chunk
                 frame = rtc.AudioFrame(
                     data=audio_data,
-                    sample_rate=48000,
+                    sample_rate=16000,
                     num_channels=1,
                     samples_per_channel=len(audio_data) // 2  # Assuming 16-bit samples
                 )
@@ -221,13 +222,15 @@ class LiveKitClient:
         try:
             logger.info("🎤 Starting real audio capture from PulseAudio...")
             
-            # Use ffmpeg to capture raw audio from PulseAudio
+            # Use ffmpeg to capture raw audio from PulseAudio at 16kHz (required for VAD/STT)
+            # Use explicit RDP source (source #2) which is the WSLg microphone
+            # Convert stereo to mono and resample to 16kHz
             cmd = [
                 "ffmpeg",
                 "-f", "pulse",
-                "-i", "default",
-                "-ac", "1",  # Mono
-                "-ar", "48000",  # 48kHz sample rate
+                "-i", "2",  # Use RDP source explicitly (stereo 48kHz)
+                "-ac", "1",  # Convert to mono
+                "-ar", "16000",  # Resample to 16kHz (required for VAD/STT)
                 "-f", "s16le",  # 16-bit signed little-endian PCM
                 "-"  # Output to stdout
             ]
@@ -239,13 +242,15 @@ class LiveKitClient:
                 bufsize=0
             )
             
-            # Read audio data in chunks (20ms at 48kHz = 960 samples * 2 bytes = 1920 bytes)
-            chunk_size = 1920  # 20ms chunks
+            # Read audio data in chunks (20ms at 16kHz = 320 samples * 2 bytes = 640 bytes)
+            chunk_size = 640  # 20ms chunks at 16kHz
             
             while self.is_capturing:
                 audio_data = process.stdout.read(chunk_size)
                 if audio_data:
                     self.audio_queue.put(audio_data)
+                    # Also put in recording queue for saving to file
+                    self.recording_queue.put(audio_data)
                 else:
                     break
                     
@@ -293,7 +298,7 @@ class LiveKitClient:
                 if self.audio_source and len(audio_data) > 0:
                     frame = rtc.AudioFrame(
                         data=audio_data,
-                        sample_rate=48000,
+                        sample_rate=16000,
                         num_channels=1,
                         samples_per_channel=len(audio_data) // 2  # 16-bit samples
                     )
