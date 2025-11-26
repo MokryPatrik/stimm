@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 import signal
+import numpy as np
 from dotenv import load_dotenv
 from livekit import api, rtc
 
@@ -59,7 +60,6 @@ class VADStream:
             
             for resampled_frame in resampled_frames:
                 # Get raw data
-                import numpy as np
                 audio_int16 = np.frombuffer(resampled_frame.data, dtype=np.int16)
                 
                 # Process with VAD
@@ -86,6 +86,9 @@ class VADStream:
                 event = await self._queue.get()
                 yield event
             except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in VAD stream iterator: {e}")
                 break
 
 class OptimizedEchoServer:
@@ -149,8 +152,7 @@ class OptimizedEchoServer:
         await self.room.local_participant.publish_track(track, options)
         logger.info("📢 Published echo track")
 
-        # 4. Start dual async tasks (input processing + VAD processing)
-        input_task = asyncio.create_task(self._process_input(), name="input_processor")
+        # 4. Start VAD processing task
         vad_task = asyncio.create_task(self._process_vad(), name="vad_processor")
 
         # 5. Setup signal handling
@@ -162,11 +164,10 @@ class OptimizedEchoServer:
         
         # 7. Clean shutdown
         logger.info("Shutting down...")
-        input_task.cancel()
         vad_task.cancel()
         
         try:
-            await asyncio.gather(input_task, vad_task, return_exceptions=True)
+            await vad_task
         except asyncio.CancelledError:
             pass
         
@@ -208,18 +209,6 @@ class OptimizedEchoServer:
             logger.error(f"Audio stream processing error: {e}")
         finally:
             logger.info(f"Audio processing ended for {participant_identity}")
-
-    async def _process_input(self):
-        """Main input processing loop"""
-        logger.info("🔁 Starting input processor...")
-        
-        while not self.shutdown_event.is_set():
-            try:
-                # Small sleep to prevent CPU spinning
-                await asyncio.sleep(0.01)
-            except Exception as e:
-                logger.error(f"Input processor error: {e}")
-                await asyncio.sleep(0.1)
 
     async def _process_vad(self):
         """Process VAD events and manage echo playback"""
@@ -284,11 +273,6 @@ class OptimizedEchoServer:
                     await self.source.capture_frame(frame)
                     frames_echoed += 1
                     self.queue.task_done()
-                    
-                    # Pace the playback to match real-time
-                    # Frame duration = samples / sample_rate
-                    duration = frame.samples_per_channel / frame.sample_rate
-                    await asyncio.sleep(duration)
                     
                 except asyncio.QueueEmpty:
                     break
