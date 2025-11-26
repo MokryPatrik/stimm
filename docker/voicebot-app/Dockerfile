@@ -17,15 +17,18 @@ RUN apt-get update && apt-get install -y \
     portaudio19-dev \
     python3-pyaudio \
     ffmpeg \
+    curl \
     && rm -rf /var/lib/apt/lists/*
-    
 
-# Install any needed packages specified in requirements.txt
+# Install uv using pip (simple et efficace)
+RUN pip install uv
+
+# Copy requirements first for better caching
 COPY . .
 
-
-
-RUN pip install -r requirements.txt
+# Install dependencies using uv (much faster than pip)
+# --system flag installs packages globally (like pip install)
+RUN uv pip install --system -r requirements.txt
 
 # Copy the rest of the application code
 

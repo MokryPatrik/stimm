@@ -29,3 +29,5 @@ aiortc>=1.8.0
 av>=11.0.0
 livekit>=0.9.0
 livekit-api>=0.9.0
+livekit-agents>=0.8.0
+livekit-plugins-silero>=0.6.0

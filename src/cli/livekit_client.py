@@ -65,10 +65,11 @@ class LiveKitClient:
             await self.room.connect(ws_url, self.token)
             self.is_connected = True
             
-            # Publish microphone track
+            # Publish track as UNKNOWN source to bypass WebRTC audio processing (AGC, noise suppression)
+            # Using SOURCE_MICROPHONE applies AGC which was reducing our audio by 300x
             await self.room.local_participant.publish_track(
                 self.audio_track,
-                rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE)
+                rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_UNKNOWN)
             )
             
             logger.info("✅ LiveKit connection established")
@@ -313,7 +314,7 @@ class LiveKitClient:
         error_counter = 0
         last_log_time = asyncio.get_event_loop().time()
         
-        logger.info(f"🎬 Starting LiveKit audio transmission with dynamic AudioFrame creation")
+        logger.info(f"🎬 Starting LiveKit audio transmission")
         
         while self.is_capturing:
             try:
@@ -328,12 +329,17 @@ class LiveKitClient:
                 audio_array = np.frombuffer(audio_data, dtype=np.int16)
                 samples_per_channel = len(audio_array)
                 
-                # Create AudioFrame dynamically based on actual chunk size using LiveKit's create() method
+                # Create AudioFrame using LiveKit's create() method (as per docs)
                 audio_frame = rtc.AudioFrame.create(16000, 1, samples_per_channel)
+                # Get a writable numpy view of the frame's buffer
                 audio_data_view = np.frombuffer(audio_frame.data, dtype=np.int16)
-                
-                # Copy audio data into the frame buffer using np.copyto()
+                # Copy our audio data into the frame buffer
                 np.copyto(audio_data_view, audio_array)
+                
+                # DIAGNOSTIC: Log first frame's hex to verify non-zero data
+                if frame_counter < 5:
+                    sample_bytes = bytes(audio_frame.data[:20])
+                    logger.info(f"📤 CLIENT Frame #{frame_counter}: First 20 bytes (hex): {sample_bytes.hex()}")
                 
                 # Send to LiveKit using the frame
                 if self.audio_source:

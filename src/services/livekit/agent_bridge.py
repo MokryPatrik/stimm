@@ -189,6 +189,9 @@ class LiveKitAgentBridge:
                                 logger.info(f"   - memoryview format: {frame.data.format}")
                                 logger.info(f"   - memoryview itemsize: {frame.data.itemsize}")
                                 logger.info(f"   - memoryview nbytes: {frame.data.nbytes}")
+                                # Log first few bytes as hex
+                                sample_bytes = bytes(frame.data[:20])  # First 20 bytes
+                                logger.info(f"   - First 20 bytes (hex): {sample_bytes.hex()}")
                             elif isinstance(frame.data, np.ndarray):
                                 logger.info(f"   - frame.data dtype: {frame.data.dtype}")
                                 logger.info(f"   - frame.data shape: {frame.data.shape}")

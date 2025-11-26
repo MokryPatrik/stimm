@@ -7,14 +7,19 @@ services:
       - 6379:6379
   livekit:
     image: livekit/livekit-server
-    command: --dev --redis-host redis:6379 --bind 0.0.0.0
+    command: --config /etc/livekit.toml --node-ip 0.0.0.0 --redis-host redis:6379 --bind 0.0.0.0
+    volumes:
+      - ./livekit.toml:/etc/livekit.toml:ro
     ports:
       - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
+      - "50000-50100:50000-50100/udp" # RTC port range for debugging
+    environment:
+      - LIVEKIT_LOG_LEVEL=debug
     depends_on:
-        redis:
-            condition: service_started
+      redis:
+        condition: service_started
   sip:
     image: livekit/sip
     ports:
