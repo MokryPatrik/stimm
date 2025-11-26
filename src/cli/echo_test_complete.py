@@ -8,12 +8,16 @@ import subprocess
 import os
 from livekit import api, rtc
 
+# Import the new environment configuration
+from environment_config import get_livekit_url
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("echo-test")
 
-LIVEKIT_URL = "ws://livekit:7880"
-API_KEY = "devkey"
-API_SECRET = "secret"
+# Configuration - use environment-aware LiveKit URL
+LIVEKIT_URL = os.getenv("LIVEKIT_URL", get_livekit_url())
+API_KEY = os.getenv("LIVEKIT_API_KEY", "devkey")
+API_SECRET = os.getenv("LIVEKIT_API_SECRET", "secret")
 ROOM_NAME = "echo-test"
 
 # FFplay process for audio playback

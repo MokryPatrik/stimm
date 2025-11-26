@@ -1,6 +1,7 @@
 'use client'
 
 import { Room, RoomEvent, RemoteParticipant, LocalParticipant, RemoteTrackPublication } from 'livekit-client'
+import { apiClient } from './frontend-config'
 
 interface LiveKitEvents {
   onConnectionStateChange?: (state: string) => void
@@ -19,6 +20,15 @@ export class LiveKitVoiceClient {
   private agentParticipant: RemoteParticipant | null = null
 
   constructor() {
+    // Log environment info for debugging
+    const envInfo = apiClient.getEnvironment()
+    console.log('LiveKit Client Environment:', {
+      isServerSide: envInfo.isServerSide,
+      hostname: envInfo.hostname,
+      type: envInfo.type,
+      liveKitUrl: apiClient.getLiveKitUrl()
+    })
+    
     this.setupRoom()
   }
 
@@ -90,8 +100,8 @@ export class LiveKitVoiceClient {
     }
 
     try {
-      // 1. Obtenir les informations de la salle depuis notre backend
-      const roomResponse = await fetch('/api/livekit/create-room', {
+      // 1. Obtenir les informations de la salle depuis notre backend (environment-aware)
+      const roomResponse = await apiClient.apiCall('/api/livekit/create-room', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,8 +132,9 @@ export class LiveKitVoiceClient {
         video: false,
       })
 
-      // 3. Se connecter à la salle LiveKit
-      await this.room.connect(roomInfo.livekit_url, roomInfo.access_token, {
+      // 3. Se connecter à la salle LiveKit (always use localhost for browser)
+      const liveKitUrl = apiClient.getLiveKitUrl()
+      await this.room.connect(liveKitUrl, roomInfo.access_token, {
         // Options de connexion
         autoSubscribe: true,
       })
@@ -131,7 +142,6 @@ export class LiveKitVoiceClient {
       // 4. Publier le microphone
       await this.room.localParticipant.publishTrack(localStream.getAudioTracks()[0], {
         name: 'microphone',
-        source: 'microphone',
         // Optimisations pour la voix
         dtx: true, // Discontinuous Transmission
         red: true, // Redundancy

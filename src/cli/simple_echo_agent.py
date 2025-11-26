@@ -5,6 +5,9 @@ import signal
 from dotenv import load_dotenv
 from livekit import api, rtc
 
+# Import the new environment configuration
+from environment_config import get_livekit_url
+
 load_dotenv()
 
 # Configure logging
@@ -14,8 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("echo-client")
 
-# Configuration
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "ws://localhost:7880")
+# Configuration - use environment-aware LiveKit URL
+LIVEKIT_URL = os.getenv("LIVEKIT_URL", get_livekit_url())
 API_KEY = os.getenv("LIVEKIT_API_KEY", "devkey")
 API_SECRET = os.getenv("LIVEKIT_API_SECRET", "secret")
 ROOM_NAME = "echo-test"

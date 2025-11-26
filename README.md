@@ -154,80 +154,97 @@ sequenceDiagram
 
 ## 💻 Development
 
-### Preferred Development Setup (Docker Compose)
+The VoiceBot platform supports **dual-mode development** with flexible deployment options.
 
-The **best development context** is within Docker Compose, which provides automatic reload capabilities:
+### Option 1: Local Development (Recommended)
 
-1. **Clone and configure** (same as installation steps above)
+This approach runs the backend locally with uv virtualenv while using Docker for supporting services.
 
-2. **Start development environment with hot reload**:
+1. **Start supporting services** (PostgreSQL, Qdrant, LiveKit, Redis, Traefik):
    ```bash
-   docker-compose up --build
+   docker compose up -d postgres qdrant livekit redis traefik
    ```
 
-   This will start:
-   - **Backend**: FastAPI with `--reload` flag, automatically restarting on code changes
-   - **Frontend**: Next.js with hot module replacement, updating on file changes
-   - **Database**: PostgreSQL with persistent storage
-   - **Vector Store**: Qdrant for RAG functionality
-   - **Reverse Proxy**: Traefik routing to services
+2. **Setup and run backend locally**:
+   ```bash
+   # The virtual environment is already set up
+   source .venv/bin/activate
+   
+   # Run the application
+   python src/main.py
+   ```
+   Backend will be available at: http://localhost:8001
 
-3. **Access the development environment**:
+3. **Setup and run frontend locally**:
+   ```bash
+   cd src/front
+   
+   # Setup environment (first time only)
+   ./scripts/setup-frontend-dev.sh
+   
+   # Run development server
+   npm run dev
+   ```
+   Frontend will be available at: http://localhost:3000
+
+**Benefits:**
+- ✅ Fast development with immediate code changes
+- ✅ Direct access to backend with debugging tools
+- ✅ 60% faster dependency management with uv
+- ✅ Environment-aware URLs (automatic localhost vs container detection)
+
+### Option 2: Full Docker Stack
+
+This approach runs everything in Docker containers for a consistent environment.
+
+1. **Start all services including voicebot-app and voicebot-app-front**:
+   ```bash
+   docker compose up
+   ```
+
+2. **Access the application**:
    - **Frontend**: [http://front.localhost](http://front.localhost)
    - **API Documentation**: [http://api.localhost/docs](http://api.localhost/docs)
 
-The Docker Compose setup automatically:
-- Mounts source directories for live code reloading
-- Enables debug ports and development features
-- Provides persistent database and vector storage
-- Handles all service dependencies
+**Features:**
+- Automatic code reloading for both backend and frontend
+- Consistent environment across all developers
+- Persistent database and vector storage
+- Complete service orchestration
 
-### Alternative: Local Development (Not Preferred)
+### Option 3: Frontend-Only Development
 
-If you prefer to run services locally (not recommended), you can set up the development environment manually:
+For UI/UX development without backend changes:
 
-#### Backend Setup
-
-1. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -r src/requirements.txt
-   ```
-
-3. Run migrations:
-   ```bash
-   alembic upgrade head
-   ```
-
-4. Run locally:
-   ```bash
-   cd src
-   uvicorn main:app --reload --port 8000
-   ```
-
-#### Frontend Setup
-
-1. Navigate to the frontend directory:
+1. **Setup frontend environment**:
    ```bash
    cd src/front
+   ./scripts/setup-frontend-dev.sh
    ```
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Run the development server:
+2. **Start frontend** (connects to localhost:8001):
    ```bash
    npm run dev
    ```
 
-**Note**: This approach requires manually managing database connections, external service dependencies, and doesn't provide the same development experience as Docker Compose.
+3. **Ensure backend is running** (from Option 1 or 2)
+
+### Environment Detection
+
+The platform automatically detects the development environment:
+
+- **Backend**: Uses container names when in Docker, localhost when running locally
+- **Frontend SSR**: Uses environment-aware URLs for API calls
+- **Frontend Client**: Always uses localhost URLs for browser consistency
+
+### Development Tools
+
+- **Backend debugging**: Use standard Python debugging tools with local execution
+- **Frontend debugging**: Use browser DevTools and Next.js debugging features
+- **Database access**: PostgreSQL available at `localhost:5432`
+- **Vector database**: Qdrant available at `localhost:6333`
+
+Choose the development approach that best fits your workflow!
 
 ## 📂 Project Structure
 

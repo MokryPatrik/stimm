@@ -4,7 +4,9 @@ Main entry point for the voicebot application.
 
 import asyncio
 import logging
+import os
 import uvicorn
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +29,15 @@ from services.livekit.routes import router as livekit_router
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Voicebot API", version="1.0.0")
+
+# Detect if we're running from src/ directory or root
+current_dir = Path.cwd()
+if current_dir.name == "src":
+    # Running from src/ directory
+    BASE_DIR = current_dir
+else:
+    # Running from root directory
+    BASE_DIR = current_dir / "src"
 
 
 @app.on_event("startup")
@@ -57,6 +68,13 @@ async def startup_event():
         
         # Initialize agent system (default agent only; no global provider config)
         try:
+            # Force environment config loading first to ensure correct database URL
+            from environment_config import get_environment_config
+            env_config = get_environment_config()
+            logger.info(f"Environment detected as: {env_config.environment_type}")
+            logger.info(f"Database URL: {env_config.database_url}")
+            
+            # Now initialize agent system
             from services.agents_admin.dev_agent_creator import initialize_default_agent
             from database.session import get_db
 
@@ -93,13 +111,15 @@ app.add_middleware(
 )
 
 # Mount static files for voicebot wrapper
-app.mount("/static", StaticFiles(directory="services/agents/static"), name="voicebot_static")
+static_dir = BASE_DIR / "services" / "agents" / "static"
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="voicebot_static")
 
 # Mount shared static files
-app.mount("/shared-static", StaticFiles(directory="static"), name="shared_static")
+shared_static_dir = BASE_DIR / "static"
+app.mount("/shared-static", StaticFiles(directory=str(shared_static_dir)), name="shared_static")
 
 # Mount app static files
-app.mount("/app-static", StaticFiles(directory="static"), name="app_static")
+app.mount("/app-static", StaticFiles(directory=str(shared_static_dir)), name="app_static")
 
 # Include routers
 app.include_router(llm_router, prefix="/api", tags=["llm"])
@@ -112,9 +132,10 @@ app.include_router(voicebot_router, prefix="/api", tags=["voicebot"])
 app.include_router(agent_router, prefix="/api", tags=["agents"])
 app.include_router(signaling_router, prefix="/api", tags=["webrtc"])
 app.include_router(livekit_router, prefix="/api", tags=["livekit"])
-
 # Templates for voicebot interface
-templates = Jinja2Templates(directory="services/agents/templates")
+templates_dir = BASE_DIR / "services" / "agents" / "templates"
+templates = Jinja2Templates(directory=str(templates_dir))
+
 
 @app.get("/")
 def read_root():
@@ -188,4 +209,4 @@ async def voicebot_interface(request: Request):
     return templates.TemplateResponse("voicebot.html", {"request": request})
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

@@ -46,7 +46,27 @@ async def test_complete_rag_workflow():
     
     # Initialize the RAG service components
     embedder = SentenceTransformer("BAAI/bge-base-en-v1.5")
-    qdrant_client = QdrantClient(host="qdrant", port=6333)
+    
+    # Use environment-aware Qdrant connection
+    from environment_config import get_environment_config
+    env_config = get_environment_config()
+    qdrant_config = env_config.get_service_config("qdrant")
+    
+    # Parse Qdrant URL to extract host and port
+    qdrant_url = qdrant_config.get("url", "http://localhost:6333")
+    if "://" in qdrant_url:
+        protocol_and_host = qdrant_url.split("://")[1]
+        if ":" in protocol_and_host:
+            host, port_part = protocol_and_host.split(":")
+            port = int(port_part.split("/")[0])
+        else:
+            host = protocol_and_host.split("/")[0]
+            port = 6333
+    else:
+        host = "localhost"
+        port = 6333
+    
+    qdrant_client = QdrantClient(host=host, port=port)
     rag_state = RagState()
     rag_state.embedder = embedder
     rag_state.client = qdrant_client

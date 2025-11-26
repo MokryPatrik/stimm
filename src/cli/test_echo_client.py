@@ -10,6 +10,9 @@ import signal
 from dotenv import load_dotenv
 from livekit import api, rtc
 
+# Import the new environment configuration
+from environment_config import get_livekit_url, get_voicebot_api_url
+
 load_dotenv()
 
 logging.basicConfig(
@@ -18,7 +21,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("test-client")
 
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "ws://livekit:7880")
+# Use environment-aware LiveKit URL
+LIVEKIT_URL = os.getenv("LIVEKIT_URL", get_livekit_url())
 API_KEY = os.getenv("LIVEKIT_API_KEY", "devkey")
 API_SECRET = os.getenv("LIVEKIT_API_SECRET", "secret")
 ROOM_NAME = "echo-test"

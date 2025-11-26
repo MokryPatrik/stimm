@@ -10,6 +10,9 @@ from typing import Optional
 
 import aiohttp
 
+# Import the new environment configuration
+from environment_config import get_voicebot_api_url, get_livekit_url
+
 from .livekit_client import LiveKitClient
 
 
@@ -20,8 +23,9 @@ class AgentRunner:
         self.agent_name = agent_name
         self.room_name = room_name or f"cli-{agent_name}-{uuid.uuid4().hex[:8]}"
         self.verbose = verbose
-        self.base_url = "http://voicebot-app:8001"
-        self.livekit_url = os.getenv("LIVEKIT_URL", "ws://livekit:7880")
+        # Use environment-aware API URL
+        self.base_url = os.getenv("VOICEBOT_API_URL", get_voicebot_api_url())
+        self.livekit_url = os.getenv("LIVEKIT_URL", get_livekit_url())
         self.session: Optional[aiohttp.ClientSession] = None
         self.logger = logging.getLogger(__name__)
         

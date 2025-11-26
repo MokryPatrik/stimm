@@ -7,25 +7,46 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
+# Import environment configuration for dual-mode support
+from environment_config import get_database_url
+
 load_dotenv()
 
-# Database URL from environment or default
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql://voicebot_user:voicebot_password@localhost:5432/voicebot"
-)
+# Create engine with connection pooling (lazy loaded)
+_engine = None
+_session_factory = None
 
-# Create engine with connection pooling
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    echo=os.getenv("SQL_ECHO", "false").lower() == "true"
-)
+def _get_engine():
+    """Get or create the database engine, ensuring environment config is loaded."""
+    global _engine
+    if _engine is None:
+        # Force environment config loading to get correct database URL
+        try:
+            from environment_config import get_environment_config
+            env_config = get_environment_config()
+            actual_db_url = os.getenv("DATABASE_URL", env_config.database_url)
+        except ImportError:
+            # Fallback if environment config is not available yet
+            actual_db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/voicebot")
+        
+        _engine = create_engine(
+            actual_db_url,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
+            echo=os.getenv("SQL_ECHO", "false").lower() == "true"
+        )
+    return _engine
+
+def _get_session_factory():
+    """Get or create the session factory."""
+    global _session_factory
+    if _session_factory is None:
+        _session_factory = sessionmaker(autocommit=False, autoflush=False, bind=_get_engine())
+    return _session_factory
 
 # Session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = _get_session_factory()
 
 # Base class for models
 Base = declarative_base()
@@ -48,11 +69,18 @@ def create_tables():
     Create all tables in the database.
     Should only be used for development/testing.
     """
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=_get_engine())
 
 def drop_tables():
     """
     Drop all tables in the database.
     Should only be used for development/testing.
     """
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=_get_engine())
+
+def get_engine():
+    """
+    Get the database engine instance.
+    Used by other modules that need direct access to the engine.
+    """
+    return _get_engine()

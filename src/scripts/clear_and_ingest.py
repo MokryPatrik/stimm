@@ -5,12 +5,43 @@ import argparse
 import os
 import sys
 from pathlib import Path
+
+# Add the parent directory to Python path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
-def clear_qdrant_collection(host="qdrant", port=6333, collection="voicebot_knowledge"):
+# Import environment configuration for dual-mode support
+from environment_config import get_environment_config
+
+def get_qdrant_connection():
+    """Get environment-aware Qdrant connection"""
+    env_config = get_environment_config()
+    qdrant_config = env_config.get_service_config("qdrant")
+    
+    # Parse Qdrant URL to extract host and port
+    qdrant_url = qdrant_config.get("url", "http://localhost:6333")
+    
+    if "://" in qdrant_url:
+        protocol_and_host = qdrant_url.split("://")[1]
+        if ":" in protocol_and_host:
+            host, port_part = protocol_and_host.split(":")
+            port = int(port_part.split("/")[0])
+        else:
+            host = protocol_and_host.split("/")[0]
+            port = 6333
+    else:
+        # Fallback for invalid URL
+        host = "localhost"
+        port = 6333
+        
+    return QdrantClient(host=host, port=port), host, port
+
+def clear_qdrant_collection(collection="voicebot_knowledge"):
     """Clear the specified Qdrant collection."""
-    client = QdrantClient(host=host, port=port)
+    client, host, port = get_qdrant_connection()
+    print(f"Connecting to Qdrant at {host}:{port}")
 
     # Check if collection exists
     collections = client.get_collections()
@@ -41,10 +72,10 @@ def clear_qdrant_collection(host="qdrant", port=6333, collection="voicebot_knowl
     print(f"Collection '{collection}' is now empty.")
     return client
 
-def ingest_document(file_path, namespace="bayview-banking", host="qdrant", port=6333):
+def ingest_document(file_path, namespace="bayview-banking"):
     """Ingest a document directly into Qdrant."""
     # Add scripts directory to Python path
-    sys.path.insert(0, '/app/scripts')
+    sys.path.insert(0, str(Path(__file__).parent))
     
     # Import the ingest_documents module
     from ingest_documents import _build_payload
@@ -56,7 +87,8 @@ def ingest_document(file_path, namespace="bayview-banking", host="qdrant", port=
     print(f"Prepared {len(payload['documents'])} chunks for ingestion")
     
     # Get Qdrant client
-    client = QdrantClient(host=host, port=port)
+    client, host, port = get_qdrant_connection()
+    print(f"Connecting to Qdrant at {host}:{port}")
     
     # Generate embeddings for the documents using the same model as voicebot-app
     from sentence_transformers import SentenceTransformer
@@ -101,17 +133,6 @@ def main():
         help="Path to the markdown file to ingest",
     )
     parser.add_argument(
-        "--qdrant-host",
-        default="qdrant",
-        help="Qdrant host (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--qdrant-port",
-        type=int,
-        default=6333,
-        help="Qdrant port (default: %(default)s)",
-    )
-    parser.add_argument(
         "--collection",
         default="voicebot_knowledge",
         help="Qdrant collection name (default: %(default)s)",
@@ -126,8 +147,6 @@ def main():
 
     # Clear the Qdrant collection
     client = clear_qdrant_collection(
-        host=args.qdrant_host,
-        port=args.qdrant_port,
         collection=args.collection,
     )
 
@@ -136,8 +155,6 @@ def main():
     ingest_document(
         file_path=args.file,
         namespace=args.namespace,
-        host=args.qdrant_host,
-        port=args.qdrant_port,
     )
 
     print("Document ingestion completed successfully!")

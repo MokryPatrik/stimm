@@ -5,6 +5,9 @@ import os
 from typing import Dict, Any
 from livekit import api
 
+# Import the new environment configuration
+from environment_config import get_livekit_url
+
 from services.agents.voicebot_service import get_voicebot_service, VoicebotService
 from services.agents_admin.agent_service import AgentService
 from .agent_bridge import create_agent_bridge
@@ -18,8 +21,8 @@ class LiveKitService:
     
     def __init__(self, livekit_url: str = None,
                  api_key: str = "devkey", api_secret: str = "secret"):
-        # Utiliser l'URL de l'environnement ou la valeur par défaut
-        self.livekit_url = livekit_url or os.getenv("LIVEKIT_URL", "http://localhost:7880")
+        # Use environment-aware LiveKit URL
+        self.livekit_url = livekit_url or os.getenv("LIVEKIT_URL", get_livekit_url().replace("ws://", "http://"))
         self.api_key = api_key
         self.api_secret = api_secret
         

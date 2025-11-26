@@ -373,9 +373,9 @@ class LiveKitClient:
                 else:
                     logger.warning("⚠️ Audio source not available or empty audio chunk")
                     
-        except Exception as e:
-            logger.error(f"❌ Error sending audio to LiveKit: {e}")
-            await asyncio.sleep(0.1)
+            except Exception as e:
+                logger.error(f"❌ Error sending audio to LiveKit: {e}")
+                await asyncio.sleep(0.1)
 
     async def _play_audio_track(self, track: rtc.AudioTrack, participant_id: str):
         """
@@ -395,7 +395,7 @@ class LiveKitClient:
                 "-ac", "1", "-nodisp", "-autoexit", "-"
             ]
             self.ffplay_process = subprocess.Popen(
-                cmd, 
+                cmd,
                 stdin=subprocess.PIPE,
                 stderr=subprocess.DEVNULL
             )
