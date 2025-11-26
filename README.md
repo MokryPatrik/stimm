@@ -253,6 +253,13 @@ Choose the development approach that best fits your workflow!
 ├── alembic/              # Database migrations
 ├── docker/               # Docker configurations for services
 ├── src/
+│   ├── cli/              # Command-line interface tools
+│   │   ├── agent_runner.py    # Agent runner for LiveKit
+│   │   ├── echo_client.py     # Audio pipeline test client
+│   │   ├── echo_server.py     # Audio pipeline test server
+│   │   ├── main.py            # CLI entry point
+│   │   ├── test_livekit_microphone.py  # Microphone testing
+│   │   └── test_mic.py        # Basic microphone testing
 │   ├── database/         # Database models and session
 │   ├── front/            # Next.js Frontend application
 │   ├── services/         # Microservices / Modules
@@ -280,36 +287,54 @@ The VoiceBot platform includes a powerful CLI tool for testing agents directly f
 #### List Available Agents
 
 ```bash
+# From Docker container
 docker exec -it voicebot-app python -m cli.main --list-agents
+
+# From local development
+python -m src.cli.main --list-agents
 ```
 
 #### Text Mode (Recommended for quick testing)
 
 ```bash
 # Basic text conversation
-docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode text
+python -m src.cli.main --agent-name "Etienne" --mode text
 
 # With RAG enabled (default)
-docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode text --use-rag
+python -m src.cli.main --agent-name "Etienne" --mode text --use-rag
 
 # With verbose logging
-docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode text --verbose
+python -m src.cli.main --agent-name "Etienne" --mode text --verbose
 ```
 
 #### Full Audio Mode (LiveKit WebRTC)
 
 ```bash
 # Audio conversation via LiveKit
-docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode full
+python -m src.cli.main --agent-name "Etienne" --mode full
 
 # With custom room name
-docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode full --room-name "test-conversation"
+python -m src.cli.main --agent-name "Etienne" --mode full --room-name "test-conversation"
+```
+
+#### Audio Pipeline Testing
+
+```bash
+# Test complete audio pipeline with echo server and client
+python -m src.cli.main --test-echo --verbose
+
+# Test microphone recording
+python -m src.cli.main --test-mic 5
+
+# Test LiveKit microphone capture
+python -m src.cli.main --test-livekit-mic 5
 ```
 
 ### Features
 
 - **Text Mode**: Interactive text conversation with the agent
 - **Full Audio Mode**: Real-time audio conversation via LiveKit WebRTC
+- **Audio Testing**: Complete pipeline testing with echo tools
 - **RAG Integration**: Retrieval-Augmented Generation with knowledge base context
 - **Agent Configuration**: Uses the specific LLM/TTS/STT configuration of each agent
 - **LiveKit Integration**: WebRTC audio streaming for low-latency conversations
@@ -318,13 +343,16 @@ docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode fu
 
 ```bash
 # List all available agents
-docker exec -it voicebot-app python -m cli.main --list-agents
+python -m src.cli.main --list-agents
 
 # Test agent in text mode
-docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode text
+python -m src.cli.main --agent-name "Etienne" --mode text
 
 # Test with audio via LiveKit
-docker exec -it voicebot-app python -m cli.main --agent-name "Etienne" --mode full --verbose
+python -m src.cli.main --agent-name "Etienne" --mode full --verbose
+
+# Test audio pipeline
+python -m src.cli.main --test-echo
 ```
 
 ## 🔧 Audio Pipeline Testing Tools
