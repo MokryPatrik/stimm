@@ -61,8 +61,8 @@ async def main():
     # Create a local audio track that we will push audio into
     source = rtc.AudioSource(sample_rate=48000, num_channels=1)
     track = rtc.LocalAudioTrack.create_audio_track("echo-out", source)
-    # Use SOURCE_UNKNOWN instead of SOURCE_MICROPHONE to avoid audio processing
-    options = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_UNKNOWN)
+    # Use SOURCE_MICROPHONE for proper audio processing (like the LiveKit agent version)
+    options = rtc.TrackPublishOptions(source=rtc.TrackSource.SOURCE_MICROPHONE)
     
     await room.local_participant.publish_track(track, options)
     logger.info("📢 Published echo track")
@@ -83,12 +83,15 @@ async def main():
                     if event.frame and len(event.frame.data) > 0:
                         # Use SOURCE_UNKNOWN to capture frame without audio processing
                         await echo_source.capture_frame(event.frame)
+                        # Log every 1000 frames instead of every frame for better performance
+                        if frame_count % 1000 == 0:
+                            logger.info(f"Echoed frame #{frame_count}, size: {len(event.frame.data)} bytes")
                     else:
-                        logger.debug(f"Skipping empty frame #{frame_count}")
+                        logger.warning(f"Skipping empty frame #{frame_count}")
                         
                 except Exception as e:
                     error_count += 1
-                    logger.warning(f"Frame capture error #{error_count}: {e}")
+                    logger.error(f"Frame capture error #{error_count}: {e}")
                     
                     # Log detailed info periodically
                     current_time = asyncio.get_event_loop().time()
