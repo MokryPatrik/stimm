@@ -288,17 +288,20 @@ python -m src.cli.main --test-livekit-mic 5
 ### Examples
 
 ```bash
+# Test audio pipeline
+python -m src.cli.main --test-echo
+
 # List all available agents
 python -m src.cli.main --list-agents
 
 # Test agent in text mode
 python -m src.cli.main --agent-name "Etienne" --mode text
 
-# Test with audio via LiveKit
-python -m src.cli.main --agent-name "Etienne" --mode full --verbose
+# Test with audio via LiveKit en local
+python -m src.cli.main --agent-name "Etienne" --mode full --local --verbose
 
-# Test audio pipeline
-python -m src.cli.main --test-echo
+# Test with audio via LiveKit avec connection au serveur en http
+python -m src.cli.main --agent-name "Etienne" --mode full --verbose
 ```
 
 ## 🔧 Audio Pipeline Testing
