@@ -33,11 +33,20 @@ class LLMService:
     def _initialize_provider(self):
         """Initialize the appropriate LLM provider based on agent configuration"""
         # Get agent configuration
+        agent_config = None
+        
         if self.session_id:
-            agent_config = self.agent_manager.get_session_agent(self.session_id)
-        elif self.agent_id:
+            try:
+                # Verify if session_id is a valid UUID before querying
+                UUID(self.session_id)
+                agent_config = self.agent_manager.get_session_agent(self.session_id)
+            except (ValueError, Exception) as e:
+                logger.warning(f"Invalid session_id '{self.session_id}', falling back to agent_id: {e}")
+        
+        if not agent_config and self.agent_id:
             agent_config = self.agent_manager.get_agent_config(self.agent_id)
-        else:
+            
+        if not agent_config:
             agent_config = self.agent_manager.get_agent_config()
         
         provider_name = agent_config.llm_provider
