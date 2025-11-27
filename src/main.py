@@ -79,7 +79,7 @@ async def startup_event():
             # Force environment config loading first to ensure correct database URL
             from environment_config import get_environment_config
             env_config = get_environment_config()
-            logger.info(f"Environment detected as: {env_config.environment_type}")
+            logger.info(f"Environment detected as: {os.getenv('ENVIRONMENT', 'local')}")
             logger.info(f"Database URL: {env_config.database_url}")
             
             # Now initialize agent system
