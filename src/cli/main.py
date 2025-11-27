@@ -103,6 +103,12 @@ Examples:
         "--room-name",
         help="Custom room name for LiveKit (default: auto-generated)"
     )
+
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help="Run agent locally in a subprocess (simulates 'agent console' mode)"
+    )
     
     parser.add_argument(
         "--use-rag",
@@ -163,12 +169,12 @@ async def run_text_mode(agent_name: str, use_rag: bool = True, verbose: bool = F
     return 0
 
 
-async def run_full_mode(agent_name: str, room_name: Optional[str] = None, verbose: bool = False):
+async def run_full_mode(agent_name: str, room_name: Optional[str] = None, verbose: bool = False, is_local: bool = False):
     """Run agent in full audio mode via LiveKit"""
-    logging.info(f"Starting full audio mode for agent: {agent_name}")
+    logging.info(f"Starting full audio mode for agent: {agent_name} (Local: {is_local})")
     
     try:
-        agent_runner = AgentRunner(agent_name, room_name, verbose=verbose)
+        agent_runner = AgentRunner(agent_name, room_name, verbose=verbose, is_local=is_local)
         await agent_runner.run()
     except KeyboardInterrupt:
         logging.info("Full mode interrupted by user")
@@ -366,7 +372,7 @@ async def async_main():
         if args.mode == "text":
             return await run_text_mode(args.agent_name, args.use_rag, args.verbose)
         else:  # full mode
-            return await run_full_mode(args.agent_name, args.room_name, args.verbose)
+            return await run_full_mode(args.agent_name, args.room_name, args.verbose, args.local)
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         return 1

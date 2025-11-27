@@ -20,15 +20,17 @@ from .livekit_client import LiveKitClient
 class AgentRunner:
     """Runner for full audio mode via LiveKit"""
     
-    def __init__(self, agent_name: str, room_name: Optional[str] = None, verbose: bool = False):
+    def __init__(self, agent_name: str, room_name: Optional[str] = None, verbose: bool = False, is_local: bool = False):
         self.agent_name = agent_name
         self.room_name = room_name or f"cli-{agent_name}-{uuid.uuid4().hex[:8]}"
         self.verbose = verbose
+        self.is_local = is_local
         # Use environment-aware API URL
         self.base_url = os.getenv("VOICEBOT_API_URL", get_voicebot_api_url())
         self.livekit_url = os.getenv("LIVEKIT_URL", get_livekit_url())
         self.session: Optional[aiohttp.ClientSession] = None
         self.logger = logging.getLogger(__name__)
+        self.worker_process = None
         
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -37,9 +39,46 @@ class AgentRunner:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.session:
             await self.session.close()
+        if self.worker_process:
+            self.worker_process.terminate()
+            try:
+                self.worker_process.wait(timeout=2)
+            except Exception:
+                pass
             
     async def _get_agent_uuid(self) -> Optional[str]:
         """Get agent UUID from agent name"""
+        if self.is_local:
+            # Try to resolve name to UUID via direct DB access if possible
+            try:
+                from services.agents_admin.agent_service import AgentService
+                # We need a synchronous way or run in executor?
+                # AgentService uses a DB session.
+                # Let's just try to interpret it as UUID first.
+                try:
+                    uuid.UUID(self.agent_name)
+                    return self.agent_name
+                except ValueError:
+                    pass
+                
+                # If not UUID, try DB lookup
+                self.logger.info(f"🔍 Resolving agent name '{self.agent_name}' to UUID from DB...")
+                service = AgentService()
+                # We need to find by name. AgentService doesn't have get_by_name exposed?
+                # It has list_agents().
+                response = service.list_agents()
+                for agent in response.agents:
+                    if agent.name == self.agent_name:
+                        self.logger.info(f"✅ Found agent ID: {agent.id}")
+                        return str(agent.id)
+                
+                self.logger.warning(f"❌ Agent '{self.agent_name}' not found in DB")
+                return None
+            except Exception as e:
+                self.logger.warning(f"Failed to resolve agent ID locally: {e}")
+                # Fallback: return name as is (might fail if services expect UUID)
+                return self.agent_name
+
         if not self.session:
             raise RuntimeError("Session not initialized")
             
@@ -66,8 +105,8 @@ class AgentRunner:
         """Create a LiveKit room for the agent"""
         token = None
         
-        # Method 1: Try via Backend API
-        if self.session:
+        # Method 1: Try via Backend API (Only if not local)
+        if self.session and not self.is_local:
             try:
                 # Get agent UUID from name
                 agent_uuid = await self._get_agent_uuid()
@@ -120,6 +159,45 @@ class AgentRunner:
             
     async def notify_agent(self) -> bool:
         """Notify agent to join the LiveKit room"""
+        
+        # LOCAL MODE: Spawn worker process
+        if self.is_local:
+            # Resolve agent ID
+            agent_uuid = await self._get_agent_uuid() or self.agent_name
+            
+            self.logger.info(f"🏗️ Spawning local agent worker for {self.agent_name} (ID: {agent_uuid})...")
+            import subprocess
+            import sys
+            
+            try:
+                env = os.environ.copy()
+                env["PYTHONUNBUFFERED"] = "1"
+                
+                cmd = [
+                    sys.executable, "-m", "src.cli.agent_worker",
+                    "--room-name", self.room_name,
+                    "--agent-id", agent_uuid,
+                    "--livekit-url", self.livekit_url
+                ]
+                
+                self.worker_process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE if not self.verbose else None, # Pipe if quiet, else inherit
+                    stderr=subprocess.PIPE if not self.verbose else None,
+                    text=True,
+                    env=env
+                )
+                self.logger.info("✅ Local agent worker spawned")
+                
+                # If verbose, we let it print to stdout/stderr naturally
+                # If not verbose, we might want to capture and log errors only
+                return True
+                
+            except Exception as e:
+                self.logger.error(f"Failed to spawn local worker: {e}")
+                return False
+
+        # API MODE
         if not self.session:
             raise RuntimeError("Session not initialized")
             
@@ -149,6 +227,9 @@ class AgentRunner:
             return False
             
     async def check_livekit_health(self) -> bool:
+        if self.is_local:
+            return True # Skip health check in local mode
+            
         """Check if LiveKit server is healthy"""
         # Try Backend API first
         try:
@@ -201,7 +282,10 @@ class AgentRunner:
                 print("Make sure LiveKit server is running on localhost:7880")
                 return
                 
-            print("✅ LiveKit service check passed")
+            if not self.is_local:
+                print("✅ LiveKit service check passed")
+            else:
+                print("✅ Running in LOCAL MODE (Skipping API checks)")
             
             # Create LiveKit room
             print("🔄 Creating LiveKit room...")
@@ -258,7 +342,7 @@ async def main():
     agent_name = sys.argv[1]
     room_name = sys.argv[2] if len(sys.argv) > 2 else None
     
-    runner = AgentRunner(agent_name, room_name, verbose=True)
+    runner = AgentRunner(agent_name, room_name, verbose=True, is_local=True)
     await runner.run()
 
 

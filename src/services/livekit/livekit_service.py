@@ -98,49 +98,23 @@ class LiveKitService:
             
             agent_access_token = agent_token.to_jwt()
             
-            # Create new service instances for this session to avoid concurrency issues
-            from services.stt.stt import STTService
-            from services.tts.tts import TTSService
-            from services.vad.silero_service import SileroVADService
-            from services.rag.chatbot_service import chatbot_service
-            
-            # Create new instances for this session
-            stt_service = STTService(agent_id=agent_id)
-            tts_service = TTSService(agent_id=agent_id)
-            vad_service = SileroVADService()
-            
-            voicebot_service = VoicebotService(
-                stt_service=stt_service,
-                chatbot_service=chatbot_service,
-                tts_service=tts_service,
-                vad_service=vad_service,
-                agent_id=agent_id
-            )
-            
-            # Determine sample rate from TTS provider
-            sample_rate = 24000  # Default
-            if hasattr(tts_service, 'provider') and hasattr(tts_service.provider, 'sample_rate'):
-                sample_rate = tts_service.provider.sample_rate
-                logger.info(f"🎤 Using sample rate {sample_rate}Hz from TTS provider")
-            
-            # Create and connect the agent bridge to LiveKit
-            agent_bridge = await create_agent_bridge(
+            # Use shared factory to create session
+            from services.agents.agent_factory import create_agent_session
+            session_data = await create_agent_session(
                 agent_id=agent_id,
                 room_name=room_name,
                 token=agent_access_token,
-                livekit_url=self.livekit_url,
-                sample_rate=sample_rate
+                livekit_url=self.livekit_url
             )
             
-            # Connect the bridge to the voicebot service
-            agent_bridge.set_voicebot_service(voicebot_service)
+            agent_bridge = session_data["agent_bridge"]
+            session_id = session_data["session_id"]
             
             # Store the session
-            session_id = f"{agent_id}_{room_name}"
             self.active_sessions[session_id] = {
                 "agent_id": agent_id,
                 "room_name": room_name,
-                "voicebot_service": voicebot_service,
+                "voicebot_service": session_data["voicebot_service"],
                 "agent_bridge": agent_bridge,
                 "created_at": asyncio.get_event_loop().time()
             }
