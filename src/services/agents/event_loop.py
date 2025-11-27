@@ -48,6 +48,9 @@ class VoicebotEventLoop:
         self.tts_service = tts_service
         self.vad_service = vad_service
         
+        # RAG State (initialized lazily but persisted)
+        self.rag_state = None
+        
         # State
         self.state = AgentState.LISTENING
         self.transcript_buffer = []
@@ -90,6 +93,41 @@ class VoicebotEventLoop:
         # Start STT stream processor
         self.stt_task = asyncio.create_task(self._process_stt_stream())
         
+        # Preload RAG state in background
+        asyncio.create_task(self._preload_rag())
+        
+    async def _preload_rag(self):
+        """Preload RAG state to avoid latency on first request."""
+        try:
+            if self.rag_state is None:
+                logger.info("🚀 Preloading RAG state...")
+                from services.rag.rag_state import RagState
+                from services.retrieval.config import retrieval_config
+                from sentence_transformers import SentenceTransformer
+                from qdrant_client import QdrantClient
+                
+                self.rag_state = RagState()
+                
+                # Initialize embedder
+                embed_model_name = retrieval_config.embed_model_name
+                logger.info(f"📚 Loading embedder (background): {embed_model_name}")
+                
+                # Run heavy loading in executor to not block event loop
+                loop = asyncio.get_event_loop()
+                self.rag_state.embedder = await loop.run_in_executor(
+                    None, lambda: SentenceTransformer(embed_model_name)
+                )
+                
+                # Initialize Qdrant client
+                logger.info("🗄️ Connecting to Qdrant (background)...")
+                self.rag_state.client = QdrantClient(
+                    host=retrieval_config.qdrant_host,
+                    port=retrieval_config.qdrant_port
+                )
+                logger.info("✅ RAG state preloaded successfully")
+        except Exception as e:
+            logger.warning(f"⚠️ RAG preloading failed: {e}")
+
     async def stop(self):
         """Stop the event loop."""
         logger.info(f"Stopping event loop for {self.conversation_id}")
@@ -337,55 +375,37 @@ class VoicebotEventLoop:
         try:
             logger.info(f"🔄 Starting LLM processing for: '{text[:50]}...'")
             
-            # CRITICAL FIX: Add timeout and debugging
-            async def process_with_timeout():
-                # Get RAG state - with full initialization
+            # Initialize RAG state if not already done
+            if self.rag_state is None:
                 try:
+                    logger.info("🔧 Initializing persistent RagState...")
                     from services.rag.rag_state import RagState
                     from services.retrieval.config import retrieval_config
                     from sentence_transformers import SentenceTransformer
                     from qdrant_client import QdrantClient
                     
-                    # Create and initialize RagState
-                    rag_state = RagState()
-                    logger.info("🔧 Initializing RagState with full components...")
+                    self.rag_state = RagState()
                     
-                    # Initialize embedder with correct model (768D for Qdrant compatibility)
-                    if retrieval_config.ultra_low_latency_mode:
-                        # For ultra-low latency, we need to be careful about model choice
-                        # But Qdrant expects 768D, so we use the main model
-                        embed_model_name = retrieval_config.embed_model_name
-                    else:
-                        embed_model_name = retrieval_config.embed_model_name
-                    
-                    logger.info(f"📚 Loading embedder: {embed_model_name}")
-                    rag_state.embedder = SentenceTransformer(embed_model_name)
-                    embed_dim = rag_state.embedder.get_sentence_embedding_dimension()
-                    logger.info(f"✅ Embedder loaded: {embed_dim}D")
+                    # Initialize embedder
+                    embed_model_name = retrieval_config.embed_model_name
+                    logger.info(f"📚 Loading embedder (one-time): {embed_model_name}")
+                    self.rag_state.embedder = SentenceTransformer(embed_model_name)
                     
                     # Initialize Qdrant client
                     logger.info("🗄️ Connecting to Qdrant...")
-                    rag_state.client = QdrantClient(
+                    self.rag_state.client = QdrantClient(
                         host=retrieval_config.qdrant_host,
                         port=retrieval_config.qdrant_port
                     )
-                    logger.info("✅ Qdrant client connected")
-                    
-                    # Verify Qdrant collection compatibility
-                    try:
-                        collection_info = rag_state.client.get_collection(retrieval_config.qdrant_collection)
-                        logger.info(f"✅ Qdrant collection '{retrieval_config.qdrant_collection}': {collection_info.points_count} documents")
-                    except Exception as e:
-                        logger.warning(f"⚠️ Qdrant collection check failed: {e}")
-                    
-                    logger.info("✅ RagState fully initialized with RAG capabilities!")
+                    logger.info("✅ RagState initialized and cached")
                     
                 except Exception as e:
-                    logger.warning(f"⚠️ Could not fully initialize RagState: {e}")
-                    logger.info("🔄 Falling back to basic RAG state...")
+                    logger.error(f"⚠️ Failed to initialize RagState: {e}")
                     from services.rag.rag_state import RagState
-                    rag_state = RagState()  # Empty fallback
-                
+                    self.rag_state = RagState() # Fallback
+
+            # CRITICAL FIX: Add timeout and debugging
+            async def process_with_timeout():
                 # Start TTS task
                 self.tts_task = asyncio.create_task(self._process_tts_stream())
                 
@@ -393,7 +413,7 @@ class VoicebotEventLoop:
                 async for response_chunk in self.chatbot_service.process_chat_message(
                     text,
                     self.conversation_id,
-                    rag_state=rag_state,
+                    rag_state=self.rag_state,
                     agent_id=self.agent_id,
                     session_id=self.session_id
                 ):
