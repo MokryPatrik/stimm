@@ -6,9 +6,9 @@
       "ENCODING": "linear16"
     },
     "elevenlabs.io": {
-      "SAMPLE_RATE": 22050,
+      "SAMPLE_RATE": 24000,
       "ENCODING": "pcm_s16le",
-      "OUTPUT_FORMAT": "pcm_22050"
+      "OUTPUT_FORMAT": "pcm_24000"
     },
     "async.ai": {
       "URL": "wss://api.async.ai/text_to_speech/websocket/ws",

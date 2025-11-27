@@ -245,7 +245,8 @@ class LiveKitClient:
 
     async def _handle_audio_track(self, track: rtc.AudioTrack):
         """Stream audio from LiveKit track to PyAudio output"""
-        stream = rtc.AudioStream(track)
+        # Force resampling to 48kHz to match PyAudio output stream
+        stream = rtc.AudioStream(track, sample_rate=SAMPLE_RATE)
         async for event in stream:
             if event.frame and self._output_stream:
                 try:

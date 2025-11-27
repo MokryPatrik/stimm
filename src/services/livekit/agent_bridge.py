@@ -177,28 +177,28 @@ class LiveKitAgentBridge:
                     frame_count += 1
                     
                     # Log detailed audio information for first few frames
-                    if frame_count <= 10:
-                        logger.info(f"🎤 Audio frame #{frame_count} from {participant.identity}:")
-                        logger.info(f"   - Sample rate: {frame.sample_rate}Hz")
-                        logger.info(f"   - Channels: {frame.num_channels}")
-                        logger.info(f"   - Samples per channel: {frame.samples_per_channel}")
+                    # if frame_count <= 10:
+                    #     logger.info(f"🎤 Audio frame #{frame_count} from {participant.identity}:")
+                    #     logger.info(f"   - Sample rate: {frame.sample_rate}Hz")
+                    #     logger.info(f"   - Channels: {frame.num_channels}")
+                    #     logger.info(f"   - Samples per channel: {frame.samples_per_channel}")
                     
                     # Convert audio frame to bytes and analyze
                     if hasattr(frame, 'data'):
                         # DIAGNOSTIC: Log the actual type and format of frame.data
-                        if frame_count <= 10:
-                            logger.info(f"   - frame.data type: {type(frame.data)}")
-                            if isinstance(frame.data, memoryview):
-                                logger.info(f"   - memoryview format: {frame.data.format}")
-                                logger.info(f"   - memoryview itemsize: {frame.data.itemsize}")
-                                logger.info(f"   - memoryview nbytes: {frame.data.nbytes}")
-                                # Log first few bytes as hex
-                                sample_bytes = bytes(frame.data[:20])  # First 20 bytes
-                                logger.info(f"   - First 20 bytes (hex): {sample_bytes.hex()}")
-                            elif isinstance(frame.data, np.ndarray):
-                                logger.info(f"   - frame.data dtype: {frame.data.dtype}")
-                                logger.info(f"   - frame.data shape: {frame.data.shape}")
-                                logger.info(f"   - frame.data range: [{np.min(frame.data)}, {np.max(frame.data)}]")
+                        # if frame_count <= 10:
+                        #     logger.info(f"   - frame.data type: {type(frame.data)}")
+                        #     if isinstance(frame.data, memoryview):
+                        #         logger.info(f"   - memoryview format: {frame.data.format}")
+                        #         logger.info(f"   - memoryview itemsize: {frame.data.itemsize}")
+                        #         logger.info(f"   - memoryview nbytes: {frame.data.nbytes}")
+                        #         # Log first few bytes as hex
+                        #         sample_bytes = bytes(frame.data[:20])  # First 20 bytes
+                        #         logger.info(f"   - First 20 bytes (hex): {sample_bytes.hex()}")
+                        #     elif isinstance(frame.data, np.ndarray):
+                        #         logger.info(f"   - frame.data dtype: {frame.data.dtype}")
+                        #         logger.info(f"   - frame.data shape: {frame.data.shape}")
+                        #         logger.info(f"   - frame.data range: [{np.min(frame.data)}, {np.max(frame.data)}]")
                         
                         # Extract audio data properly based on its type
                         if isinstance(frame.data, np.ndarray):
@@ -230,15 +230,16 @@ class LiveKitAgentBridge:
                                 audio_data = frame.data.tobytes() if hasattr(frame.data, 'tobytes') else frame.data
                         
                         # Analyze audio amplitude before sending to VAD
-                        if len(audio_data) > 0:
-                            audio_array = np.frombuffer(audio_data, dtype=np.int16)
-                            min_val = np.min(audio_array)
-                            max_val = np.max(audio_array)
-                            rms = np.sqrt(np.mean(audio_array**2))
-                            
-                            if frame_count <= 10:  # Log first 10 frames
-                                logger.info(f"   - Audio stats (after extraction): int16_range=[{min_val}, {max_val}], RMS={rms:.2f}")
-                                logger.info(f"   - Data size: {len(audio_data)} bytes")
+                        # Commented out detailed stats for performance
+                        # if len(audio_data) > 0:
+                        #     audio_array = np.frombuffer(audio_data, dtype=np.int16)
+                        #     min_val = np.min(audio_array)
+                        #     max_val = np.max(audio_array)
+                        #     rms = np.sqrt(np.mean(audio_array**2))
+                        #
+                        #     if frame_count <= 10:  # Log first 10 frames
+                        #         logger.info(f"   - Audio stats (after extraction): int16_range=[{min_val}, {max_val}], RMS={rms:.2f}")
+                        #         logger.info(f"   - Data size: {len(audio_data)} bytes")
                         
                         # Send to voicebot service for processing
                         if self.voicebot_service:
@@ -279,15 +280,45 @@ class LiveKitAgentBridge:
             logger.debug(f"🔊 Sending agent audio response: {len(audio_chunk)} bytes")
             
             if self.audio_source and len(audio_chunk) > 0:
-                # Create audio frame from the chunk
-                frame = rtc.AudioFrame(
-                    data=audio_chunk,
-                    sample_rate=self.sample_rate,
-                    num_channels=1,
-                    samples_per_channel=len(audio_chunk) // 2  # Assuming 16-bit samples
-                )
-                await self.audio_source.capture_frame(frame)
-                logger.debug(f"📤 Agent audio response sent to LiveKit: {len(audio_chunk)} bytes")
+                # Split audio into smaller frames (e.g. 20ms) for smoother streaming
+                # 20ms frame size
+                bytes_per_sample = 2 # 16-bit
+                samples_per_frame = int(self.sample_rate * 0.02) # 20ms
+                bytes_per_frame = samples_per_frame * bytes_per_sample
+                
+                total_bytes = len(audio_chunk)
+                offset = 0
+                
+                frames_sent = 0
+                
+                while offset < total_bytes:
+                    # Get next chunk
+                    chunk_end = min(offset + bytes_per_frame, total_bytes)
+                    frame_data = audio_chunk[offset:chunk_end]
+                    
+                    # If last chunk is too small, pad with silence or just send it?
+                    # LiveKit generally handles variable frame sizes, but consistency is better.
+                    # For simplicity, we send what we have.
+                    
+                    frame_len = len(frame_data)
+                    samples_in_frame = frame_len // bytes_per_sample
+                    
+                    frame = rtc.AudioFrame(
+                        data=frame_data,
+                        sample_rate=self.sample_rate,
+                        num_channels=1,
+                        samples_per_channel=samples_in_frame
+                    )
+                    
+                    await self.audio_source.capture_frame(frame)
+                    frames_sent += 1
+                    offset += frame_len
+                    
+                    # Yield control to event loop to allow other tasks to run
+                    # This is critical for avoiding "choppy" audio if we block the loop
+                    await asyncio.sleep(0)
+                
+                logger.debug(f"📤 Agent audio response sent: {total_bytes} bytes in {frames_sent} frames")
             else:
                 logger.warning("⚠️ Audio source not available or empty audio chunk")
                 
