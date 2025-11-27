@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple LiveKit Echo Client - Optimized with sounddevice for low latency
+Simple LiveKit Echo Client - Optimized with sounddevice and ring buffer
 """
 
 import asyncio
@@ -8,6 +8,7 @@ import logging
 import os
 import sounddevice as sd
 import numpy as np
+import threading
 from dotenv import load_dotenv
 
 from livekit import rtc
@@ -22,12 +23,13 @@ logger = logging.getLogger("simple-echo-client")
 SAMPLE_RATE = 48000
 CHANNELS = 1
 DTYPE = 'int16'
-# Lower latency blocksize (e.g., 20ms)
-BLOCK_SIZE = int(SAMPLE_RATE * 0.02) 
+# We let sounddevice decide the block size for low latency, 
+# or set it to 0 to let it be adaptive
+BLOCK_SIZE = 0 
 
 async def main():
     """Connect to LiveKit and test echo"""
-    logger.info("🚀 Starting simple echo client (sounddevice)")
+    logger.info("🚀 Starting simple echo client (sounddevice + ring buffer)")
     
     # Create LiveKit room
     room = rtc.Room()
@@ -115,19 +117,21 @@ async def main():
 async def capture_microphone(source):
     """Capture microphone using sounddevice"""
     loop = asyncio.get_event_loop()
-    queue = asyncio.Queue()
+    # Use asyncio.Queue for thread-safe communication from callback
+    audio_queue = asyncio.Queue()
 
     def callback(indata, frames, time, status):
         if status:
-            logger.warning(f"Microphone status: {status}")
-        loop.call_soon_threadsafe(queue.put_nowait, indata.copy())
+            pass
+        loop.call_soon_threadsafe(audio_queue.put_nowait, indata.copy())
 
     try:
+        # For capture, we prefer small blocks to reduce input latency
         stream = sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
             dtype=DTYPE,
-            blocksize=BLOCK_SIZE,
+            blocksize=1024, # ~21ms
             callback=callback
         )
         
@@ -136,17 +140,11 @@ async def capture_microphone(source):
         with stream:
             while True:
                 try:
-                    indata = await queue.get()
-                    
-                    # Create audio frame
+                    indata = await audio_queue.get()
                     frame = rtc.AudioFrame.create(SAMPLE_RATE, CHANNELS, len(indata))
-                    
-                    # Copy data to frame
                     frame_data_np = np.frombuffer(frame.data, dtype=np.int16)
                     np.copyto(frame_data_np, indata.flatten())
-                    
                     await source.capture_frame(frame)
-                    
                 except Exception as e:
                     logger.error(f"Error in capture loop: {e}")
                     await asyncio.sleep(0.1)
@@ -154,19 +152,99 @@ async def capture_microphone(source):
         logger.error(f"Microphone setup error: {e}")
 
 
+class RingBuffer:
+    """Thread-safe byte ring buffer"""
+    def __init__(self, size):
+        self.size = size
+        self.buffer = bytearray(size)
+        self.read_pos = 0
+        self.write_pos = 0
+        self.count = 0
+        self.lock = threading.Lock()
+
+    def write(self, data):
+        with self.lock:
+            data_len = len(data)
+            if data_len > self.size:
+                # Too big, just take last part
+                data = data[-self.size:]
+                data_len = self.size
+                self.read_pos = 0
+                self.write_pos = 0
+                self.count = 0
+
+            if self.count + data_len > self.size:
+                # Overflow - advance read_pos (drop oldest)
+                dropped = (self.count + data_len) - self.size
+                self.read_pos = (self.read_pos + dropped) % self.size
+                self.count -= dropped
+                # logger.warning(f"RingBuffer overflow, dropped {dropped} bytes")
+
+            # Write data
+            first_part = min(data_len, self.size - self.write_pos)
+            self.buffer[self.write_pos:self.write_pos + first_part] = data[:first_part]
+            if first_part < data_len:
+                self.buffer[0:data_len - first_part] = data[first_part:]
+            
+            self.write_pos = (self.write_pos + data_len) % self.size
+            self.count += data_len
+
+    def read(self, num_bytes):
+        with self.lock:
+            if self.count < num_bytes:
+                # Underrun - return what we have + zeros
+                available = self.count
+                result = bytearray(num_bytes)
+                
+                if available > 0:
+                    first_part = min(available, self.size - self.read_pos)
+                    result[:first_part] = self.buffer[self.read_pos:self.read_pos + first_part]
+                    if first_part < available:
+                        result[first_part:available] = self.buffer[0:available - first_part]
+                    
+                    self.read_pos = (self.read_pos + available) % self.size
+                    self.count -= available
+                
+                return result
+            
+            result = bytearray(num_bytes)
+            first_part = min(num_bytes, self.size - self.read_pos)
+            result[:first_part] = self.buffer[self.read_pos:self.read_pos + first_part]
+            if first_part < num_bytes:
+                result[first_part:] = self.buffer[0:num_bytes - first_part]
+                
+            self.read_pos = (self.read_pos + num_bytes) % self.size
+            self.count -= num_bytes
+            return result
+
 async def play_audio_stream(track):
-    """Play received audio using sounddevice"""
-    loop = asyncio.get_event_loop()
+    """
+    Play received audio using sounddevice with a ring buffer.
+    Handles mismatch between LiveKit packet size and SoundDevice block size.
+    """
+    # 200ms buffer
+    buffer_size = int(SAMPLE_RATE * 0.2) * CHANNELS * 2 # 2 bytes per sample
+    ring_buffer = RingBuffer(buffer_size)
     
-    logger.info("🔊 Audio playback started (sounddevice)")
+    def callback(outdata, frames, time, status):
+        if status:
+            pass 
+        
+        bytes_needed = frames * CHANNELS * 2
+        data = ring_buffer.read(bytes_needed)
+        
+        # Convert to numpy for sounddevice
+        outdata[:] = np.frombuffer(data, dtype=DTYPE).reshape(frames, CHANNELS)
+
+    logger.info("🔊 Audio playback started (sounddevice + ring buffer)")
     
     try:
-        # Open output stream
         output_stream = sd.OutputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
             dtype=DTYPE,
-            blocksize=BLOCK_SIZE
+            blocksize=BLOCK_SIZE,
+            callback=callback
         )
         
         output_stream.start()
@@ -175,8 +253,9 @@ async def play_audio_stream(track):
         
         async for event in audio_stream:
             if event.frame:
-                data = np.frombuffer(event.frame.data, dtype=np.int16)
-                await loop.run_in_executor(None, output_stream.write, data)
+                # Write directly to ring buffer
+                # event.frame.data is memoryview/bytes
+                ring_buffer.write(event.frame.data)
                 
     except Exception as e:
         logger.error(f"Playback error: {e}")

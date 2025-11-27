@@ -19,7 +19,7 @@ from livekit.api import AccessToken, VideoGrants
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("simple-echo-client")
+logger = logging.getLogger("echo-client-pyaudio")
 
 # Audio Configuration
 SAMPLE_RATE = 48000
@@ -42,10 +42,13 @@ class AudioEngine:
         self._running = True
         
         # Input Stream (Microphone)
+        # We use blocking mode in a thread for simplicity and robustness if callback mode fails
+        # But PyAudio callback mode is usually good. Let's try blocking read in a thread.
         self._input_thread = threading.Thread(target=self._input_worker, daemon=True)
         self._input_thread.start()
         
         # Output Stream (Speaker)
+        # Opened on demand or kept open? Let's keep it open.
         try:
             self._output_stream = self._pa.open(
                 format=FORMAT,
@@ -132,6 +135,11 @@ async def main():
     def on_mic_data(data):
         # Called from input thread
         frame = rtc.AudioFrame.create(SAMPLE_RATE, CHANNELS, len(data) // 2)
+        # Copy data (data is bytes)
+        # We need to copy bytes to frame.data (memoryview)
+        # Since we are in main thread (call_soon_threadsafe), we can call capture_frame async?
+        # No, capture_frame is async. We need to schedule it.
+        
         asyncio.ensure_future(push_mic_data(mic_source, frame, data))
 
     async def push_mic_data(source, frame, data):
@@ -147,16 +155,6 @@ async def main():
             logger.info(f"🎧 Audio track subscribed: {participant.identity}")
             asyncio.create_task(handle_audio_track(track, audio))
 
-    @room.on("participant_connected")
-    def on_participant_connected(participant):
-        logger.info(f"Participant connected: {participant.identity}")
-        if participant.identity == "echo-bot":
-             # Subscribe to all audio tracks from echo agent
-            for publication in participant.track_publications.values():
-                if publication.kind == rtc.TrackKind.KIND_AUDIO:
-                    publication.set_subscribed(True)
-                    logger.info(f"✅ Subscribed to audio track from {participant.identity}")
-
     try:
         await room.connect(url, token)
         logger.info(f"✅ Connected to room {url}")
@@ -168,8 +166,6 @@ async def main():
         
         # Start audio engine
         audio.start(on_mic_data)
-        
-        logger.info(" Echo client running! Speak and you should hear yourself!")
         
         # Keep alive
         await asyncio.Event().wait()
@@ -186,7 +182,10 @@ async def handle_audio_track(track, audio_engine):
         if event.frame:
             # Convert frame to bytes
             data = np.frombuffer(event.frame.data, dtype=np.int16).tobytes()
-            # Push to audio engine (blocking write in executor)
+            # Push to audio engine (this runs in executor effectively via PyAudio internal/thread)
+            # Actually we are calling a method that calls .write() which blocks.
+            # We should run this in executor to not block the asyncio loop if buffer is full.
+            
             await asyncio.get_event_loop().run_in_executor(None, audio_engine.play_audio, data)
 
 if __name__ == "__main__":

@@ -1,40 +1,176 @@
 import os
 import logging
+import asyncio
+import time
 import numpy as np
 import onnxruntime
-import asyncio
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
-class SileroVADService:
+class VADOptions:
+    def __init__(
+        self,
+        min_speech_duration: float = 0.05,
+        min_silence_duration: float = 0.55,
+        prefix_padding_duration: float = 0.5,
+        max_buffered_speech: float = 60.0,
+        activation_threshold: float = 0.5,
+        sample_rate: int = 16000,
+    ):
+        self.min_speech_duration = min_speech_duration
+        self.min_silence_duration = min_silence_duration
+        self.prefix_padding_duration = prefix_padding_duration
+        self.max_buffered_speech = max_buffered_speech
+        self.activation_threshold = activation_threshold
+        self.sample_rate = sample_rate
+
+class VADStream:
     """
-    Silero VAD Service using ONNX Runtime.
+    Stream processor for Silero VAD.
+    Maintains state and buffers for a single audio stream.
     """
-    def __init__(self, model_path: str = None, threshold: float = 0.3, sampling_rate: int = 16000):
-        self.threshold = threshold
-        self.sampling_rate = sampling_rate
-        self.min_speech_duration_ms = 250
-        self.min_silence_duration_ms = 100
-        self.window_size_samples = 512 if sampling_rate == 16000 else 256
-        self.context_size = 64 if sampling_rate == 16000 else 32
-        
-        # Audio buffering - accumulate chunks until we have window_size_samples
-        self.audio_buffer = np.array([], dtype=np.float32)
+    def __init__(self, session: onnxruntime.InferenceSession, opts: VADOptions):
+        self._session = session
+        self._opts = opts
+        self._loop = asyncio.get_event_loop()
         
         # State
-        self.triggered = False
-        self.current_probability = 0.0
-        self.temp_end = 0
-        self.current_speech = {}
+        self._triggered = False
+        self._speech_buffer_index = 0
+        self._speech_buffer_max_reached = False
         
-        # Context for ONNX model (Silero needs previous context)
+        # Buffers
+        # 16kHz sample rate for internal processing
+        self.window_size_samples = 512 if opts.sample_rate == 16000 else 256
+        self.context_size = 64 if opts.sample_rate == 16000 else 32
+        
+        # Buffer for raw bytes (more efficient than numpy concat)
+        self._raw_buffer = bytearray()
+        self._window_size_bytes = self.window_size_samples * 2  # 16-bit audio
+        
+        # Internal buffers
         self._context = np.zeros((1, self.context_size), dtype=np.float32)
+        self._state = np.zeros((2, 1, 128)).astype('float32')
         self._input_buffer = np.zeros((1, self.context_size + self.window_size_samples), dtype=np.float32)
+        
+        # Speech tracking
+        self._speech_start_timestamp = 0.0
+        self._speech_duration = 0.0
+        self._silence_duration = 0.0
+        
+        # Performance monitoring
+        self._last_inference_time = 0
+        self._slow_inference_count = 0
+        
+    async def process_audio_chunk(self, audio_chunk: bytes) -> List[Dict[str, Any]]:
+        """
+        Process an audio chunk and return events.
+        """
+        # Append to raw buffer
+        self._raw_buffer.extend(audio_chunk)
+        
+        events = []
+        
+        while len(self._raw_buffer) >= self._window_size_bytes:
+            # Extract window bytes
+            window_bytes = self._raw_buffer[:self._window_size_bytes]
+            del self._raw_buffer[:self._window_size_bytes]
+            
+            # Convert to float32 only when we have a full window
+            audio_int16 = np.frombuffer(window_bytes, dtype=np.int16)
+            window = audio_int16.astype(np.float32) / 32768.0
+            
+            # Prepare input
+            self._input_buffer[:, :self.context_size] = self._context
+            self._input_buffer[:, self.context_size:] = window[np.newaxis, :]
+            
+            # Run inference in thread pool
+            start_time = time.perf_counter()
+            prob = await self._run_inference()
+            inference_duration = time.perf_counter() - start_time
+            
+            if inference_duration > 0.02: # Log if inference takes > 20ms
+                self._slow_inference_count += 1
+                if self._slow_inference_count % 100 == 0:
+                     logger.warning(f"VAD Inference slow: {inference_duration*1000:.2f}ms")
+            
+            # Update context
+            self._context = self._input_buffer[:, -self.context_size:]
+            
+            # Process probability
+            new_events = self._process_probability(prob)
+            events.extend(new_events)
+            
+        return events
+    
+    async def _run_inference(self) -> float:
+        ort_inputs = {
+            'input': self._input_buffer,
+            'state': self._state,
+            'sr': np.array(self._opts.sample_rate, dtype=np.int64)
+        }
+        
+        # Run in executor to avoid blocking event loop
+        try:
+            ort_outs = await self._loop.run_in_executor(
+                None, 
+                lambda: self._session.run(None, ort_inputs)
+            )
+            out, self._state = ort_outs
+            return float(out[0][0])
+        except Exception as e:
+            logger.error(f"Inference failed: {e}")
+            return 0.0
+
+    def _process_probability(self, prob: float) -> List[Dict[str, Any]]:
+        events = []
+        window_duration = self.window_size_samples / self._opts.sample_rate
+        
+        if prob >= self._opts.activation_threshold:
+            self._speech_duration += window_duration
+            self._silence_duration = 0.0
+            
+            if not self._triggered and self._speech_duration >= self._opts.min_speech_duration:
+                self._triggered = True
+                events.append({
+                    "type": "speech_start",
+                    "prob": prob,
+                    "timestamp": time.time()
+                })
+        else:
+            self._silence_duration += window_duration
+            self._speech_duration = 0.0
+            
+            if self._triggered and self._silence_duration >= self._opts.min_silence_duration:
+                self._triggered = False
+                events.append({
+                    "type": "speech_end",
+                    "prob": prob,
+                    "timestamp": time.time()
+                })
+                
+        return events
+    
+    def reset(self):
+        self._triggered = False
+        self._state = np.zeros((2, 1, 128)).astype('float32')
+        self._context = np.zeros((1, self.context_size), dtype=np.float32)
+        self._raw_buffer = bytearray()
+        self._speech_duration = 0.0
+        self._silence_duration = 0.0
+
+
+class SileroVADService:
+    """
+    Factory service for Silero VAD.
+    """
+    def __init__(self, model_path: str = None, threshold: float = 0.5):
+        self.threshold = threshold
+        self.sample_rate = 16000
         
         # Load model
         if model_path is None:
-            # Default to local path or download
             current_dir = os.path.dirname(os.path.abspath(__file__))
             model_path = os.path.join(current_dir, "silero_vad.onnx")
             
@@ -46,10 +182,15 @@ class SileroVADService:
             opts = onnxruntime.SessionOptions()
             opts.inter_op_num_threads = 1
             opts.intra_op_num_threads = 1
-            self.session = onnxruntime.InferenceSession(model_path, providers=['CPUExecutionProvider'], sess_options=opts)
-            # V5 model uses a single state tensor of shape (2, 1, 128)
-            self._state = np.zeros((2, 1, 128)).astype('float32')
-            logger.info("Silero VAD model loaded successfully")
+            # Enable graph optimization
+            opts.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+            
+            self.session = onnxruntime.InferenceSession(
+                model_path, 
+                providers=['CPUExecutionProvider'], 
+                sess_options=opts
+            )
+            logger.info("Silero VAD model loaded successfully (Optimized Service V2)")
         except Exception as e:
             logger.error(f"Failed to load Silero VAD model: {e}")
             raise
@@ -64,93 +205,10 @@ class SileroVADService:
             logger.error(f"Failed to download model: {e}")
             raise
 
-    def reset(self):
-        """Reset VAD state."""
-        self.triggered = False
-        self.current_probability = 0.0
-        self.temp_end = 0
-        self.current_speech = {}
-        self._state = np.zeros((2, 1, 128)).astype('float32')
-        self._context = np.zeros((1, self.context_size), dtype=np.float32)
-        self.audio_buffer = np.array([], dtype=np.float32)  # Clear audio buffer
-
-    def process_audio_chunk(self, audio_chunk: bytes) -> List[Dict[str, Any]]:
-        """
-        Process an audio chunk and return events (speech_start, speech_end).
-        Assumes audio_chunk is 16-bit PCM.
-        
-        Buffers incoming audio until we have exactly window_size_samples (512 for 16kHz)
-        before running inference, similar to LiveKit's implementation.
-        """
-        # Convert bytes to float32 numpy array
-        audio_int16 = np.frombuffer(audio_chunk, dtype=np.int16)
-        audio_float32 = audio_int16.astype(np.float32) / 32768.0
-        
-        # Log audio statistics for first few chunks and when audio is loud
-        if len(self.audio_buffer) < 1000 or np.max(np.abs(audio_int16)) > 1000:  # Log first chunks or loud audio
-            logger.info(f"🔊 VAD input audio stats: len={len(audio_chunk)}, int16_range=[{np.min(audio_int16)}, {np.max(audio_int16)}], float32_range=[{np.min(audio_float32):.4f}, {np.max(audio_float32):.4f}]")
-        
-        # Accumulate audio in buffer
-        self.audio_buffer = np.concatenate([self.audio_buffer, audio_float32])
-        
-        events = []
-        windows_processed = 0
-        
-        # Process all complete windows in the buffer
-        while len(self.audio_buffer) >= self.window_size_samples:
-            # Extract exactly window_size_samples
-            window = self.audio_buffer[:self.window_size_samples]
-            
-            # Keep remaining samples for next iteration
-            self.audio_buffer = self.audio_buffer[self.window_size_samples:]
-            
-            # Prepare input with context
-            # Matches LiveKit's implementation which improves detection
-            self._input_buffer[:, :self.context_size] = self._context
-            self._input_buffer[:, self.context_size:] = window[np.newaxis, :]
-            
-            # Run inference
-            ort_inputs = {
-                'input': self._input_buffer,
-                'state': self._state,
-                'sr': np.array(self.sampling_rate, dtype=np.int64)
-            }
-            ort_outs = self.session.run(None, ort_inputs)
-            out, self._state = ort_outs
-            
-            # Update context for next frame
-            self._context = self._input_buffer[:, -self.context_size:]
-            
-            self.current_probability = out[0][0]
-            windows_processed += 1
-            
-            # TEMPORARY: Log every window for diagnosis
-            logger.info(f"🎯 VAD window #{windows_processed}: prob={self.current_probability:.4f}, threshold={self.threshold:.3f}, triggered={self.triggered}")
-            
-            # Logic for triggering with hysteresis
-            if self.current_probability >= self.threshold and self.temp_end:
-                self.temp_end = 0
-                logger.debug(f"🔄 VAD: Continuing speech (prob={self.current_probability:.3f})")
-                
-            if self.current_probability >= self.threshold and not self.triggered:
-                self.triggered = True
-                events.append({"type": "speech_start", "prob": float(self.current_probability)})
-                logger.info(f"🗣️ VAD: Speech START detected! (prob={self.current_probability:.3f})")
-                
-            if self.current_probability < (self.threshold - 0.15) and self.triggered:
-                if not self.temp_end:
-                    self.temp_end = 1  # Start silence counter (simplified)
-                    logger.debug(f"🤫 VAD: Silence detected, starting counter (prob={self.current_probability:.3f})")
-                else:
-                    # In a real implementation we'd count frames. 
-                    # For now, immediate switch off with hysteresis
-                    self.triggered = False
-                    self.temp_end = 0
-                    events.append({"type": "speech_end", "prob": float(self.current_probability)})
-                    logger.info(f"🛑 VAD: Speech END detected! (prob={self.current_probability:.3f})")
-        
-        # Log buffer state periodically
-        if windows_processed > 0:
-            logger.debug(f"📊 VAD: Processed {windows_processed} windows, buffer remaining: {len(self.audio_buffer)} samples, events: {len(events)}")
-                    
-        return events
+    def create_stream(self, threshold: float = None) -> VADStream:
+        """Create a new VAD stream processor"""
+        opts = VADOptions(
+            activation_threshold=threshold or self.threshold,
+            sample_rate=self.sample_rate
+        )
+        return VADStream(self.session, opts)
