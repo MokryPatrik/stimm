@@ -71,6 +71,10 @@ class RingBuffer:
                     self._write_pos = 0
             
             self._fill_level += data_len
+            
+            # DEBUG: Log if buffer is getting full
+            if self._fill_level > self._size * 0.9:
+               pass # logger.warning(f"⚠️ RingBuffer near overflow: {self._fill_level}/{self._size}")
 
     def read(self, size: int) -> bytes:
         with self._lock:
@@ -342,10 +346,18 @@ class LiveKitClient:
         """Background thread to write audio to speakers from Ring Buffer"""
         logger.info("🔊 Output thread started")
         chunk_bytes = CHUNK_SIZE * 2 # 2 bytes per sample
+        last_log = time.time()
         
         while self._running:
             if self._output_stream:
                 try:
+                    # Monitor buffer health periodically
+                    if time.time() - last_log > 5.0:
+                        fill_pct = (self._ring_buffer._fill_level / self._ring_buffer._size) * 100
+                        if fill_pct > 10.0 or self._ring_buffer._overrun_count > 0:
+                            logger.info(f"📊 Audio Buffer: {fill_pct:.1f}% | Overruns: {self._ring_buffer._overrun_count} | Underruns: {self._ring_buffer._underrun_count}")
+                        last_log = time.time()
+
                     # Read from ring buffer (will get silence if empty)
                     data = self._ring_buffer.read(chunk_bytes)
                     
