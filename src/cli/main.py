@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+t#!/usr/bin/env python3
 """
 CLI Tool for testing voice agents from command line
 Supports both full audio mode (via LiveKit) and text-only mode
@@ -8,14 +8,28 @@ import argparse
 import asyncio
 import logging
 import sys
+import os
+from pathlib import Path
 from enum import Enum
 from typing import Optional
 import aiohttp
-import os
+
+# Auto-configure PYTHONPATH for project
+if __name__ == "__main__":
+    current_file = Path(__file__).resolve()
+    project_root = current_file.parent.parent.parent  # Go up from cli/ to root
+    src_path = project_root / "src"
+    src_str = str(src_path)
+    
+    if src_str not in sys.path:
+        sys.path.insert(0, src_str)
+        os.environ['PYTHONPATH'] = src_str
+    
+    print(f"🔧 PYTHONPATH automatiquement configuré: {src_str}")
 
 from cli.agent_runner import AgentRunner
 from cli.text_input import TextInterface
-from src.utils.logging_config import configure_logging
+from utils.logging_config import configure_logging
 
 
 class CLIMode(Enum):
@@ -186,7 +200,7 @@ def test_microphone(duration: float):
     
     try:
         # Use the working PulseAudio method from test_mic.py
-        from cli.test_mic import test_pulseaudio_recording
+        from src.cli.test_mic import test_pulseaudio_recording
         
         success = test_pulseaudio_recording(duration, "test_recording.wav")
         
@@ -215,7 +229,7 @@ def test_microphone(duration: float):
         return 1
 
 
-from cli.test_livekit_microphone import test_livekit_microphone
+from src.cli.test_livekit_microphone import test_livekit_microphone
 
 
 async def test_echo_pipeline(verbose: bool = False):

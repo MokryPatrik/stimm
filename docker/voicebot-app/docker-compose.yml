@@ -1,7 +1,7 @@
 services:
   voicebot-app:
     build:
-      context: ../../src
+      context: ../../
       dockerfile: ../docker/voicebot-app/Dockerfile
     container_name: voicebot-app
     volumes:

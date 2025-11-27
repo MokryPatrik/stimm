@@ -167,10 +167,10 @@ The platform features a **Smart Logging System** designed to balance readability
 **A. CLI Tool**
 ```bash
 # Clean logs
-python -m src.cli.main ...
+uv run python -m src.cli.main ...
 
 # Debug logs
-python -m src.cli.main ... --verbose
+uv run python -m src.cli.main ... --verbose
 ```
 
 **B. Docker / Server**
@@ -212,8 +212,7 @@ The VoiceBot platform supports flexible development workflows.
 
 2. **Run backend locally**:
    ```bash
-   source .venv/bin/activate
-   python src/main.py
+   uv run python -m src.main
    ```
    Backend: http://localhost:8001
 
@@ -281,46 +280,46 @@ The VoiceBot platform includes a powerful CLI tool for testing agents directly f
 
 ```bash
 # From Docker container
-docker exec -it voicebot-app python -m cli.main --list-agents
+docker exec -it voicebot-app uv run python -m cli.main --list-agents
 
 # From local development
-python -m src.cli.main --list-agents
+uv run python -m src.cli.main --list-agents
 ```
 
 #### Text Mode (Recommended for quick testing)
 
 ```bash
 # Basic text conversation
-python -m src.cli.main --agent-name "Etienne" --mode text
+uv run python -m src.cli.main --agent-name "Etienne" --mode text
 
 # With RAG enabled (default)
-python -m src.cli.main --agent-name "Etienne" --mode text --use-rag
+uv run python -m src.cli.main --agent-name "Etienne" --mode text --use-rag
 
 # With verbose logging
-python -m src.cli.main --agent-name "Etienne" --mode text --verbose
+uv run python -m src.cli.main --agent-name "Etienne" --mode text --verbose
 ```
 
 #### Full Audio Mode (LiveKit WebRTC)
 
 ```bash
 # Audio conversation via LiveKit
-python -m src.cli.main --agent-name "Etienne" --mode full
+uv run python -m src.cli.main --agent-name "Etienne" --mode full
 
 # With custom room name
-python -m src.cli.main --agent-name "Etienne" --mode full --room-name "test-conversation"
+uv run python -m src.cli.main --agent-name "Etienne" --mode full --room-name "test-conversation"
 ```
 
 #### Audio Pipeline Testing
 
 ```bash
 # Test complete audio pipeline with echo server and client
-python -m src.cli.main --test-echo --verbose
+uv run python -m src.cli.main --test-echo --verbose
 
 # Test microphone recording
-python -m src.cli.main --test-mic 5
+uv run python -m src.cli.main --test-mic 5
 
 # Test LiveKit microphone capture
-python -m src.cli.main --test-livekit-mic 5
+uv run python -m src.cli.main --test-livekit-mic 5
 ```
 
 ### Features
@@ -336,19 +335,19 @@ python -m src.cli.main --test-livekit-mic 5
 
 ```bash
 # Test audio pipeline
-python -m src.cli.main --test-echo
+uv run python -m src.cli.main --test-echo
 
 # List all available agents
-python -m src.cli.main --list-agents
+uv run python -m src.cli.main --list-agents
 
 # Test agent in text mode
-python -m src.cli.main --agent-name "Etienne" --mode text
+uv run python -m src.cli.main --agent-name "Etienne" --mode text
 
 # Test with audio via LiveKit en local
-python -m src.cli.main --agent-name "Etienne" --mode full --local --verbose
+uv run python -m src.cli.main --agent-name "Etienne" --mode full --local --verbose
 
 # Test with audio via LiveKit avec connection au serveur en http
-python -m src.cli.main --agent-name "Etienne" --mode full --verbose
+uv run python -m src.cli.main --agent-name "Etienne" --mode full --verbose
 ```
 
 ## 🔧 Audio Pipeline Testing
@@ -359,23 +358,23 @@ The VoiceBot platform includes specialized tools for testing and debugging the r
 
 ```bash
 # Test complete audio pipeline with one command
-python -m src.cli.main --test-echo --verbose
+uv run python -m src.cli.main --test-echo --verbose
 
 # Test microphone recording
-python -m src.cli.main --test-mic 5
+uv run python -m src.cli.main --test-mic 5
 
 # Test LiveKit microphone capture
-python -m src.cli.main --test-livekit-mic 5
+uv run python -m src.cli.main --test-livekit-mic 5
 ```
 
 ### Manual Testing
 
 ```bash
 # Terminal 1: Start echo server
-python src/cli/echo_server.py
+uv run python -m src.cli.echo_server
 
 # Terminal 2: Start echo client
-python src/cli/echo_client.py
+uv run python -m src.cli.echo_client
 ```
 
 ### Expected Behavior

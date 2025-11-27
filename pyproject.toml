@@ -57,15 +57,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "pytest-asyncio", 
-    "pytest-cov",
-    "pytest-mock",
-    "black",
-    "isort",
-    "flake8",
-    "mypy",
-    "pre-commit",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0", 
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
 ]
 
 audio = [
@@ -89,19 +89,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
 
-[tool.uv]
-dev-dependencies = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0", 
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "black>=23.0.0",
-    "isort>=5.0.0",
-    "flake8>=6.0.0",
-    "mypy>=1.0.0",
-    "pre-commit>=3.0.0",
-]
-
 [tool.black]
 line-length = 88
 target-version = ['py310']
@@ -120,3 +107,18 @@ disallow_untyped_defs = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--cov=. --cov-report=term-missing"
+
+[tool.hatch.envs.default]
+skip-install = true
+PYTHONPATH = "src"
+dependencies = []
+
+[tool.hatch.envs.default.scripts]
+# Scripts pour faciliter le lancement
+run = "python -m src.main"
+debug = "python -m src.main --log-level debug"
+test = "pytest tests/ -v"
+lint = "black src/ && isort src/ && flake8 src/"
+
+[project.scripts]
+voicebot-start = "uvicorn.run:app"

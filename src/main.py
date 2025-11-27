@@ -32,6 +32,11 @@ configure_logging()
 
 logger = logging.getLogger(__name__)
 
+# Configure logging early
+configure_logging()
+
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="Voicebot API", version="1.0.0")
 
 # Detect if we're running from src/ directory or root
