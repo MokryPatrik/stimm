@@ -154,7 +154,7 @@ class ElevenLabsProvider:
                             # Convert our standard format to ElevenLabs format
                             elevenlabs_payload = {
                                 "text": payload.get("text", "") + " ",  # Add space for continuity
-                                "try_trigger_generation": False,        # Disable auto generation triggering
+                                "try_trigger_generation": True,         # Enable auto generation triggering for streaming
                                 "flush": payload.get("flush", False)
                             }
                             payload_str = json.dumps(elevenlabs_payload)
@@ -164,7 +164,7 @@ class ElevenLabsProvider:
                             text_content = str(text_chunk) if not isinstance(text_chunk, str) else text_chunk
                             standard_payload = {
                                 "text": text_content + " ",  # Add space for continuity
-                                "try_trigger_generation": False,  # Disable auto generation triggering
+                                "try_trigger_generation": True,   # Enable auto generation triggering
                                 "flush": False
                             }
                             payload_str = json.dumps(standard_payload)

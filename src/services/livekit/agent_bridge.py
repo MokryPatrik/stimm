@@ -67,7 +67,8 @@ class LiveKitAgentBridge:
             # Create audio source for agent responses
             # Use sample rate from configuration
             logger.info(f"🎧 Creating agent audio source with sample rate: {self.sample_rate}Hz")
-            self.audio_source = rtc.AudioSource(sample_rate=self.sample_rate, num_channels=1)
+            # Increase buffer to handle TTS bursts
+            self.audio_source = rtc.AudioSource(sample_rate=self.sample_rate, num_channels=1, queue_size_ms=5000)
             self.audio_track = rtc.LocalAudioTrack.create_audio_track("agent-audio", self.audio_source)
             
             # Connect to the room
@@ -285,20 +286,21 @@ class LiveKitAgentBridge:
                 bytes_per_sample = 2 # 16-bit
                 samples_per_frame = int(self.sample_rate * 0.02) # 20ms
                 bytes_per_frame = samples_per_frame * bytes_per_sample
+                frame_duration_s = samples_per_frame / self.sample_rate
                 
                 total_bytes = len(audio_chunk)
                 offset = 0
                 
                 frames_sent = 0
+                start_time = asyncio.get_event_loop().time()
+                
+                # Burst the first 200ms to fill client buffer quickly
+                burst_frames = 10
                 
                 while offset < total_bytes:
                     # Get next chunk
                     chunk_end = min(offset + bytes_per_frame, total_bytes)
                     frame_data = audio_chunk[offset:chunk_end]
-                    
-                    # If last chunk is too small, pad with silence or just send it?
-                    # LiveKit generally handles variable frame sizes, but consistency is better.
-                    # For simplicity, we send what we have.
                     
                     frame_len = len(frame_data)
                     samples_in_frame = frame_len // bytes_per_sample
@@ -314,9 +316,21 @@ class LiveKitAgentBridge:
                     frames_sent += 1
                     offset += frame_len
                     
-                    # Yield control to event loop to allow other tasks to run
-                    # This is critical for avoiding "choppy" audio if we block the loop
-                    await asyncio.sleep(0)
+                    # Pacing logic: match real-time transmission
+                    # We allow a small burst at the start, then pace
+                    if frames_sent > burst_frames:
+                        # Target time is when this frame *should* be finished playing
+                        target_time = start_time + (frames_sent * frame_duration_s)
+                        current_time = asyncio.get_event_loop().time()
+                        delay = target_time - current_time
+                        
+                        # If we are ahead of schedule, sleep
+                        # We multiply by 0.95 to stay slightly ahead (avoid underrun)
+                        if delay > 0:
+                            await asyncio.sleep(delay * 0.95)
+                    else:
+                        # Yield during burst to avoid blocking event loop completely
+                        await asyncio.sleep(0)
                 
                 logger.debug(f"📤 Agent audio response sent: {total_bytes} bytes in {frames_sent} frames")
             else:
