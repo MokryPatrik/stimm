@@ -25,6 +25,10 @@ from services.agents_admin.routes import router as agent_router
 from services.provider_constants import get_provider_constants
 from services.webrtc.signaling import router as signaling_router
 from services.livekit.routes import router as livekit_router
+from src.utils.logging_config import configure_logging
+
+# Configure logging early
+configure_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -209,5 +213,10 @@ async def voicebot_interface(request: Request):
     return templates.TemplateResponse("voicebot.html", {"request": request})
 
 if __name__ == "__main__":
+    # Note: When running with uvicorn, uvicorn's own logging config might interact with ours.
+    # But since we set force=True in configure_logging, ours should prevail if called before.
+    # However, uvicorn.run re-configures logging unless log_config=None is passed.
+    # For simplicity, we let uvicorn handle the basics via log_level arg,
+    # but our configure_logging() above ensures app loggers are set correctly at module level.
     log_level = os.getenv("LOG_LEVEL", "info").lower()
     uvicorn.run(app, host="0.0.0.0", port=8001, log_level=log_level)

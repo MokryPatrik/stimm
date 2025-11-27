@@ -16,9 +16,10 @@ from livekit import api
 # Import services
 from services.agents.agent_factory import create_agent_session
 from environment_config import get_livekit_url
+from src.utils.logging_config import configure_logging
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+# Will be re-configured in main()
 logger = logging.getLogger("agent-worker")
 
 async def run_worker(room_name: str, agent_id: str, livekit_url: str, api_key: str, api_secret: str):
@@ -70,8 +71,13 @@ def main():
     parser.add_argument("--livekit-url", help="LiveKit URL (default: env LIVEKIT_URL)")
     parser.add_argument("--api-key", help="LiveKit API Key (default: env LIVEKIT_API_KEY)")
     parser.add_argument("--api-secret", help="LiveKit API Secret (default: env LIVEKIT_API_SECRET)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     args = parser.parse_args()
+    
+    # Configure logging
+    configure_logging(args.verbose)
+    
     load_dotenv()
 
     livekit_url = args.livekit_url or os.getenv("LIVEKIT_URL", "ws://localhost:7880")

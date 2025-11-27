@@ -15,21 +15,12 @@ import os
 
 from cli.agent_runner import AgentRunner
 from cli.text_input import TextInterface
+from src.utils.logging_config import configure_logging
 
 
 class CLIMode(Enum):
     FULL = "full"    # Audio via LiveKit
     TEXT = "text"    # Text only
-
-
-def setup_logging(verbose: bool = False):
-    """Setup logging configuration"""
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler(sys.stdout)]
-    )
 
 
 async def list_agents(verbose: bool = False):
@@ -341,7 +332,7 @@ async def main():
 async def async_main():
     """Async main entry point"""
     args = parse_args()
-    setup_logging(args.verbose)
+    configure_logging(args.verbose)
     
     # Handle microphone test mode
     if args.test_mic:

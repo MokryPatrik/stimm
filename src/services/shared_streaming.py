@@ -124,7 +124,7 @@ class SharedStreamingManager:
                     first_chunk_latency = (session.first_chunk_time - session.start_time) * 1000
                     logger.info(f"First audio chunk received after {first_chunk_latency:.2f}ms")
                 
-                logger.info(f"Sending audio chunk {audio_chunk_count}: {len(audio_chunk)} bytes")
+                logger.debug(f"Sending audio chunk {audio_chunk_count}: {len(audio_chunk)} bytes")
                 
                 # Enregistrer le chunk audio si activé
                 if record_chunks:
@@ -197,7 +197,7 @@ class SharedStreamingManager:
                     first_chunk_latency = (session.first_chunk_time - session.start_time) * 1000
                     logger.info(f"First audio chunk received after {first_chunk_latency:.2f}ms")
                 
-                logger.info(f"Generated audio chunk {audio_chunk_count}: {len(audio_chunk)} bytes")
+                logger.debug(f"Generated audio chunk {audio_chunk_count}: {len(audio_chunk)} bytes")
                 
                 # Enregistrer le chunk audio si activé
                 if record_chunks:
@@ -253,7 +253,7 @@ class SharedStreamingManager:
             }
             json_payload = json.dumps(standard_payload)
             
-            logger.info(f"Sending text chunk {text_chunk_count}: '{text_chunk.strip()}'")
+            logger.debug(f"Sending text chunk {text_chunk_count}: '{text_chunk.strip()}'")
             
             # Allow custom processing
             if on_text_chunk:

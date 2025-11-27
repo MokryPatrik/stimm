@@ -86,10 +86,10 @@ class VoicebotEventLoop:
         self.last_transcript_received = None
         
         logger.info(f"🎙️ VoicebotEventLoop initialized for conversation {conversation_id}")
-        logger.info(f"🔧 Agent ID: {agent_id}, Session ID: {session_id}")
-        logger.info(f"🎤 STT Service: {stt_service.provider.__class__.__name__ if stt_service.provider else 'None'}")
-        logger.info(f"🔊 TTS Service: {tts_service.provider.__class__.__name__ if tts_service.provider else 'None'}")
-        logger.info(f"👁️ VAD Service: {vad_service.__class__.__name__}")
+        logger.debug(f"🔧 Agent ID: {agent_id}, Session ID: {session_id}")
+        logger.debug(f"🎤 STT Service: {stt_service.provider.__class__.__name__ if stt_service.provider else 'None'}")
+        logger.debug(f"🔊 TTS Service: {tts_service.provider.__class__.__name__ if tts_service.provider else 'None'}")
+        logger.debug(f"👁️ VAD Service: {vad_service.__class__.__name__}")
         
     async def start(self):
         """Start the event loop."""
@@ -331,7 +331,7 @@ class VoicebotEventLoop:
         # Trigger LLM if we have accumulated transcripts
         if self.transcript_buffer:
             full_text = " ".join(self.transcript_buffer)
-            logger.info(f"Triggering LLM with text: {full_text}")
+            logger.info(f"🧠 AI Thinking... Input: '{full_text}'")
             
             # Clear buffer
             self.transcript_buffer = []
@@ -384,7 +384,7 @@ class VoicebotEventLoop:
     async def _process_llm_response(self, text: str):
         """Process text with LLM and feed TTS."""
         try:
-            logger.info(f"🔄 Starting LLM processing for: '{text[:50]}...'")
+            logger.debug(f"🔄 Starting LLM processing for: '{text[:50]}...'")
             
             # Initialize RAG state if not already done
             if self.rag_state is None:

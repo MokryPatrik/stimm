@@ -180,10 +180,13 @@ class AgentRunner:
                     "--livekit-url", self.livekit_url
                 ]
                 
+                if self.verbose:
+                    cmd.append("--verbose")
+                
                 self.worker_process = subprocess.Popen(
                     cmd,
-                    stdout=subprocess.PIPE if not self.verbose else None, # Pipe if quiet, else inherit
-                    stderr=subprocess.PIPE if not self.verbose else None,
+                    stdout=None, # Inherit stdout to show INFO logs (and DEBUG if verbose)
+                    stderr=None, # Inherit stderr
                     text=True,
                     env=env
                 )

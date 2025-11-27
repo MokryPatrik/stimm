@@ -58,22 +58,22 @@ class LiveKitAgentBridge:
         """
         try:
             logger.info(f"🔗 Agent {self.agent_id} connecting to LiveKit room: {self.room_name}")
-            logger.info(f"📡 LiveKit URL: {self.livekit_url}")
-            logger.info(f"🔑 Token: {self.token[:20]}...")
+            logger.debug(f"📡 LiveKit URL: {self.livekit_url}")
+            logger.debug(f"🔑 Token: {self.token[:20]}...")
             
             # Set up event handlers
             self._setup_event_handlers()
             
             # Create audio source for agent responses
             # Use sample rate from configuration
-            logger.info(f"🎧 Creating agent audio source with sample rate: {self.sample_rate}Hz")
+            logger.debug(f"🎧 Creating agent audio source with sample rate: {self.sample_rate}Hz")
             # Increase buffer to handle TTS bursts
             self.audio_source = rtc.AudioSource(sample_rate=self.sample_rate, num_channels=1, queue_size_ms=5000)
             self.audio_track = rtc.LocalAudioTrack.create_audio_track("agent-audio", self.audio_source)
             
             # Connect to the room
             ws_url = self.livekit_url.replace("http://", "ws://").replace("https://", "wss://")
-            logger.info(f"🌐 Connecting to WebSocket: {ws_url}")
+            logger.debug(f"🌐 Connecting to WebSocket: {ws_url}")
             
             await self.room.connect(ws_url, self.token)
             self.is_connected = True
@@ -85,9 +85,9 @@ class LiveKitAgentBridge:
             )
             
             logger.info(f"✅ Agent {self.agent_id} connected to LiveKit room {self.room_name}")
-            logger.info(f"👤 Connected as: {self.room.local_participant.identity}")
-            logger.info("🎤 Agent audio track published")
-            logger.info("👂 Listening for user audio")
+            logger.debug(f"👤 Connected as: {self.room.local_participant.identity}")
+            logger.debug("🎤 Agent audio track published")
+            logger.debug("👂 Listening for user audio")
             
         except Exception as e:
             logger.error(f"❌ Failed to connect agent to LiveKit: {e}")
@@ -99,17 +99,17 @@ class LiveKitAgentBridge:
         
         @self.room.on("connected")
         def on_connected():
-            logger.info("✅ Successfully connected to LiveKit room")
+            logger.debug("✅ Successfully connected to LiveKit room")
             
         @self.room.on("disconnected")
         def on_disconnected():
-            logger.info("🔌 Disconnected from LiveKit room")
+            logger.debug("🔌 Disconnected from LiveKit room")
             self.is_connected = False
             self._cleanup()
             
         @self.room.on("participant_connected")
         def on_participant_connected(participant: rtc.RemoteParticipant):
-            logger.info(f"👤 Participant connected: {participant.identity}")
+            logger.debug(f"👤 Participant connected: {participant.identity}")
             self.user_participants[participant.sid] = participant
             
         @self.room.on("track_subscribed")
@@ -119,12 +119,12 @@ class LiveKitAgentBridge:
             participant: rtc.RemoteParticipant,
         ):
             if track.kind == rtc.TrackKind.KIND_AUDIO:
-                logger.info(f"🔊 Subscribed to audio track from {participant.identity}")
+                logger.debug(f"🔊 Subscribed to audio track from {participant.identity}")
                 self._handle_user_audio_track(track, participant)
                     
         @self.room.on("participant_disconnected")
         def on_participant_disconnected(participant: rtc.RemoteParticipant):
-            logger.info(f"👤 Participant disconnected: {participant.identity}")
+            logger.debug(f"👤 Participant disconnected: {participant.identity}")
             self.user_participants.pop(participant.sid, None)
             # Remove any audio tracks from this participant
             tracks_to_remove = [track_id for track_id, track_info in self.user_audio_tracks.items()
@@ -143,7 +143,7 @@ class LiveKitAgentBridge:
         def on_track_published(
             publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant
         ):
-            logger.info(f"📡 Track published by {participant.identity}: {publication.sid}")
+            logger.debug(f"📡 Track published by {participant.identity}: {publication.sid}")
             
     def _handle_user_audio_track(self, track: rtc.Track, participant: rtc.RemoteParticipant):
         """
@@ -162,7 +162,7 @@ class LiveKitAgentBridge:
             logger.warning("⚠️ Voicebot service not connected, cannot process user audio")
             return
             
-        logger.info(f"🎤 Setting up audio processing for user {participant.identity}")
+        logger.debug(f"🎤 Setting up audio processing for user {participant.identity}")
         
         # Create audio stream for this track with 16kHz sample rate (required for VAD/STT)
         stream = rtc.AudioStream(track, sample_rate=16000)
@@ -252,7 +252,7 @@ class LiveKitAgentBridge:
             except Exception as e:
                 logger.error(f"❌ Error processing audio stream from {participant.identity}: {e}")
             finally:
-                logger.info(f"🛑 Audio stream ended for {participant.identity}")
+                logger.debug(f"🛑 Audio stream ended for {participant.identity}")
 
         # Start processing task
         task = asyncio.create_task(process_audio_stream())
@@ -352,7 +352,7 @@ class LiveKitAgentBridge:
         # Create voicebot session for this conversation
         asyncio.create_task(self._create_voicebot_session())
         
-        logger.info(f"🔧 Agent bridge connected to voicebot service for {self.agent_id}")
+        logger.debug(f"🔧 Agent bridge connected to voicebot service for {self.agent_id}")
     
     async def _create_voicebot_session(self):
         """Create a voicebot session and set up event handlers"""
@@ -369,7 +369,7 @@ class LiveKitAgentBridge:
                 self._handle_agent_audio_response
             )
             
-            logger.info(f"🎙️ Voicebot session created for conversation {self.conversation_id}")
+            logger.debug(f"🎙️ Voicebot session created for conversation {self.conversation_id}")
             
         except Exception as e:
             logger.error(f"❌ Failed to create voicebot session: {e}")
@@ -428,8 +428,8 @@ class LiveKitAgentBridge:
         if not self.is_connected:
             await self.connect()
         
-        logger.info(f"🎧 Agent {self.agent_id} starting session in room {self.room_name}")
-        logger.info("🔄 Session monitoring started - agent is ready for conversation")
+        logger.debug(f"🎧 Agent {self.agent_id} starting session in room {self.room_name}")
+        logger.debug("🔄 Session monitoring started - agent is ready for conversation")
         
         try:
             # Keep the session active and log periodic status
@@ -441,9 +441,9 @@ class LiveKitAgentBridge:
                 # Log session status periodically
                 if session_counter % 6 == 0:  # Every 30 seconds
                     participants_count = len(self.user_participants)
-                    logger.info(f"📊 Agent session active - {session_counter * 5} seconds elapsed")
-                    logger.info(f"🎯 {participants_count} user(s) in room {self.room_name}")
-                    logger.info("👂 Waiting for user audio input...")
+                    logger.debug(f"📊 Agent session active - {session_counter * 5} seconds elapsed")
+                    logger.debug(f"🎯 {participants_count} user(s) in room {self.room_name}")
+                    logger.debug("👂 Waiting for user audio input...")
                 
         except Exception as e:
             logger.error(f"❌ Agent session error: {e}")
