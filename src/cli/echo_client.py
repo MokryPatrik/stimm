@@ -110,9 +110,10 @@ async def main():
     room = rtc.Room()
     
     # Connect to LiveKit
-    url = os.getenv("LIVEKIT_URL", "ws://localhost:7880")
-    api_key = os.getenv("LIVEKIT_API_KEY", "devkey")
-    api_secret = os.getenv("LIVEKIT_API_SECRET", "secret")
+    from environment_config import config
+    url = config.livekit_url
+    api_key = config.livekit_api_key
+    api_secret = config.livekit_api_secret
     
     grants = VideoGrants(
         room_join=True,

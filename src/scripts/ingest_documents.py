@@ -184,7 +184,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--base-url",
-        default="http://localhost:8002",
+        default=os.getenv("VOICEBOT_API_URL", "http://localhost:8001"),
         help="Base URL for the RAG service (default: %(default)s)",
     )
     parser.add_argument(

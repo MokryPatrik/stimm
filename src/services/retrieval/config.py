@@ -6,8 +6,7 @@ import os
 import re
 from dotenv import load_dotenv
 
-# Import environment configuration for dual-mode support
-from environment_config import get_environment_config
+from environment_config import config
 
 load_dotenv()
 
@@ -16,12 +15,7 @@ class RetrievalConfig:
     """Configuration for Retrieval Service"""
 
     def __init__(self):
-        # Get environment-aware Qdrant configuration
-        env_config = get_environment_config()
-        qdrant_config = env_config.get_service_config("qdrant")
-        
-        # Parse Qdrant URL to extract host and port
-        qdrant_url = qdrant_config.get("url", "http://localhost:6333")
+        qdrant_url = config.qdrant_url
         if "://" in qdrant_url:
             protocol_and_host = qdrant_url.split("://")[1]
             if ":" in protocol_and_host:

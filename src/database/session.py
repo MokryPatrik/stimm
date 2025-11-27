@@ -7,8 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-# Import environment configuration for dual-mode support
-from environment_config import get_database_url
+from environment_config import config
 
 load_dotenv()
 
@@ -21,13 +20,7 @@ def _get_engine():
     global _engine
     if _engine is None:
         # Force environment config loading to get correct database URL
-        try:
-            from environment_config import get_environment_config
-            env_config = get_environment_config()
-            actual_db_url = os.getenv("DATABASE_URL", env_config.database_url)
-        except ImportError:
-            # Fallback if environment config is not available yet
-            actual_db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/voicebot")
+        actual_db_url = config.database_url
         
         _engine = create_engine(
             actual_db_url,

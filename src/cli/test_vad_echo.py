@@ -19,9 +19,10 @@ logging.basicConfig(
 logger = logging.getLogger("vad-echo-test")
 
 # Configuration
-LIVEKIT_URL = os.getenv("LIVEKIT_URL", "ws://localhost:7880")
-API_KEY = os.getenv("LIVEKIT_API_KEY", "devkey")
-API_SECRET = os.getenv("LIVEKIT_API_SECRET", "secret")
+from environment_config import config
+LIVEKIT_URL = config.livekit_url
+API_KEY = config.livekit_api_key
+API_SECRET = config.livekit_api_secret
 ROOM_NAME = "echo-test"
 TEST_IDENTITY = "vad-test-client"
 

@@ -11,8 +11,7 @@ from typing import Optional
 import aiohttp
 from livekit import api
 
-# Import the new environment configuration
-from environment_config import get_voicebot_api_url, get_livekit_url
+from environment_config import config
 
 from .livekit_client import LiveKitClient
 
@@ -25,9 +24,8 @@ class AgentRunner:
         self.room_name = room_name or f"cli-{agent_name}-{uuid.uuid4().hex[:8]}"
         self.verbose = verbose
         self.is_local = is_local
-        # Use environment-aware API URL
-        self.base_url = os.getenv("VOICEBOT_API_URL", get_voicebot_api_url())
-        self.livekit_url = os.getenv("LIVEKIT_URL", get_livekit_url())
+        self.base_url = config.voicebot_api_url
+        self.livekit_url = config.livekit_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.logger = logging.getLogger(__name__)
         self.worker_process = None
@@ -131,8 +129,8 @@ class AgentRunner:
         if not token:
             self.logger.info("⚠️ Backend API unavailable, falling back to local token generation")
             try:
-                api_key = os.getenv("LIVEKIT_API_KEY", "devkey")
-                api_secret = os.getenv("LIVEKIT_API_SECRET", "secret")
+                api_key = config.livekit_api_key
+                api_secret = config.livekit_api_secret
                 
                 # Create token with permissions
                 grant = api.VideoGrants(
@@ -245,7 +243,7 @@ class AgentRunner:
         # Fallback to direct connection check? 
         # Actually, connecting to WS port is the best check.
         # But we can assume if local token gen works, we can try to connect.
-        self.logger.info("⚠️ Could not verify health via API, assuming LiveKit is reachable at ws://localhost:7880")
+        self.logger.info(f"⚠️ Could not verify health via API, assuming LiveKit is reachable at {config.livekit_url}")
         return True
             
     async def connect_to_livekit(self, token: str):

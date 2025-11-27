@@ -15,7 +15,7 @@ from livekit import api
 
 # Import services
 from services.agents.agent_factory import create_agent_session
-from environment_config import get_livekit_url
+from environment_config import config
 from utils.logging_config import configure_logging
 
 # Setup logging
@@ -80,9 +80,9 @@ def main():
     
     load_dotenv()
 
-    livekit_url = args.livekit_url or os.getenv("LIVEKIT_URL", "ws://localhost:7880")
-    api_key = args.api_key or os.getenv("LIVEKIT_API_KEY", "devkey")
-    api_secret = args.api_secret or os.getenv("LIVEKIT_API_SECRET", "secret")
+    livekit_url = args.livekit_url or config.livekit_url
+    api_key = args.api_key or config.livekit_api_key
+    api_secret = args.api_secret or config.livekit_api_secret
 
     if not args.room_name:
         logger.error("❌ Room name is required")

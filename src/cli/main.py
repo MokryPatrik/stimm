@@ -39,7 +39,8 @@ class CLIMode(Enum):
 
 async def list_agents(verbose: bool = False):
     """List all available agents"""
-    base_url = "http://localhost:8001"
+    from environment_config import config
+    base_url = config.voicebot_api_url
     
     try:
         async with aiohttp.ClientSession() as session:

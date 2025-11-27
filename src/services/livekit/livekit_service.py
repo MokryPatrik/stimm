@@ -5,8 +5,7 @@ import os
 from typing import Dict, Any
 from livekit import api
 
-# Import the new environment configuration
-from environment_config import get_livekit_url
+from environment_config import config
 
 from services.agents.voicebot_service import get_voicebot_service, VoicebotService
 from services.agents_admin.agent_service import AgentService
@@ -20,11 +19,10 @@ class LiveKitService:
     """
     
     def __init__(self, livekit_url: str = None,
-                 api_key: str = "devkey", api_secret: str = "secret"):
-        # Use environment-aware LiveKit URL
-        self.livekit_url = livekit_url or os.getenv("LIVEKIT_URL", get_livekit_url().replace("ws://", "http://"))
-        self.api_key = api_key
-        self.api_secret = api_secret
+                 api_key: str = None, api_secret: str = None):
+        self.livekit_url = livekit_url or config.livekit_url.replace("ws://", "http://")
+        self.api_key = api_key or config.livekit_api_key
+        self.api_secret = api_secret or config.livekit_api_secret
         
         # Initialiser les services existants
         self.voicebot_service = None  # Sera initialisé plus tard si nécessaire

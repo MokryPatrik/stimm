@@ -12,6 +12,14 @@ services:
     environment:
       - PULSE_SERVER=unix:/mnt/wslg/PulseServer
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - VOICEBOT_API_URL=http://voicebot-app:8001
+      - LIVEKIT_URL=ws://livekit:7880
+      - LIVEKIT_API_URL=http://livekit:7880
+      - DATABASE_URL=postgresql://voicebot_user:voicebot_password@postgres:5432/voicebot
+      - QDRANT_URL=http://qdrant:6333
+      - REDIS_URL=redis://redis:6379
+      - FRONTEND_URL=http://voicebot-app-front:3000
+      - ENVIRONMENT=docker
     command: >
       sh -c "uv run uvicorn src.main:app --host 0.0.0.0 --port 8001 --reload --log-level info"
     working_dir: /app

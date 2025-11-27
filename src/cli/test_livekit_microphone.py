@@ -29,8 +29,9 @@ async def test_livekit_microphone(duration: float):
         
         # Use test credentials (these would need to be valid for a real test)
         room_name = "test-room"
+        from environment_config import config
         token = "test-token"  # This would need to be a real JWT token
-        livekit_url = "http://localhost:7880"  # Local LiveKit server
+        livekit_url = config.livekit_url
         
         client = LiveKitClient(room_name, token, livekit_url)
         print("✅ LiveKit client created")

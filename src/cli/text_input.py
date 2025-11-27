@@ -17,7 +17,8 @@ class TextInterface:
         self.agent_name = agent_name
         self.use_rag = use_rag
         self.verbose = verbose
-        self.base_url = "http://localhost:8001"
+        from environment_config import config
+        self.base_url = config.voicebot_api_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.logger = logging.getLogger(__name__)
         
@@ -166,7 +167,7 @@ class TextInterface:
                 print("  - The backend is not running (check: docker compose ps)")
                 print("  - The agent name is incorrect")
                 print("  - Network connectivity issues")
-                print("\nAvailable agents might be listed at http://localhost:8001/api/agents")
+                print(f"\nAvailable agents might be listed at {self.base_url}/api/agents")
                 print("Make sure the backend is running with: docker compose up -d")
                 return
                 

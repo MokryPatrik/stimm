@@ -4,89 +4,41 @@ Handles localhost vs container name resolution for different services.
 """
 
 import os
-import socket
 from typing import Dict, Optional
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 
 class EnvironmentConfig:
-    """Configuration manager for dual-mode operation (local vs Docker)"""
+    """Configuration manager loading variables from .env file"""
     
     def __init__(self):
-        self._is_docker = self._detect_docker_environment()
         self._setup_service_urls()
     
-    def _detect_docker_environment(self) -> bool:
-        """Detect if running inside a Docker container"""
-        # Check for .dockerenv file (most reliable indicator)
-        if os.path.exists('/.dockerenv'):
-            return True
-        
-        # Check for Docker-specific environment variables that indicate container
-        docker_env_vars = [
-            'DOCKER_CONTAINER',
-            'COMPOSE_SERVICE_NAME',
-            'DOCKER_SERVICE_NAME'
-        ]
-        
-        for var in docker_env_vars:
-            if os.getenv(var):
-                return True
-        
-        # Additional Docker-specific file checks
-        docker_files = [
-            '/run/.containerenv',  # podman
-            '/.dockerenv'  # already checked above, but for completeness
-        ]
-        
-        for file_path in docker_files:
-            if os.path.exists(file_path):
-                return True
-        
-        # Check if running in a container by examining process tree
-        # This is a more reliable method than just checking for Docker socket
-        try:
-            with open('/proc/1/cgroup', 'r') as f:
-                cgroup_content = f.read()
-                # Check for Docker-specific patterns in cgroup
-                if any(pattern in cgroup_content for pattern in [
-                    'docker', 'lxc', 'kubepods', 'containerd'
-                ]):
-                    return True
-        except (FileNotFoundError, PermissionError):
-            pass
-        
-        # DO NOT check for Docker socket existence - it can exist on host machines
-        # This was the main issue causing false positives
-        return False
-    
     def _setup_service_urls(self):
-        """Setup service URLs based on environment"""
-        base_host = "localhost" if not self._is_docker else "voicebot-app"
-        base_port = "8001"
+        """Load service URLs from environment variables"""
         
         # VoiceBot API URL
-        self.voicebot_api_url = f"http://{base_host}:{base_port}"
+        self.voicebot_api_url = os.getenv("VOICEBOT_API_URL", "http://localhost:8001")
         
         # LiveKit URLs
-        livekit_host = "localhost" if not self._is_docker else "livekit"
-        self.livekit_url = f"ws://{livekit_host}:7880"
-        self.livekit_api_url = f"http://{livekit_host}:7880"
+        self.livekit_url = os.getenv("LIVEKIT_URL", "ws://localhost:7880")
+        self.livekit_api_url = os.getenv("LIVEKIT_API_URL", "http://localhost:7880")
+        self.livekit_api_key = os.getenv("LIVEKIT_API_KEY", "devkey")
+        self.livekit_api_secret = os.getenv("LIVEKIT_API_SECRET", "secret")
         
         # Database URLs
-        db_host = "localhost" if not self._is_docker else "postgres"
-        self.database_url = f"postgresql://voicebot_user:voicebot_password@{db_host}:5432/voicebot"
+        self.database_url = os.getenv("DATABASE_URL", "postgresql://voicebot_user:voicebot_password@localhost:5432/voicebot")
         
         # Qdrant URL
-        qdrant_host = "localhost" if not self._is_docker else "qdrant"
-        self.qdrant_url = f"http://{qdrant_host}:6333"
+        self.qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
         
         # Redis URL
-        redis_host = "localhost" if not self._is_docker else "redis"
-        self.redis_url = os.getenv("REDIS_URL", f"redis://{redis_host}:6379")
+        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         
         # Frontend URL
-        front_host = "localhost" if not self._is_docker else "voicebot-app-front"
-        self.frontend_url = f"http://{front_host}:3000"
+        self.frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
     def get_service_config(self, service_name: str) -> Dict[str, str]:
         """Get configuration for a specific service"""
@@ -125,23 +77,12 @@ class EnvironmentConfig:
             "redis": self.get_service_config("redis"),
             "frontend": self.get_service_config("frontend"),
             "metadata": {
-                "is_docker": self._is_docker,
-                "environment": "docker" if self._is_docker else "local"
+                "environment": os.getenv("ENVIRONMENT", "local")
             }
         }
     
-    @property
-    def is_docker(self) -> bool:
-        """Check if running in Docker environment"""
-        return self._is_docker
-    
-    @property
-    def environment_type(self) -> str:
-        """Get environment type as string"""
-        return "docker" if self._is_docker else "local"
-    
     def __str__(self) -> str:
-        """String representation showing environment and key URLs"""
+        """String representation showing key URLs"""
         config = self.get_all_configs()
         return f"Environment: {config['metadata']['environment']}\n" + \
                f"VoiceBot API: {config['voicebot']['api_url']}\n" + \
@@ -157,9 +98,10 @@ def get_environment_config() -> EnvironmentConfig:
     return config
 
 
+# Deprecated: is_running_in_docker is no longer needed
 def is_running_in_docker() -> bool:
-    """Check if currently running in Docker"""
-    return config.is_docker
+    """DEPRECATED: Check if currently running in Docker"""
+    return os.getenv("ENVIRONMENT") == "docker"
 
 
 def get_service_url(service_name: str, fallback: Optional[str] = None) -> str:
