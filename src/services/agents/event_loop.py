@@ -62,6 +62,12 @@ class VoicebotEventLoop:
         self.speech_buffer = [] # Buffer for current speech segment
         self.max_pre_speech_buffer_size = 15 # ~500ms at 32ms/chunk
         
+        # TTS Buffering
+        from .config import voicebot_config
+        self.buffering_level = voicebot_config.PRE_TTS_BUFFERING_LEVEL
+        self.text_buffer = ""
+        self.punctuation_chars = ".!?;:"
+        
         # Tasks
         self.processing_task: Optional[asyncio.Task] = None
         self.stt_task: Optional[asyncio.Task] = None
@@ -353,6 +359,7 @@ class VoicebotEventLoop:
     async def _handle_interruption(self):
         """Handle interruption logic."""
         self.state = AgentState.LISTENING
+        self.text_buffer = ""  # Clear text buffer
         
         # Cancel LLM/TTS tasks
         if self.llm_task and not self.llm_task.done():
@@ -428,8 +435,13 @@ class VoicebotEventLoop:
                     
                     if chunk_type in ['first_token', 'chunk']:
                         if content:
-                            await self.tts_text_queue.put(content)
-                            # Also notify client of text
+                            # Apply buffering logic before sending to TTS
+                            self.text_buffer += content
+                            
+                            # Process buffer based on configured level
+                            self.text_buffer = await self._process_buffer_by_level(self.text_buffer)
+                            
+                            # Also notify client of text (always send raw text to UI immediately)
                             await self.output_queue.put({
                                 "type": "assistant_response",
                                 "text": content,
@@ -437,6 +449,12 @@ class VoicebotEventLoop:
                             })
                     elif chunk_type == 'complete':
                         logger.info("✅ Chatbot response complete")
+                        
+                        # Send remaining buffer
+                        if self.text_buffer:
+                            await self.tts_text_queue.put(self.text_buffer)
+                            self.text_buffer = ""
+                        
                         await self.tts_text_queue.put(None) # End of stream
                         await self.output_queue.put({
                             "type": "assistant_response",
@@ -520,3 +538,79 @@ class VoicebotEventLoop:
         self.state = AgentState.SPEAKING
         # Send audio to client
         await self.output_queue.put({"type": "audio_chunk", "data": audio_chunk})
+
+    async def _process_buffer_by_level(self, text_buffer: str) -> str:
+        """
+        Process text buffer based on buffering level and send complete chunks to TTS.
+        
+        Returns:
+            Updated text buffer (containing remaining text)
+        """
+        if self.buffering_level == "NONE":
+            # Send everything immediately
+            if text_buffer:
+                await self.tts_text_queue.put(text_buffer)
+                return ""
+        
+        elif self.buffering_level == "LOW":
+            # Buffer until word completion (space)
+            if text_buffer.endswith(' '):
+                # Send the complete word to TTS
+                await self.tts_text_queue.put(text_buffer)
+                return ""
+            elif ' ' in text_buffer:
+                # If there's a space in the buffer, split and send complete words
+                parts = text_buffer.rsplit(' ', 1)
+                if len(parts) > 1:
+                    # Send all complete words (everything before the last space)
+                    await self.tts_text_queue.put(parts[0] + ' ')
+                    # Keep the last incomplete word in buffer
+                    return parts[1]
+        
+        elif self.buffering_level == "MEDIUM":
+            # Buffer until 4 words OR punctuation
+            words = text_buffer.split()
+            if len(words) >= 4:
+                # Send first 4 words
+                # Find the position of the 4th space to split correctly
+                split_pos = 0
+                space_count = 0
+                for i, char in enumerate(text_buffer):
+                    if char == ' ':
+                        space_count += 1
+                        if space_count == 4:
+                            split_pos = i + 1
+                            break
+                
+                if split_pos > 0:
+                    text_to_send = text_buffer[:split_pos]
+                    await self.tts_text_queue.put(text_to_send)
+                    return text_buffer[split_pos:]
+            
+            # Check for punctuation
+            for char in self.punctuation_chars:
+                if char in text_buffer:
+                    # Find the last punctuation position
+                    last_punct_pos = max(text_buffer.rfind(char) for char in self.punctuation_chars)
+                    if last_punct_pos != -1:
+                        # Send up to and including punctuation
+                        text_to_send = text_buffer[:last_punct_pos + 1]
+                        await self.tts_text_queue.put(text_to_send)
+                        # Keep text after punctuation
+                        return text_buffer[last_punct_pos + 1:]
+        
+        elif self.buffering_level == "HIGH":
+            # Buffer until punctuation
+            for char in self.punctuation_chars:
+                if char in text_buffer:
+                    # Find the last punctuation position
+                    last_punct_pos = max(text_buffer.rfind(char) for char in self.punctuation_chars)
+                    if last_punct_pos != -1:
+                        # Send up to and including punctuation
+                        text_to_send = text_buffer[:last_punct_pos + 1]
+                        await self.tts_text_queue.put(text_to_send)
+                        # Keep text after punctuation
+                        return text_buffer[last_punct_pos + 1:]
+        
+        # If no condition met, return the buffer unchanged
+        return text_buffer
