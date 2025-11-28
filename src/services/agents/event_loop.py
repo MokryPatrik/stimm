@@ -421,60 +421,79 @@ class VoicebotEventLoop:
                 self.tts_task = asyncio.create_task(self._process_tts_stream())
                 
                 response_count = 0
-                async for response_chunk in self.chatbot_service.process_chat_message(
-                    text,
-                    self.conversation_id,
-                    rag_state=self.rag_state,
-                    agent_id=self.agent_id,
-                    session_id=self.session_id
-                ):
-                    response_count += 1
-                    logger.debug(f"📨 Received response chunk #{response_count}: {response_chunk.get('type')}")
-                    
-                    chunk_type = response_chunk.get('type')
-                    content = response_chunk.get('content', '')
-                    
-                    if content:
-                        logger.debug(f"📝 Content: '{content[:30]}...'")
-                    
-                    if chunk_type in ['first_token', 'chunk']:
+                last_chunk_time = time.time()
+                
+                try:
+                    async for response_chunk in self.chatbot_service.process_chat_message(
+                        text,
+                        self.conversation_id,
+                        rag_state=self.rag_state,
+                        agent_id=self.agent_id,
+                        session_id=self.session_id
+                    ):
+                        # Reset inactivity timer on each chunk
+                        last_chunk_time = time.time()
+                        response_count += 1
+                        logger.debug(f"📨 Received response chunk #{response_count}: {response_chunk.get('type')}")
+                        
+                        chunk_type = response_chunk.get('type')
+                        content = response_chunk.get('content', '')
+                        
                         if content:
-                            # Apply buffering logic before sending to TTS
-                            self.text_buffer += content
+                            logger.debug(f"📝 Content: '{content[:30]}...'")
+                        
+                        if chunk_type in ['first_token', 'chunk']:
+                            if content:
+                                # Apply buffering logic before sending to TTS
+                                self.text_buffer += content
+                                
+                                # Process buffer based on configured level
+                                self.text_buffer = await self._process_buffer_by_level(self.text_buffer)
+                                
+                                # Also notify client of text (always send raw text to UI immediately)
+                                await self.output_queue.put({
+                                    "type": "assistant_response",
+                                    "text": content,
+                                    "is_complete": False
+                                })
+                        elif chunk_type == 'complete':
+                            logger.info("✅ Chatbot response complete")
                             
-                            # Process buffer based on configured level
-                            self.text_buffer = await self._process_buffer_by_level(self.text_buffer)
+                            # Send remaining buffer
+                            if self.text_buffer:
+                                await self.tts_text_queue.put(self.text_buffer)
+                                self.text_buffer = ""
                             
-                            # Also notify client of text (always send raw text to UI immediately)
+                            await self.tts_text_queue.put(None) # End of stream
                             await self.output_queue.put({
                                 "type": "assistant_response",
-                                "text": content,
-                                "is_complete": False
+                                "text": "",
+                                "is_complete": True
                             })
-                    elif chunk_type == 'complete':
-                        logger.info("✅ Chatbot response complete")
+                            break
+                        elif chunk_type == 'error':
+                            logger.error(f"❌ Chatbot error: {content}")
+                            await self.tts_text_queue.put(None)
+                            break
                         
-                        # Send remaining buffer
-                        if self.text_buffer:
-                            await self.tts_text_queue.put(self.text_buffer)
-                            self.text_buffer = ""
-                        
-                        await self.tts_text_queue.put(None) # End of stream
-                        await self.output_queue.put({
-                            "type": "assistant_response",
-                            "text": "",
-                            "is_complete": True
-                        })
-                        break
-                    elif chunk_type == 'error':
-                        logger.error(f"❌ Chatbot error: {content}")
-                        await self.tts_text_queue.put(None)
-                        break
-                    
-                    # Safety: Stop if we get too many chunks without completion
-                    if response_count > 100:
-                        logger.warning(f"⚠️ Too many chunks ({response_count}), stopping")
-                        break
+                        # Safety: Check for inactivity timeout (10 seconds without new chunks)
+                        current_time = time.time()
+                        if current_time - last_chunk_time > 10.0:
+                            logger.warning(f"⚠️ LLM stream inactive for 10+ seconds, stopping")
+                            await self.output_queue.put({
+                                "type": "error",
+                                "message": "Response stream stalled - please try again"
+                            })
+                            await self.tts_text_queue.put(None)
+                            break
+                
+                except asyncio.TimeoutError:
+                    logger.error("⏰ LLM stream inactivity timeout (10s) - stopping")
+                    await self.output_queue.put({
+                        "type": "error",
+                        "message": "Response timeout - please try again"
+                    })
+                    await self.tts_text_queue.put(None)
                 
                 logger.info(f"✅ LLM processing completed: {response_count} chunks received")
                 return response_count
