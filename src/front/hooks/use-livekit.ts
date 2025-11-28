@@ -113,6 +113,7 @@ export function useLiveKit(): UseLiveKitReturn {
             }
             if (data.is_complete) {
                setResponse(prev => prev + '\n\n')
+               setLlmState(false)
             }
             break
             
