@@ -35,7 +35,7 @@ RUN uv sync
 
 # Preload RAG models during Docker build to cache them
 # This significantly speeds up server startup
-# RUN uv run python src/scripts/preload_rag_models.py
+RUN uv run python src/scripts/preload_rag_models.py
 
 # Expose port
 EXPOSE 8001
