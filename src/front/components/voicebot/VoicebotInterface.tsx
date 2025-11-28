@@ -46,6 +46,9 @@ export function VoicebotInterface() {
     transcription: liveTranscripts,
     response: liveResponse,
     vadState,
+    llmState,
+    ttsState,
+    metrics,
     connect,
     disconnect
   } = useLiveKit()
@@ -78,14 +81,24 @@ export function VoicebotInterface() {
     if (liveResponse) {
       setResponse(liveResponse)
     }
-    if (vadState) {
-      setStatus(prev => ({
-        ...prev,
-        energy: vadState.energy,
-        state: vadState.state
-      }))
-    }
-  }, [liveTranscripts, liveResponse, vadState])
+    
+    // Update status object with all indicators
+    setStatus(prev => ({
+      ...prev,
+      // VAD
+      energy: vadState?.energy || 0,
+      state: vadState?.state || 'silence',
+      // Status indicators
+      llmStatus: llmState,
+      ttsStatus: ttsState,
+      // Metrics
+      tokenCount: metrics?.tokens || 0,
+      audioChunkCount: metrics?.audioChunks || 0,
+      firstChunkLatency: metrics?.latency || 0,
+      // playbackStartLatency is usually close to firstChunkLatency in this setup
+      playbackStartLatency: metrics?.latency || 0
+    }))
+  }, [liveTranscripts, liveResponse, vadState, llmState, ttsState, metrics])
 
   const loadAgents = async () => {
     try {

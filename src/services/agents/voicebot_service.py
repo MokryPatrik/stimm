@@ -192,9 +192,14 @@ class VoicebotService:
                 handler = self.event_handlers.get(event["type"])
                 if handler:
                     try:
+                        # logger.debug(f"🔄 Dispatching event {event['type']} to handler")
                         await handler(event)
                     except Exception as e:
                         logger.error(f"Error in event handler for {event['type']}: {e}")
+                else:
+                    # Log missing handler only for important events to avoid noise
+                    if event["type"] in ["transcript_update", "assistant_response", "vad_update"]:
+                        logger.warning(f"⚠️ No handler registered for event: {event['type']}")
                         
                 output_queue.task_done()
                 

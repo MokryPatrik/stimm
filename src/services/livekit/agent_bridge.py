@@ -41,6 +41,10 @@ class LiveKitAgentBridge:
         self.audio_source = None
         self.audio_track = None
         
+        # Agent audio queue (for sequential non-blocking playback)
+        self.agent_audio_queue = asyncio.Queue()
+        self.audio_task: Optional[asyncio.Task] = None
+        
         # Voicebot integration
         self.voicebot_service = None
         self.event_loop = None
@@ -77,6 +81,9 @@ class LiveKitAgentBridge:
             
             await self.room.connect(ws_url, self.token)
             self.is_connected = True
+            
+            # Start background audio task
+            self.audio_task = asyncio.create_task(self._process_audio_queue())
             
             # Publish agent audio track
             await self.room.local_participant.publish_track(
@@ -394,12 +401,51 @@ class LiveKitAgentBridge:
             audio_chunk = event.get("data")
             if audio_chunk and isinstance(audio_chunk, bytes):
                 logger.debug(f"🔊 Received agent audio chunk: {len(audio_chunk)} bytes")
-                await self.send_agent_audio(audio_chunk)
+                
+                # 1. Queue audio for background playback (non-blocking)
+                await self.agent_audio_queue.put(audio_chunk)
+                
+                # 2. Send metadata data packet for UI counters IMMEDIATELY
+                # Note: We construct the event manually to avoid sending the heavy binary data
+                try:
+                    await self._handle_data_event({
+                        "type": "audio_chunk",
+                        # "size": len(audio_chunk), # Optional metadata
+                        "timestamp": event.get("timestamp")
+                    })
+                except Exception as de:
+                    logger.warning(f"Failed to send audio_chunk metadata: {de}")
+                    
             else:
                 logger.warning("⚠️ Invalid audio chunk in agent response event")
                 
         except Exception as e:
             logger.error(f"❌ Error handling agent audio response: {e}")
+
+    async def _process_audio_queue(self):
+        """Process the audio queue to send audio sequentially in background."""
+        logger.debug("🎵 Starting background audio processing task")
+        try:
+            while self.is_connected:
+                # Wait for next audio chunk
+                try:
+                    # Timeout allows checking self.is_connected periodically
+                    audio_chunk = await asyncio.wait_for(self.agent_audio_queue.get(), timeout=1.0)
+                    
+                    if audio_chunk:
+                        await self.send_agent_audio(audio_chunk)
+                        
+                    self.agent_audio_queue.task_done()
+                    
+                except asyncio.TimeoutError:
+                    continue
+                except asyncio.CancelledError:
+                    break
+                    
+        except asyncio.CancelledError:
+            logger.debug("🎵 Audio processing task cancelled")
+        except Exception as e:
+            logger.error(f"❌ Error in audio processing task: {e}")
 
     async def _handle_data_event(self, event: Dict[str, Any]):
         """
@@ -408,6 +454,7 @@ class LiveKitAgentBridge:
         try:
             import json
             if not self.is_connected:
+                logger.warning("⚠️ Cannot send data event: Agent not connected")
                 return
 
             # Clean event payload (remove large binary data if any, though audio_chunk is handled separately)
@@ -453,6 +500,10 @@ class LiveKitAgentBridge:
     def _cleanup(self):
         """Clean up resources"""
         self.user_participants.clear()
+        
+        # Cancel audio task
+        if self.audio_task and not self.audio_task.done():
+            self.audio_task.cancel()
         
         if self.voicebot_service:
             self.voicebot_service.unregister_event_handler("audio_chunk")

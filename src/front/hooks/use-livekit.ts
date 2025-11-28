@@ -15,6 +15,9 @@ export interface UseLiveKitReturn {
   transcription: string
   response: string
   vadState: { energy: number, state: 'speaking' | 'silence' }
+  llmState: boolean
+  ttsState: boolean
+  metrics: { tokens: number, audioChunks: number, latency?: number }
   connect: (agentId: string) => Promise<void>
   disconnect: () => Promise<void>
 }
@@ -30,6 +33,14 @@ export function useLiveKit(): UseLiveKitReturn {
   const [response, setResponse] = useState<string>('')
   const [vadState, setVadState] = useState<{ energy: number, state: 'speaking' | 'silence' }>({ energy: 0, state: 'silence' })
   
+  // Indicator states
+  const [llmState, setLlmState] = useState<boolean>(false)
+  const [ttsState, setTtsState] = useState<boolean>(false)
+  const [metrics, setMetrics] = useState<{ tokens: number, audioChunks: number, latency?: number }>({ tokens: 0, audioChunks: 0 })
+
+  // Latency tracking
+  const lastSpeechEnd = useRef<number>(0)
+
   // Ref to track if we're mounted to avoid state updates on unmount
   const isMounted = useRef(true)
 
@@ -115,11 +126,34 @@ export function useLiveKit(): UseLiveKitReturn {
             
           case 'speech_end':
             setVadState(prev => ({ ...prev, state: 'silence' }))
+            lastSpeechEnd.current = Date.now()
             break
             
           case 'bot_responding_start':
              // Maybe clear response if it's a new turn?
              setResponse('')
+             setLlmState(true)
+             break
+             
+          case 'bot_responding_end':
+             setLlmState(false)
+             setTtsState(false) // Assuming TTS ends shortly after or we track chunks
+             break
+             
+          case 'audio_chunk':
+             // Calculate latency if this is the first chunk after speech end
+             let currentLatency: number | undefined;
+             if (lastSpeechEnd.current > 0) {
+                currentLatency = Date.now() - lastSpeechEnd.current;
+                lastSpeechEnd.current = 0; // Reset so we don't calculate for subsequent chunks
+             }
+
+             setMetrics(prev => ({
+               ...prev,
+               audioChunks: prev.audioChunks + 1,
+               latency: currentLatency !== undefined ? currentLatency : prev.latency
+             }))
+             setTtsState(true)
              break
         }
       } catch (e) {
@@ -177,6 +211,9 @@ export function useLiveKit(): UseLiveKitReturn {
     transcription,
     response,
     vadState,
+    llmState,
+    ttsState,
+    metrics,
     connect,
     disconnect
   }
