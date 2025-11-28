@@ -13,12 +13,12 @@ import aiohttp
 class TextInterface:
     """Text-only interface for agent testing"""
     
-    def __init__(self, agent_name: str, use_rag: bool = True, verbose: bool = False):
+    def __init__(self, agent_name: str, use_rag: bool = True, verbose: bool = False, base_url: Optional[str] = None):
         self.agent_name = agent_name
         self.use_rag = use_rag
         self.verbose = verbose
         from environment_config import config
-        self.base_url = config.voicebot_api_url
+        self.base_url = base_url or config.voicebot_api_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.logger = logging.getLogger(__name__)
         

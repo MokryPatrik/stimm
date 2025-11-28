@@ -19,12 +19,12 @@ from .livekit_client import LiveKitClient
 class AgentRunner:
     """Runner for full audio mode via LiveKit"""
     
-    def __init__(self, agent_name: str, room_name: Optional[str] = None, verbose: bool = False, is_local: bool = False):
+    def __init__(self, agent_name: str, room_name: Optional[str] = None, verbose: bool = False, is_local: bool = False, base_url: Optional[str] = None):
         self.agent_name = agent_name
         self.room_name = room_name or f"cli-{agent_name}-{uuid.uuid4().hex[:8]}"
         self.verbose = verbose
         self.is_local = is_local
-        self.base_url = config.voicebot_api_url
+        self.base_url = base_url or config.voicebot_api_url
         self.livekit_url = config.livekit_url
         self.session: Optional[aiohttp.ClientSession] = None
         self.logger = logging.getLogger(__name__)

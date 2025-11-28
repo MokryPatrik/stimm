@@ -187,66 +187,81 @@ docker compose up
 
 ## 🖥️ CLI Tool
 
-The platform includes a CLI tool for testing agents without the web interface.
+The platform includes a powerful CLI tool for development and testing, allowing you to interact with agents without the web interface. It operates in two main modes:
+- **Local Mode (Default)**: Instantiates services directly from your source code. This is ideal for development as it provides immediate feedback and easy debugging. It requires infrastructure services (like Postgres, Qdrant, LiveKit) to be running and accessible.
+- **HTTP Mode (`--http`)**: Acts as a client to a running backend server. This is useful for testing a deployed instance or when you don't want to run the agent logic in the same process.
 
-### Basic Commands
+### Commands
 
-```bash
-# List available agents
-uv run python -m src.cli.main --list-agents
+The CLI uses a modern subcommand structure: `python -m src.cli.main [GLOBAL_OPTIONS] <COMMAND> [COMMAND_OPTIONS]`
 
-# Text conversation (quick testing)
-uv run python -m src.cli.main --agent-name "Etienne" --mode text
+#### Global Options
+- `--http [URL]`: Activates HTTP mode. If `[URL]` is provided, it uses that specific backend URL. If omitted, it uses the URL from your `.env` file.
+- `--verbose, -v`: Enables detailed `DEBUG` logging.
 
-# Audio conversation via LiveKit
-uv run python -m src.cli.main --agent-name "Etienne" --mode full
-
-# With verbose logging
-uv run python -m src.cli.main --agent-name "Etienne" --mode text --verbose
-```
-
-### Audio Pipeline Testing
+#### `talk`
+Starts a full, real-time voice conversation with an agent.
 
 ```bash
-# Automated echo test (recommended)
-uv run python -m src.cli.main --test-echo --verbose
+# Start a voice session with agent "ava" in local mode
+uv run python -m src.cli.main talk --agent-name "ava"
 
-# Test microphone recording (5 seconds)
-uv run python -m src.cli.main --test-mic 5
+# Start a session with a custom room name
+uv run python -m src.cli.main talk --agent-name "ava" --room-name "my-test-room"
 
-# Test LiveKit microphone capture
-uv run python -m src.cli.main --test-livekit-mic 5
+# Connect to a remote backend (default URL)
+uv run python -m src.cli.main --http talk --agent-name "ava"
 
-# Manual testing (two terminals)
-# Terminal 1:
-uv run python -m src.cli.echo_server
-# Terminal 2:
-uv run python -m src.cli.echo_client
+# Connect to a specific backend URL
+uv run python -m src.cli.main --http http://my-backend:8001 talk --agent-name "ava"
 ```
+**Options:**
+- `--agent-name NAME`: The name of the agent to talk to.
+- `--room-name NAME`: Custom LiveKit room name.
+- `--disable-rag`: Disables the Retrieval-Augmented Generation (RAG) system for the session.
 
-### CLI Options Reference
+#### `chat`
+Starts an interactive text-only chat session with an agent.
 
-| Option | Description |
-|--------|-------------|
-| `--list-agents` | List all available agents |
-| `--agent-name NAME` | Select agent by name |
-| `--mode text\|full` | Text-only or full audio mode |
-| `--use-rag` | Enable RAG (default: enabled) |
-| `--room-name NAME` | Custom LiveKit room name |
-| `--local` | Backend is instanciated by the cli (No http calls to the backend, No need to run backend aside) |
-| `--verbose` | Enable debug logging |
-| `--test-echo` | Run echo pipeline test |
-| `--test-mic SECONDS` | Test microphone recording |
-| `--test-livekit-mic SECONDS` | Test LiveKit microphone |
+```bash
+# Start a local text chat with the default agent
+uv run python -m src.cli.main chat
 
-### Troubleshooting Audio
+# Start a chat with a specific agent, disabling RAG
+uv run python -m src.cli.main chat --agent-name "ava" --disable-rag
 
-| Issue | Solution |
-|-------|----------|
-| No microphone access | Check permissions and WSL2 audio setup |
-| InvalidState errors | Use the fixed `echo_server.py` with error handling |
-| No audio playback | Check speakers and PulseAudio configuration |
-| Connection failures | Verify `docker-compose up livekit` is running |
+# Start a chat using a remote backend
+uv run python -m src.cli.main --http chat --agent-name "ava"
+```
+**Options:**
+- `--agent-name NAME`: The name of the agent to chat with.
+- `--disable-rag`: Disables the Retrieval-Augmented Generation (RAG) system.
+
+#### `agents`
+Manages agents in the system.
+
+```bash
+# List all agents
+uv run python -m src.cli.main agents list
+
+# List agents from a running backend API
+uv run python -m src.cli.main --http agents list
+```
+**Subcommands:**
+- `list`: Displays a list of all configured agents.
+
+#### `test`
+Runs diagnostic tests.
+
+```bash
+# Test the full LiveKit audio pipeline with an echo server
+uv run python -m src.cli.main test echo
+
+# Run with verbose logging for detailed output
+uv run python -m src.cli.main --verbose test echo
+```
+**Subcommands:**
+- `echo`: Starts an echo client and server to verify that your audio is being correctly captured and played back through LiveKit.
 
 ## 📊 Logging
 

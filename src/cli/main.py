@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 CLI Tool for testing voice agents from command line
-Supports both full audio mode (via LiveKit) and text-only mode
 """
 
 import argparse
@@ -30,24 +29,52 @@ if __name__ == "__main__":
 from cli.agent_runner import AgentRunner
 from cli.text_input import TextInterface
 from utils.logging_config import configure_logging
+from environment_config import config
 
+class VliMode(Enum):
+    LOCAL = "local"
+    HTTP = "http"
 
-class CLIMode(Enum):
-    FULL = "full"    # Audio via LiveKit
-    TEXT = "text"    # Text only
+def get_base_url(args):
+    """Resolve base URL from args"""
+    if args.url:
+        return args.url
+    if args.http:
+        return config.voicebot_api_url
+    return None
 
+async def list_agents_local():
+    from services.agents_admin.agent_service import AgentService
+    from database.session import get_db
+    db_gen = get_db()
+    db = next(db_gen)
+    try:
+        service = AgentService(db)
+        response = service.list_agents(skip=0, limit=100)
+        agents = response.agents
+        print("\n🤖 Available Agents (Local DB):")
+        print("=" * 80)
+        for agent in agents:
+            print(f"• {agent.name}")
+            print(f"  ID: {agent.id}")
+            print(f"  Description: {agent.description or 'No description'}")
+            print(f"  LLM Provider: {agent.llm_provider}")
+            print(f"  TTS Provider: {agent.tts_provider}")
+            print(f"  STT Provider: {agent.stt_provider}")
+            print(f"  Default: {'✅' if agent.is_default else '❌'}")
+            print(f"  Active: {'✅' if agent.is_active else '❌'}")
+            print()
+        return 0
+    finally:
+        db_gen.close()
 
-async def list_agents(verbose: bool = False):
-    """List all available agents"""
-    from environment_config import config
-    base_url = config.voicebot_api_url
-    
+async def list_agents_http(base_url):
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{base_url}/api/agents/") as response:
                 if response.status == 200:
                     agents = await response.json()
-                    print("\n🤖 Available Agents:")
+                    print("\n🤖 Available Agents (HTTP):")
                     print("=" * 80)
                     for agent in agents:
                         print(f"• {agent['name']}")
@@ -67,104 +94,197 @@ async def list_agents(verbose: bool = False):
         print("❌ Cannot connect to backend. Make sure the backend is running:")
         print("   docker compose up -d")
         return 1
+
+async def list_agents(args):
+    """List all available agents"""
+    try:
+        base_url = get_base_url(args)
+        if base_url:
+            return await list_agents_http(base_url)
+        else:
+            return await list_agents_local()
     except Exception as e:
         print(f"❌ Error listing agents: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
+def preprocess_argv():
+    """
+    Preprocess argv to handle the ambiguous --http [URL] argument.
+    If --http is followed by a URL (not a command/flag), convert it to --url URL.
+    This allows supporting both '--http command' and '--http URL command'.
+    """
+    argv = sys.argv[1:]
+    new_argv = []
+    i = 0
+    commands = ["chat", "talk", "agents", "test"]
+    
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--http":
+            # Check if next argument is a value (URL) or a command/flag
+            if i + 1 < len(argv):
+                next_arg = argv[i+1]
+                if not next_arg.startswith("-") and next_arg not in commands:
+                    # It's a URL! rewrite to --url
+                    new_argv.append("--url")
+                    new_argv.append(next_arg)
+                    i += 2
+                    continue
+            # It's a flag (followed by command or nothing or another flag)
+            new_argv.append("--http")
+            i += 1
+        else:
+            new_argv.append(arg)
+            i += 1
+    return new_argv
 
 def parse_args():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="Test voice agents from command line",
+        description="CLI to interact with Voice Agents.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Test agent in text-only mode
-  python -m src.cli.main --agent-name "etienne" --mode text
-  
-  # Test agent with full audio via LiveKit
-  python -m src.cli.main --agent-name "etienne" --mode full
-  
-  # Test with custom room name and verbose logging
-  python -m src.cli.main --agent-name "etienne" --mode full --room-name "test-room" --verbose
-  
-  # List all available agents
-  python -m src.cli.main --list-agents
-        """
-    )
-    
-    parser.add_argument(
-        "--agent-name",
-        help="Name of the agent to test"
-    )
-    
-    parser.add_argument(
-        "--mode",
-        choices=["full", "text"],
-        default="text",
-        help="Mode: 'full' for audio via LiveKit, 'text' for text only (default: text)"
-    )
-    
-    parser.add_argument(
-        "--room-name",
-        help="Custom room name for LiveKit (default: auto-generated)"
+  # Talk with an agent in local mode (default)
+  python -m src.cli.main talk --agent-name "ava"
+
+  # Chat with an agent using a remote backend (default URL)
+  python -m src.cli.main --http chat --agent-name "ava"
+
+  # Chat with a specific backend URL
+  python -m src.cli.main --http http://localhost:8001 chat --agent-name "ava"
+
+  # List all agents from the local database
+  python -m src.cli.main agents list
+"""
     )
 
+    # Global options
     parser.add_argument(
-        "--local",
+        "--http",
         action="store_true",
-        help="Run agent locally in a subprocess (simulates 'agent console' mode)"
+        help="Use HTTP mode. Can be used as a flag (default env URL) or with a value (custom URL)."
     )
-    
     parser.add_argument(
-        "--use-rag",
-        action="store_true",
-        default=True,
-        help="Use RAG for context (default: True)"
+        "--url",
+        help=argparse.SUPPRESS # Hidden argument used by preprocessor
     )
-    
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose logging"
     )
+
+    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
+
+    # 'agents' command
+    parser_agents = subparsers.add_parser("agents", help="Manage agents")
+    agents_subparsers = parser_agents.add_subparsers(dest="agents_command", required=True)
+    parser_agents_list = agents_subparsers.add_parser("list", help="List available agents")
+    parser_agents_list.set_defaults(func=list_agents)
+
+
+    # 'chat' command
+    parser_chat = subparsers.add_parser("chat", help="Start a text-based chat session")
+    parser_chat.add_argument("--agent-name", help="Name of the agent to use")
+    parser_chat.add_argument("--disable-rag", action="store_true", help="Disable RAG for the session")
+    parser_chat.set_defaults(func=run_chat_mode)
+
+    # 'talk' command
+    parser_talk = subparsers.add_parser("talk", help="Start a voice-based session")
+    parser_talk.add_argument("--agent-name", help="Name of the agent to use")
+    parser_talk.add_argument("--room-name", help="Custom room name for LiveKit")
+    parser_talk.add_argument("--disable-rag", action="store_true", help="Disable RAG for the session")
+    parser_talk.set_defaults(func=run_talk_mode)
+
+    # 'test' command
+    parser_test = subparsers.add_parser("test", help="Run tests")
+    test_subparsers = parser_test.add_subparsers(dest="test_command", required=True)
+    parser_test_echo = test_subparsers.add_parser("echo", help="Test LiveKit echo pipeline")
+    parser_test_echo.set_defaults(func=test_echo_pipeline)
+
+
+    return parser.parse_args(preprocess_argv())
+
+async def run_chat_mode_local(args):
+    from services.rag.chatbot_service import ChatbotService
+    from services.rag.rag_state import RagState
+    from services.agents_admin.agent_service import AgentService
+    from database.session import get_db
+
+    agent_name = args.agent_name
+    use_rag = not args.disable_rag
     
-    parser.add_argument(
-        "--list-agents",
-        action="store_true",
-        help="List all available agents"
-    )
+    # Get agent_id from name
+    agent_id = None
+    if agent_name:
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            service = AgentService(db)
+            agents = service.list_agents(skip=0, limit=1000).agents
+            for agent in agents:
+                if agent.name == agent_name:
+                    agent_id = str(agent.id)
+                    break
+            if not agent_id:
+                print(f"❌ Agent '{agent_name}' not found in local database.")
+                return 1
+        finally:
+            db_gen.close()
+
+    print(f"\n🤖 Local Chat Mode (Agent: {agent_name or 'Default'})")
+    print("=" * 50)
     
-    parser.add_argument(
-        "--test-mic",
-        type=float,
-        metavar="SECONDS",
-        help="Test microphone by recording N seconds to test_recording.wav"
-    )
+    rag_state = RagState()
+    await rag_state.ensure_ready()
+    chatbot_service = ChatbotService()
     
-    parser.add_argument(
-        "--test-livekit-mic",
-        type=float,
-        metavar="SECONDS",
-        help="Test LiveKit microphone capture by recording N seconds to test_livekit_recording.wav"
-    )
+    conversation_id = None
+    while True:
+        try:
+            user_input = input("\n👤 You: ").strip()
+            if user_input.lower() in ['quit', 'exit']:
+                break
 
-    parser.add_argument(
-        "--test-echo",
-        action="store_true",
-        help="Test LiveKit audio pipeline with echo server and client"
-    )
+            print("🤖 Agent: ", end="", flush=True)
+            full_response = ""
+            async for chunk in chatbot_service.process_chat_message(
+                message=user_input,
+                conversation_id=conversation_id,
+                rag_state=rag_state,
+                agent_id=agent_id
+            ):
+                if chunk['type'] == 'chunk':
+                    content = chunk.get('content', '')
+                    print(content, end="", flush=True)
+                    full_response += content
+                elif chunk['type'] == 'complete':
+                    conversation_id = chunk.get('conversation_id')
+            print() # Newline after agent response
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+    
+    print("\n👋 Conversation ended.")
+    return 0
 
-    return parser.parse_args()
-
-
-async def run_text_mode(agent_name: str, use_rag: bool = True, verbose: bool = False):
-    """Run agent in text-only mode"""
-    logging.info(f"Starting text-only mode for agent: {agent_name}")
+async def run_chat_mode_http(args):
+    if not args.agent_name:
+        print("❌ Agent name is required. Use --agent-name <name>")
+        return 1
+    
+    logging.info(f"Starting text-only mode for agent: {args.agent_name}")
+    use_rag = not args.disable_rag
     logging.info(f"RAG enabled: {use_rag}")
     
+    base_url = get_base_url(args) or config.voicebot_api_url
+    
     try:
-        text_interface = TextInterface(agent_name, use_rag=use_rag, verbose=verbose)
+        text_interface = TextInterface(args.agent_name, use_rag=use_rag, verbose=args.verbose, base_url=base_url)
         await text_interface.run()
     except KeyboardInterrupt:
         logging.info("Text mode interrupted by user")
@@ -174,13 +294,32 @@ async def run_text_mode(agent_name: str, use_rag: bool = True, verbose: bool = F
     
     return 0
 
+async def run_chat_mode(args):
+    """Run agent in text-only mode"""
+    if args.http or args.url:
+        return await run_chat_mode_http(args)
+    else:
+        return await run_chat_mode_local(args)
 
-async def run_full_mode(agent_name: str, room_name: Optional[str] = None, verbose: bool = False, is_local: bool = False):
+async def run_talk_mode(args):
     """Run agent in full audio mode via LiveKit"""
-    logging.info(f"Starting full audio mode for agent: {agent_name} (Local: {is_local})")
+    if not args.agent_name:
+        print("❌ Agent name is required. Use --agent-name <name>")
+        return 1
+        
+    is_local = not (args.http or args.url)
+    logging.info(f"Starting full audio mode for agent: {args.agent_name} (Local: {is_local})")
     
+    base_url = get_base_url(args) or config.voicebot_api_url
+
     try:
-        agent_runner = AgentRunner(agent_name, room_name, verbose=verbose, is_local=is_local)
+        agent_runner = AgentRunner(
+            args.agent_name,
+            args.room_name,
+            verbose=args.verbose,
+            is_local=is_local,
+            base_url=base_url
+        )
         await agent_runner.run()
     except KeyboardInterrupt:
         logging.info("Full mode interrupted by user")
@@ -190,50 +329,7 @@ async def run_full_mode(agent_name: str, room_name: Optional[str] = None, verbos
     
     return 0
 
-
-def test_microphone(duration: float):
-    """Test microphone by recording to a WAV file using PulseAudio"""
-    print(f"\n🎤 Testing Microphone")
-    print("=" * 80)
-    print(f"Recording {duration} seconds to test_recording.wav...")
-    print("Speak into your microphone now!")
-    print()
-    
-    try:
-        # Use the working PulseAudio method from test_mic.py
-        from cli.test_mic import test_pulseaudio_recording
-        
-        success = test_pulseaudio_recording(duration, "test_recording.wav")
-        
-        if success:
-            print()
-            print("✅ Recording complete!")
-            print(f"📁 Saved to: test_recording.wav")
-            print("🔊 Play it back to verify your microphone works:")
-            print("   aplay test_recording.wav  (Linux)")
-            print("   afplay test_recording.wav  (Mac)")
-            print()
-            print("📥 To copy the file from Docker to your repo:")
-            print("   docker cp voicebot-app:/app/test_recording.wav ./test_recording.wav")
-            print()
-            return 0
-        else:
-            print(f"\n❌ Microphone test failed")
-            return 1
-            
-    except Exception as e:
-        print(f"\n❌ Microphone test failed: {e}")
-        print("\nTroubleshooting:")
-        print("• Make sure your microphone is connected and not muted")
-        print("• Check that ffmpeg is installed: apt-get install ffmpeg")
-        print("• Check that pulseaudio-utils is installed: apt-get install pulseaudio-utils")
-        return 1
-
-
-from cli.test_livekit_microphone import test_livekit_microphone
-
-
-async def test_echo_pipeline(verbose: bool = False):
+async def test_echo_pipeline(args):
     """Test LiveKit audio pipeline with echo server and client"""
     import subprocess
     import signal
@@ -278,38 +374,30 @@ async def test_echo_pipeline(verbose: bool = False):
         # Log output from both processes
         async def log_process_output(process, name):
             while True:
-                # Check if process is still running
                 if process.poll() is not None:
-                    # Read remaining output
                     remaining_lines = process.stdout.readlines()
                     for line in remaining_lines:
-                        if verbose: # Only log if verbose
+                        if args.verbose:
                             logging.info(f"[{name}] {line.strip()}")
                     break
                 
-                # Simplified blocking readline in executor
                 line = await asyncio.get_event_loop().run_in_executor(None, process.stdout.readline)
                 if line:
-                    if verbose:
+                    if args.verbose:
                         logging.info(f"[{name}] {line.strip()}")
                 else:
-                    # EOF or empty read
                     if process.poll() is not None:
                         break
                     await asyncio.sleep(0.1)
         
-        # Start logging tasks
-        if verbose:
+        if args.verbose:
             tasks.append(asyncio.create_task(log_process_output(server_process, "SERVER")))
             tasks.append(asyncio.create_task(log_process_output(client_process, "CLIENT")))
         
-        # Wait for user interrupt
         logging.info("✅ Echo pipeline running! Speak into your microphone to test.")
         logging.info("Press Ctrl+C to stop...")
         
-        # Keep running until interrupted
         while True:
-            # Check if processes died
             if server_process.poll() is not None:
                 logging.error("❌ Echo server crashed!")
                 break
@@ -321,71 +409,33 @@ async def test_echo_pipeline(verbose: bool = False):
     except KeyboardInterrupt:
         logging.info("🛑 Stopping echo pipeline...")
     finally:
-        # Cleanup processes
         if server_process and server_process.poll() is None:
             server_process.terminate()
         if client_process and client_process.poll() is None:
             client_process.terminate()
         
-        # Wait for processes to terminate
         if server_process:
             server_process.wait(timeout=5)
         if client_process:
             client_process.wait(timeout=5)
         
-        # Cancel logging tasks
         for task in tasks:
             task.cancel()
             
         logging.info("✅ Echo pipeline stopped")
-
+    return 0
 
 async def main():
-    """Main entry point - synchronous wrapper for async code"""
-    return await async_main()
-
-async def async_main():
     """Async main entry point"""
     args = parse_args()
     configure_logging(args.verbose)
     
-    # Handle microphone test mode
-    if args.test_mic:
-        logging.info(f"Testing microphone for {args.test_mic} seconds")
-        return test_microphone(args.test_mic)
+    if hasattr(args, 'func'):
+        return await args.func(args)
     
-    # Handle LiveKit microphone test mode
-    if args.test_livekit_mic:
-        logging.info(f"Testing LiveKit microphone for {args.test_livekit_mic} seconds")
-        return await test_livekit_microphone(args.test_livekit_mic)
-
-    if args.test_echo:
-        logging.info("Testing LiveKit echo pipeline")
-        return await test_echo_pipeline(args.verbose)
-
-    if args.list_agents:
-        logging.info("Listing available agents")
-        return await list_agents(args.verbose)
-    
-    if not args.agent_name:
-        print("❌ Agent name is required. Use --agent-name <name> or --list-agents to see available agents")
-        return 1
-    
-    logging.info(f"Starting CLI tool for agent: {args.agent_name}")
-    logging.info(f"Mode: {args.mode}")
-    
-    try:
-        if args.mode == "text":
-            return await run_text_mode(args.agent_name, args.use_rag, args.verbose)
-        else:  # full mode
-            return await run_full_mode(args.agent_name, args.room_name, args.verbose, args.local)
-    except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        return 1
-
+    return 1
 
 if __name__ == "__main__":
-    # Run the async main function
     try:
         exit_code = asyncio.run(main())
         sys.exit(exit_code)
