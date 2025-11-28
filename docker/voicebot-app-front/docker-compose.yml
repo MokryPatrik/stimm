@@ -10,6 +10,8 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
+      - NEXT_PUBLIC_BACKEND_HOSTNAME=voicebot-app
+      - NEXT_PUBLIC_LIVEKIT_HOSTNAME=livekit
     # Environment variables are loaded from env_file in root docker-compose.yml
     stdin_open: true
     tty: true
