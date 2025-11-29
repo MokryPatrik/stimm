@@ -44,6 +44,7 @@ class LiveKitAgentBridge:
         # Agent audio queue (for sequential non-blocking playback)
         self.agent_audio_queue = asyncio.Queue()
         self.audio_task: Optional[asyncio.Task] = None
+        self.interruption_signal = asyncio.Event() # Event to signal interruption
         
         # Voicebot integration
         self.voicebot_service = None
@@ -305,6 +306,11 @@ class LiveKitAgentBridge:
                 burst_frames = 10
                 
                 while offset < total_bytes:
+                    # Check for interruption
+                    if self.interruption_signal.is_set():
+                        logger.info("🛑 Audio sending interrupted by signal")
+                        return
+
                     # Get next chunk
                     chunk_end = min(offset + bytes_per_frame, total_bytes)
                     frame_data = audio_chunk[offset:chunk_end]
@@ -376,6 +382,9 @@ class LiveKitAgentBridge:
                 self._handle_agent_audio_response
             )
             
+            # Register handler for interruption
+            self.voicebot_service.register_event_handler("interrupt", self._handle_interrupt_event)
+            
             # Register handlers for text/data events
             self.voicebot_service.register_event_handler("transcript_update", self._handle_data_event)
             self.voicebot_service.register_event_handler("assistant_response", self._handle_data_event)
@@ -390,6 +399,42 @@ class LiveKitAgentBridge:
         except Exception as e:
             logger.error(f"❌ Failed to create voicebot session: {e}")
     
+    async def _handle_interrupt_event(self, event: Dict[str, Any]):
+        """
+        Handle interrupt event from voicebot service.
+        Stop current playback and clear queues.
+        """
+        logger.info("🛑 Interruption signal received in LiveKit bridge - Stopping playback")
+        
+        # 1. Signal any running audio sending loop to stop
+        self.interruption_signal.set()
+        
+        # 2. Clear audio queue
+        dropped_chunks = 0
+        while not self.agent_audio_queue.empty():
+            try:
+                self.agent_audio_queue.get_nowait()
+                dropped_chunks += 1
+            except asyncio.QueueEmpty:
+                break
+        
+        logger.info(f"🗑️ Flushed {dropped_chunks} pending audio chunks from queue")
+        
+        # 3. Forward interrupt to client (UI updates)
+        await self._handle_data_event(event)
+        
+        # 4. Clear signal after a short delay to allow loops to exit
+        # We don't clear immediately because send_agent_audio might still be running
+        # The signal will be cleared by send_agent_audio when it exits or by the process loop
+        # Actually, let's clear it in _process_audio_queue before processing next chunk?
+        # No, send_agent_audio needs to see it.
+        # We can clear it after we are sure tasks are stopped?
+        # But we don't want to block new audio.
+        # Let's rely on the consumer to clear it or use a version counter.
+        # Simpler: clear it after a minimal sleep?
+        await asyncio.sleep(0.1)
+        self.interruption_signal.clear()
+
     async def _handle_agent_audio_response(self, event: Dict[str, Any]):
         """
         Handle agent audio response from voicebot service.
@@ -400,7 +445,7 @@ class LiveKitAgentBridge:
         try:
             audio_chunk = event.get("data")
             if audio_chunk and isinstance(audio_chunk, bytes):
-                logger.debug(f"🔊 Received agent audio chunk: {len(audio_chunk)} bytes")
+                # logger.debug(f"🔊 Received agent audio chunk: {len(audio_chunk)} bytes")
                 
                 # 1. Queue audio for background playback (non-blocking)
                 await self.agent_audio_queue.put(audio_chunk)
@@ -507,6 +552,7 @@ class LiveKitAgentBridge:
         
         if self.voicebot_service:
             self.voicebot_service.unregister_event_handler("audio_chunk")
+            self.voicebot_service.unregister_event_handler("interrupt")
             self.voicebot_service.unregister_event_handler("transcript_update")
             self.voicebot_service.unregister_event_handler("assistant_response")
             self.voicebot_service.unregister_event_handler("vad_update")

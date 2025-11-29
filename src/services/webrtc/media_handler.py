@@ -201,7 +201,22 @@ class WebRTCMediaHandler:
                     data = event["data"]
                     if self.audio_sender:
                         await self.audio_queue.put(data)
-                        logger.debug(f"🎵 Sent audio chunk to sender: {len(data)} bytes")
+                        # logger.debug(f"🎵 Sent audio chunk to sender: {len(data)} bytes")
+                
+                elif event_type == "interrupt":
+                    # Handle interruption: Clear audio queue immediately
+                    logger.info("🛑 Interruption signal received in media handler - Flushing audio queue")
+                    
+                    # Drain the audio queue
+                    dropped_chunks = 0
+                    while not self.audio_queue.empty():
+                        try:
+                            self.audio_queue.get_nowait()
+                            dropped_chunks += 1
+                        except asyncio.QueueEmpty:
+                            break
+                            
+                    logger.info(f"🗑️ Flushed {dropped_chunks} audio chunks from queue")
                         
                 elif event_type == "vad_update":
                     # Send VAD status to client via data channel

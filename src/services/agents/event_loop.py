@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class AgentState(Enum):
     LISTENING = "listening"
+    WAITING_FOR_TRANSCRIPT = "waiting_for_transcript"
     THINKING = "thinking"
     SPEAKING = "speaking"
 
@@ -55,6 +56,7 @@ class VoicebotEventLoop:
         self.state = AgentState.LISTENING
         self.transcript_buffer = []
         self.current_sentence = ""
+        self.last_speech_end_time = 0
         
         # Audio Buffering for VAD-gated STT
         self.audio_buffer = [] # Circular buffer for pre-speech context
@@ -327,20 +329,43 @@ class VoicebotEventLoop:
         """Handle speech end event."""
         # Notify client
         await self.output_queue.put({"type": "speech_end"})
+        self.last_speech_end_time = time.time()
         
-        # Trigger LLM if we have accumulated transcripts
+        # Check if we have enough context to trigger LLM
         if self.transcript_buffer:
-            full_text = " ".join(self.transcript_buffer)
-            logger.info(f"🧠 AI Thinking... Input: '{full_text}'")
+            await self._trigger_llm_processing()
+        else:
+            # Wait for transcript to arrive (fix for first turn drop)
+            logger.info("⏳ Speech ended but no transcript yet - waiting...")
+            self.state = AgentState.WAITING_FOR_TRANSCRIPT
             
-            # Clear buffer
-            self.transcript_buffer = []
-            
-            # Start LLM processing
-            self.state = AgentState.THINKING
-            await self.output_queue.put({"type": "bot_responding_start"})
-            
-            self.llm_task = asyncio.create_task(self._process_llm_response(full_text))
+            # Start a timeout task to reset state if no transcript arrives
+            asyncio.create_task(self._transcript_timeout_check())
+
+    async def _transcript_timeout_check(self):
+        """Check if we've waited too long for a transcript."""
+        wait_start = time.time()
+        try:
+            await asyncio.sleep(2.0) # Wait 2 seconds
+            if self.state == AgentState.WAITING_FOR_TRANSCRIPT and time.time() - wait_start >= 2.0:
+                logger.warning("⏰ Timeout waiting for transcript after speech end")
+                self.state = AgentState.LISTENING
+        except asyncio.CancelledError:
+            pass
+
+    async def _trigger_llm_processing(self):
+        """Trigger the LLM processing pipeline."""
+        full_text = " ".join(self.transcript_buffer)
+        logger.info(f"🧠 AI Thinking... Input: '{full_text}'")
+        
+        # Clear buffer
+        self.transcript_buffer = []
+        
+        # Start LLM processing
+        self.state = AgentState.THINKING
+        await self.output_queue.put({"type": "bot_responding_start"})
+        
+        self.llm_task = asyncio.create_task(self._process_llm_response(full_text))
 
     async def _handle_transcript_update(self, transcript_data: Dict[str, Any]):
         """Handle STT transcript update."""
@@ -352,33 +377,58 @@ class VoicebotEventLoop:
 
         # Forward to client
         await self.output_queue.put({
-            "type": "transcript_update", 
-            "text": text, 
+            "type": "transcript_update",
+            "text": text,
             "is_final": is_final
         })
         
         if is_final:
             self.transcript_buffer.append(text)
+            
+            # If we were waiting for this transcript to trigger LLM
+            if self.state == AgentState.WAITING_FOR_TRANSCRIPT:
+                logger.info(f"📝 Received final transcript while waiting: '{text}'")
+                await self._trigger_llm_processing()
 
     async def _handle_interruption(self):
         """Handle interruption logic."""
+        logger.info("🛑 Handling Interruption: Stopping playback and cancelling tasks")
+        
+        # Reset state
         self.state = AgentState.LISTENING
         self.text_buffer = ""  # Clear text buffer
+        self.transcript_buffer = [] # Clear any accumulated user input from previous turn
         
         # Cancel LLM/TTS tasks
+        tasks_cancelled = 0
         if self.llm_task and not self.llm_task.done():
             self.llm_task.cancel()
+            tasks_cancelled += 1
         if self.tts_task and not self.tts_task.done():
             self.tts_task.cancel()
+            tasks_cancelled += 1
             
-        # Clear queues
+        logger.debug(f"Cancelled {tasks_cancelled} tasks")
+            
+        # Clear internal queues
+        # Clear TTS text queue
         while not self.tts_text_queue.empty():
             try:
                 self.tts_text_queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
-            
-        # Notify client
+        
+        # Clear output queue of any pending AUDIO chunks
+        # We need to be careful not to remove other important events, but for interruption
+        # priority is silence.
+        # Since we can't easily filter asyncio.Queue, and output_queue is consumed by
+        # WebRTCMediaHandler/Websocket, sending a clear signal is safer.
+        
+        # Send explicit interrupt signal to output queue
+        # This will be picked up by WebRTCMediaHandler to clear ITS audio buffer
+        await self.output_queue.put({"type": "interrupt"})
+        
+        # Also send client notification
         await self.output_queue.put({"type": "bot_response_interrupted"})
         
     async def _process_llm_response(self, text: str):
