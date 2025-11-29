@@ -17,7 +17,7 @@ class RAGConfig:
         self.conv_cache_ttl_seconds = int(os.getenv("CONVERSATION_CACHE_TTL_SECONDS", "900"))
         self.conv_max_return_messages = int(os.getenv("CONVERSATION_MAX_RETURN_MESSAGES", "12"))
 
-        # System prompt
+        System prompt
         self.system_prompt = """
                                 Vous êtes Ava, l'assistante vocale de la Banque Rennaise.
                                 Vous parlez uniquement à l’oral, avec un ton professionnel, calme et naturel.
@@ -32,6 +32,9 @@ class RAGConfig:
                                 Si la réponse est connue, donnez-la immédiatement sans préambule.
                                 Votre objectif est d’aider le client efficacement, avec un ton empathique, mesuré et crédible.
                             """
+
+        # self.system_prompt = """
+        #                      """
 
 
     def get_system_prompt(self, language="fr"):
