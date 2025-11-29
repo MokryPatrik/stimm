@@ -204,17 +204,30 @@ export function VoicebotInterface() {
            {/* Visualizer Bars */}
            <div className="flex items-center justify-center gap-3 h-32">
               {[0, 1, 2, 3, 4].map((i) => {
-                 // Simple simulated visualizer based on energy
-                 const height = Math.max(20, Math.min(100, status.energy * 100 * (1 + Math.random())))
+                 // Improved visualizer with "hill" pattern and organic variance
+                 // Center bars (2) are taller, outer bars (0,4) are shorter
+                 const shapeMultipliers = [0.6, 0.85, 1.2, 0.85, 0.6]
+                 const multiplier = shapeMultipliers[i]
+                 
+                 // Base height driven by energy (scaled up slightly to be more responsive)
+                 const energyBase = Math.min(100, Math.max(0, status.energy * 150))
+                 
+                 // Add organic variance that scales with energy
+                 const variance = Math.random() * 20 * status.energy
+                 
+                 // Calculate final height
+                 const calculatedHeight = (energyBase * multiplier) + variance
+                 const height = Math.max(15, Math.min(100, calculatedHeight))
+                 
                  const isActive = status.state === 'speaking' || status.state === 'responding'
                  
                  return (
-                   <div 
+                   <div
                      key={i}
-                     className={`w-12 rounded-full transition-all duration-75 ease-in-out shadow-lg ${isActive ? 'bg-white shadow-[0_0_20px_rgba(255,255,255,0.6)]' : 'bg-white/20'}`}
-                     style={{ 
-                       height: `${isActive ? height : 20}%`,
-                       opacity: isActive ? 1 : 0.4
+                     className={`w-12 rounded-full transition-all duration-100 ease-out shadow-lg ${isActive ? 'bg-white shadow-[0_0_20px_rgba(255,255,255,0.6)]' : 'bg-white/20'}`}
+                     style={{
+                       height: `${isActive ? height : 15}%`,
+                       opacity: isActive ? 0.8 + (status.energy * 0.2) : 0.3
                      }}
                    />
                  )
