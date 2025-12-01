@@ -371,9 +371,30 @@ uv run python -m src.cli.main livekit clear-rooms
 ### Scripts
 
 Located in `scripts/sip_integration/`:
-- `create_sip_trunk.py` – Create SIP trunk configuration
-- `sip‑dispatch‑config.py` – Configure call routing rules
-- `update_trunk.sh` – Update existing trunk settings
+
+- `create_sip_trunk.py` – Create SIP trunk configuration in Redis for the LiveKit SIP server.
+  ```bash
+  uv run python scripts/sip_integration/create_sip_trunk.py
+  ```
+
+- `sip‑dispatch‑config.py` – Configure call routing rules (stores in Redis key `sip_dispatch_rules`).
+  ```bash
+  uv run python scripts/sip_integration/sip-dispatch-config.py
+  ```
+
+- `update_trunk.py` / `update_trunk.sh` – Update an existing trunk’s phone number or allowed addresses.
+  ```bash
+  # List all trunks
+  uv run python scripts/sip_integration/update_trunk.py
+
+  # Update a specific trunk
+  uv run python scripts/sip_integration/update_trunk.py --trunk-id <ID> --number +1234567
+
+  # Or use the shell wrapper
+  ./scripts/sip_integration/update_trunk.sh --trunk-id <ID> --number +1234567
+  ```
+
+These scripts require a running Redis instance (provided by the `redis` service in Docker Compose).
 
 The system supports real‑time voice conversations with AI agents, demonstrated with French speech recognition and response generation.
 
