@@ -119,7 +119,7 @@ def preprocess_argv():
     argv = sys.argv[1:]
     new_argv = []
     i = 0
-    commands = ["chat", "talk", "agents", "test"]
+    commands = ["chat", "talk", "agents", "livekit", "test"]
     
     while i < len(argv):
         arg = argv[i]
@@ -205,6 +205,22 @@ Examples:
     test_subparsers = parser_test.add_subparsers(dest="test_command", required=True)
     parser_test_echo = test_subparsers.add_parser("echo", help="Test LiveKit echo pipeline")
     parser_test_echo.set_defaults(func=test_echo_pipeline)
+
+    # 'livekit' command
+    parser_livekit = subparsers.add_parser("livekit", help="Manage LiveKit rooms and SIP bridge")
+    livekit_subparsers = parser_livekit.add_subparsers(dest="livekit_command", required=True)
+    
+    # list-rooms subcommand
+    parser_list_rooms = livekit_subparsers.add_parser("list-rooms", help="List all LiveKit rooms")
+    parser_list_rooms.set_defaults(func=list_rooms)
+    
+    # clear-rooms subcommand
+    parser_clear_rooms = livekit_subparsers.add_parser("clear-rooms", help="Delete all LiveKit rooms")
+    parser_clear_rooms.set_defaults(func=clear_rooms)
+    
+    # clear-sip-bridge subcommand
+    parser_clear_sip_bridge = livekit_subparsers.add_parser("clear-sip-bridge", help="Clean all SIP bridge active rooms and processes")
+    parser_clear_sip_bridge.set_defaults(func=clear_sip_bridge)
 
 
     return parser.parse_args(preprocess_argv())
@@ -441,6 +457,125 @@ async def test_echo_pipeline(args):
             
         logging.info("✅ Echo pipeline stopped")
     return 0
+
+async def list_rooms(args):
+    """List all LiveKit rooms"""
+    try:
+        from livekit import api
+        from environment_config import config
+        
+        lkapi = api.LiveKitAPI(
+            url=config.livekit_url.replace("ws://", "http://"),
+            api_key=config.livekit_api_key,
+            api_secret=config.livekit_api_secret
+        )
+        try:
+            rooms = await lkapi.room.list_rooms(api.ListRoomsRequest())
+            print("\n📋 LiveKit Rooms:")
+            print("=" * 80)
+            for room in rooms.rooms:
+                print(f"• {room.name}")
+                print(f"  Participants: {room.num_participants}")
+                print(f"  Creation time: {room.creation_time}")
+                print(f"  Empty timeout: {room.empty_timeout}")
+                print()
+            print(f"Total rooms: {len(rooms.rooms)}")
+        finally:
+            await lkapi.aclose()
+        return 0
+    except Exception as e:
+        print(f"❌ Error listing rooms: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+async def clear_rooms(args):
+    """Delete all LiveKit rooms"""
+    try:
+        from livekit import api
+        from environment_config import config
+        from livekit.api import TwirpError
+        
+        lkapi = api.LiveKitAPI(
+            url=config.livekit_url.replace("ws://", "http://"),
+            api_key=config.livekit_api_key,
+            api_secret=config.livekit_api_secret
+        )
+        try:
+            rooms = await lkapi.room.list_rooms(api.ListRoomsRequest())
+            print(f"Found {len(rooms.rooms)} rooms")
+            deleted = 0
+            for room in rooms.rooms:
+                try:
+                    await lkapi.room.delete_room(api.DeleteRoomRequest(room=room.name))
+                    print(f"✅ Deleted room: {room.name}")
+                    deleted += 1
+                except TwirpError as e:
+                    # If room already doesn't exist, treat as warning
+                    if "could not find object" in str(e):
+                        print(f"⚠️  Room {room.name} cannot be deleted (may be protected or virtual)")
+                    else:
+                        print(f"❌ Failed to delete room {room.name}: {e}")
+                except Exception as e:
+                    print(f"❌ Failed to delete room {room.name}: {e}")
+            print(f"Deleted {deleted} rooms")
+        finally:
+            await lkapi.aclose()
+        return 0
+    except Exception as e:
+        print(f"❌ Error clearing rooms: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+async def clear_sip_bridge(args):
+    """Clean all SIP bridge active rooms and processes"""
+    try:
+        from services.sip_bridge_integration import sip_bridge_integration
+        from livekit import api
+        from environment_config import config
+        from livekit.api import TwirpError
+        
+        # First, clean up SIP bridge processes
+        if sip_bridge_integration.is_enabled():
+            print("Cleaning up SIP bridge agent processes...")
+            sip_bridge_integration._cleanup_all_processes()
+            print("✅ All agent processes terminated")
+        else:
+            print("SIP bridge is disabled")
+        
+        # Delete SIP rooms (optional, but we can also delete rooms with prefix 'sip-inbound')
+        lkapi = api.LiveKitAPI(
+            url=config.livekit_url.replace("ws://", "http://"),
+            api_key=config.livekit_api_key,
+            api_secret=config.livekit_api_secret
+        )
+        try:
+            rooms = await lkapi.room.list_rooms(api.ListRoomsRequest())
+            sip_rooms = [room for room in rooms.rooms if room.name.startswith("sip-inbound")]
+            print(f"Found {len(sip_rooms)} SIP rooms")
+            deleted = 0
+            for room in sip_rooms:
+                try:
+                    await lkapi.room.delete_room(api.DeleteRoomRequest(room=room.name))
+                    print(f"✅ Deleted SIP room: {room.name}")
+                    deleted += 1
+                except TwirpError as e:
+                    if "could not find object" in str(e):
+                        print(f"⚠️  SIP room {room.name} already deleted or not found")
+                    else:
+                        print(f"❌ Failed to delete SIP room {room.name}: {e}")
+                except Exception as e:
+                    print(f"❌ Failed to delete SIP room {room.name}: {e}")
+            print(f"Deleted {deleted} SIP rooms")
+        finally:
+            await lkapi.aclose()
+        return 0
+    except Exception as e:
+        print(f"❌ Error clearing SIP bridge: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
 
 async def main():
     """Async main entry point"""

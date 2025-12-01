@@ -121,19 +121,23 @@ class AgentManager:
             AgentNotFoundError: If agent not found
         """
         session = self._get_session()
-        
-        # Find agent by name for system user
-        system_user_id = self.agent_service._get_system_user_id()
-        agent = session.query(Agent).filter(
-            Agent.user_id == system_user_id,
-            Agent.name == agent_name,
-            Agent.is_active == True
-        ).first()
-        
-        if not agent:
-            raise AgentNotFoundError(f"Agent with name '{agent_name}' not found")
-        
-        return self.get_agent_config(agent.id)
+        should_close = self.db_session is None
+        try:
+            # Find agent by name for system user
+            system_user_id = self.agent_service._get_system_user_id()
+            agent = session.query(Agent).filter(
+                Agent.user_id == system_user_id,
+                Agent.name == agent_name,
+                Agent.is_active == True
+            ).first()
+            
+            if not agent:
+                raise AgentNotFoundError(f"Agent with name '{agent_name}' not found")
+            
+            return self.get_agent_config(agent.id)
+        finally:
+            if should_close:
+                session.close()
     
     def create_session(self, session_data: AgentSessionCreate) -> str:
         """
@@ -149,32 +153,36 @@ class AgentManager:
             AgentNotFoundError: If agent not found
         """
         session = self._get_session()
-        
-        # Verify agent exists
+        should_close = self.db_session is None
         try:
-            self.agent_service.get_agent(session_data.agent_id)
-        except AgentNotFoundError:
-            raise AgentNotFoundError(f"Agent {session_data.agent_id} not found")
-        
-        # Create session
-        agent_session = AgentSession(
-            user_id=self.agent_service._get_system_user_id(),
-            agent_id=session_data.agent_id,
-            session_type=session_data.session_type,
-            ip_address=session_data.ip_address,
-            user_agent=session_data.user_agent,
-            expires_at=datetime.utcnow() + timedelta(hours=24)  # 24-hour session
-        )
-        
-        session.add(agent_session)
-        session.commit()
-        session.refresh(agent_session)
-        
-        session_id = str(agent_session.id)
-        self._active_sessions[session_id] = session_data.agent_id
-        
-        logger.info(f"Created agent session: {session_id} for agent {session_data.agent_id}")
-        return session_id
+            # Verify agent exists
+            try:
+                self.agent_service.get_agent(session_data.agent_id)
+            except AgentNotFoundError:
+                raise AgentNotFoundError(f"Agent {session_data.agent_id} not found")
+            
+            # Create session
+            agent_session = AgentSession(
+                user_id=self.agent_service._get_system_user_id(),
+                agent_id=session_data.agent_id,
+                session_type=session_data.session_type,
+                ip_address=session_data.ip_address,
+                user_agent=session_data.user_agent,
+                expires_at=datetime.utcnow() + timedelta(hours=24)  # 24-hour session
+            )
+            
+            session.add(agent_session)
+            session.commit()
+            session.refresh(agent_session)
+            
+            session_id = str(agent_session.id)
+            self._active_sessions[session_id] = session_data.agent_id
+            
+            logger.info(f"Created agent session: {session_id} for agent {session_data.agent_id}")
+            return session_id
+        finally:
+            if should_close:
+                session.close()
     
     def get_session_agent(self, session_id: str) -> AgentConfig:
         """
@@ -190,25 +198,29 @@ class AgentManager:
             AgentNotFoundError: If session or agent not found
         """
         session = self._get_session()
-        
-        # Check active sessions first
-        if session_id in self._active_sessions:
-            agent_id = self._active_sessions[session_id]
-            return self.get_agent_config(agent_id)
-        
-        # Check database for session
-        agent_session = session.query(AgentSession).filter(
-            AgentSession.id == UUID(session_id),
-            AgentSession.expires_at > datetime.utcnow()
-        ).first()
-        
-        if not agent_session:
-            raise AgentNotFoundError(f"Session {session_id} not found or expired")
-        
-        # Cache the session
-        self._active_sessions[session_id] = agent_session.agent_id
-        
-        return self.get_agent_config(agent_session.agent_id)
+        should_close = self.db_session is None
+        try:
+            # Check active sessions first
+            if session_id in self._active_sessions:
+                agent_id = self._active_sessions[session_id]
+                return self.get_agent_config(agent_id)
+            
+            # Check database for session
+            agent_session = session.query(AgentSession).filter(
+                AgentSession.id == UUID(session_id),
+                AgentSession.expires_at > datetime.utcnow()
+            ).first()
+            
+            if not agent_session:
+                raise AgentNotFoundError(f"Session {session_id} not found or expired")
+            
+            # Cache the session
+            self._active_sessions[session_id] = agent_session.agent_id
+            
+            return self.get_agent_config(agent_session.agent_id)
+        finally:
+            if should_close:
+                session.close()
     
     def end_session(self, session_id: str) -> bool:
         """
@@ -221,22 +233,26 @@ class AgentManager:
             bool: True if session ended successfully
         """
         session = self._get_session()
-        
-        # Remove from active sessions
-        self._active_sessions.pop(session_id, None)
-        
-        # Mark as expired in database
-        agent_session = session.query(AgentSession).filter(
-            AgentSession.id == UUID(session_id)
-        ).first()
-        
-        if agent_session:
-            agent_session.expires_at = datetime.utcnow()
-            session.commit()
-            logger.info(f"Ended agent session: {session_id}")
-            return True
-        
-        return False
+        should_close = self.db_session is None
+        try:
+            # Remove from active sessions
+            self._active_sessions.pop(session_id, None)
+            
+            # Mark as expired in database
+            agent_session = session.query(AgentSession).filter(
+                AgentSession.id == UUID(session_id)
+            ).first()
+            
+            if agent_session:
+                agent_session.expires_at = datetime.utcnow()
+                session.commit()
+                logger.info(f"Ended agent session: {session_id}")
+                return True
+            
+            return False
+        finally:
+            if should_close:
+                session.close()
     
     def switch_agent_in_session(self, session_id: str, new_agent_id: UUID) -> AgentConfig:
         """
@@ -253,37 +269,41 @@ class AgentManager:
             AgentNotFoundError: If session or agent not found
         """
         session = self._get_session()
-        
-        # Verify new agent exists
+        should_close = self.db_session is None
         try:
-            self.agent_service.get_agent(new_agent_id)
-        except AgentNotFoundError:
-            raise AgentNotFoundError(f"Agent {new_agent_id} not found")
-        
-        # Update session in database
-        agent_session = session.query(AgentSession).filter(
-            AgentSession.id == UUID(session_id),
-            AgentSession.expires_at > datetime.utcnow()
-        ).first()
-        
-        if not agent_session:
-            raise AgentNotFoundError(f"Session {session_id} not found or expired")
-        
-        # Update session
-        agent_session.agent_id = new_agent_id
-        session.commit()
-        
-        # Update active sessions cache
-        self._active_sessions[session_id] = new_agent_id
-        
-        # Clear cache for old agent if no longer used
-        old_agent_id = agent_session.agent_id
-        if old_agent_id not in self._active_sessions.values():
-            self._agent_cache.pop(old_agent_id, None)
-            self._cache_timestamps.pop(old_agent_id, None)
-        
-        logger.info(f"Switched session {session_id} to agent {new_agent_id}")
-        return self.get_agent_config(new_agent_id)
+            # Verify new agent exists
+            try:
+                self.agent_service.get_agent(new_agent_id)
+            except AgentNotFoundError:
+                raise AgentNotFoundError(f"Agent {new_agent_id} not found")
+            
+            # Update session in database
+            agent_session = session.query(AgentSession).filter(
+                AgentSession.id == UUID(session_id),
+                AgentSession.expires_at > datetime.utcnow()
+            ).first()
+            
+            if not agent_session:
+                raise AgentNotFoundError(f"Session {session_id} not found or expired")
+            
+            # Update session
+            agent_session.agent_id = new_agent_id
+            session.commit()
+            
+            # Update active sessions cache
+            self._active_sessions[session_id] = new_agent_id
+            
+            # Clear cache for old agent if no longer used
+            old_agent_id = agent_session.agent_id
+            if old_agent_id not in self._active_sessions.values():
+                self._agent_cache.pop(old_agent_id, None)
+                self._cache_timestamps.pop(old_agent_id, None)
+            
+            logger.info(f"Switched session {session_id} to agent {new_agent_id}")
+            return self.get_agent_config(new_agent_id)
+        finally:
+            if should_close:
+                session.close()
     
     def get_active_sessions_count(self) -> int:
         """
@@ -293,12 +313,16 @@ class AgentManager:
             int: Number of active sessions
         """
         session = self._get_session()
-        
-        count = session.query(AgentSession).filter(
-            AgentSession.expires_at > datetime.utcnow()
-        ).count()
-        
-        return count
+        should_close = self.db_session is None
+        try:
+            count = session.query(AgentSession).filter(
+                AgentSession.expires_at > datetime.utcnow()
+            ).count()
+            
+            return count
+        finally:
+            if should_close:
+                session.close()
     
     def cleanup_expired_sessions(self) -> int:
         """
@@ -308,26 +332,30 @@ class AgentManager:
             int: Number of sessions cleaned up
         """
         session = self._get_session()
-        
-        # Delete expired sessions
-        result = session.query(AgentSession).filter(
-            AgentSession.expires_at <= datetime.utcnow()
-        ).delete()
-        
-        session.commit()
-        
-        # Clean active sessions cache
-        current_time = time.time()
-        expired_sessions = [
-            session_id for session_id, timestamp in self._cache_timestamps.items()
-            if current_time - timestamp > self._cache_ttl
-        ]
-        
-        for session_id in expired_sessions:
-            self._active_sessions.pop(session_id, None)
-        
-        logger.info(f"Cleaned up {result} expired sessions")
-        return result
+        should_close = self.db_session is None
+        try:
+            # Delete expired sessions
+            result = session.query(AgentSession).filter(
+                AgentSession.expires_at <= datetime.utcnow()
+            ).delete()
+            
+            session.commit()
+            
+            # Clean active sessions cache
+            current_time = time.time()
+            expired_sessions = [
+                session_id for session_id, timestamp in self._cache_timestamps.items()
+                if current_time - timestamp > self._cache_ttl
+            ]
+            
+            for session_id in expired_sessions:
+                self._active_sessions.pop(session_id, None)
+            
+            logger.info(f"Cleaned up {result} expired sessions")
+            return result
+        finally:
+            if should_close:
+                session.close()
     
     def invalidate_cache(self, agent_id: Optional[UUID] = None):
         """

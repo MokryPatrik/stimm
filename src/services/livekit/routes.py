@@ -115,3 +115,57 @@ async def cleanup_session(session_id: str):
     except Exception as e:
         logger.error(f"❌ Failed to cleanup session {session_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to cleanup session: {str(e)}")
+
+
+@router.post("/livekit/cleanup-sip-rooms")
+async def cleanup_sip_rooms():
+    """
+    Clean up all SIP rooms and associated agent processes.
+    This is a manual cleanup endpoint for stale rooms.
+    """
+    try:
+        from services.sip_bridge_integration import sip_bridge_integration
+        from livekit import api
+        from environment_config import config
+        
+        logger.info("🧹 Starting manual cleanup of SIP rooms...")
+        
+        # Initialize LiveKit API
+        lkapi = api.LiveKitAPI(
+            url=config.livekit_url.replace("ws://", "http://"),
+            api_key=config.livekit_api_key,
+            api_secret=config.livekit_api_secret
+        )
+        
+        # List all rooms
+        rooms = await lkapi.room.list_rooms(api.ListRoomsRequest())
+        sip_rooms = [room for room in rooms.rooms if room.name.startswith("sip-inbound")]
+        logger.info(f"Found {len(sip_rooms)} SIP rooms")
+        
+        # Delete each room
+        deleted = 0
+        for room in sip_rooms:
+            try:
+                await lkapi.room.delete_room(api.DeleteRoomRequest(room=room.name))
+                logger.info(f"Deleted room: {room.name}")
+                deleted += 1
+            except Exception as e:
+                logger.error(f"Failed to delete room {room.name}: {e}")
+        
+        # Clean up SIP bridge processes
+        if sip_bridge_integration.is_enabled():
+            logger.info("Cleaning up SIP bridge agent processes...")
+            sip_bridge_integration._cleanup_all_processes()
+            logger.info("All agent processes terminated")
+        
+        return {
+            "status": "success",
+            "message": f"Deleted {deleted} SIP rooms and terminated agent processes"
+        }
+        
+    except ImportError as e:
+        logger.error(f"Module import error: {e}")
+        raise HTTPException(status_code=500, detail=f"Cleanup not available: {e}")
+    except Exception as e:
+        logger.error(f"❌ Failed to cleanup SIP rooms: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cleanup SIP rooms: {str(e)}")

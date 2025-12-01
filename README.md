@@ -252,6 +252,24 @@ uv run python -m src.cli.main --verbose test echo
 **Subcommands:**
 - `echo`: Starts an echo client and server to verify that your audio is being correctly captured and played back through LiveKit.
 
+#### `livekit`
+Manage LiveKit rooms and SIP bridge.
+
+```bash
+# List all LiveKit rooms
+uv run python -m src.cli.main livekit list-rooms
+
+# Delete all SIP rooms and terminate agent processes
+uv run python -m src.cli.main livekit clear-sip-bridge
+
+# Delete all LiveKit rooms (SIP and non‑SIP; non‑SIP rooms may be protected)
+uv run python -m src.cli.main livekit clear-rooms
+```
+**Subcommands:**
+- `list‑rooms`: Lists all LiveKit rooms with participant counts.
+- `clear‑rooms`: Deletes all LiveKit rooms (some rooms may be protected and produce a warning).
+- `clear‑sip‑bridge`: Cleans up SIP bridge agent processes and deletes SIP rooms.
+
 #### HTTP Mode
 
 The CLI tool can operate in HTTP mode to connect to a remote backend server. This is useful for testing deployed instances or when you don't want to run agent logic locally.
@@ -293,9 +311,10 @@ Connect incoming phone calls to AI agents via telephony integration using SIP (S
    docker compose up
    ```
 
-3. **Test Integration**:
+3. **Tests**:
    ```bash
    uv run python tests/sip_integration/test_sip_bridge_integration.py
+   uv run python tests/sip_integration/test_sip_bridge.py
    ```
 
 ### Usage
@@ -312,33 +331,51 @@ SIP Call → LiveKit SIP → Room Created → SIP Bridge → Agent Spawned → A
 
 **Key Components:**
 - **SIP Server**: Handles incoming calls via LiveKit SIP service
-- **SIP Bridge**: Monitors rooms with prefix "sip-inbound-" and spawns agents automatically
-- **Agent Integration**: Connects Development Agent to SIP rooms for voice conversations
+- **SIP Bridge**: A robust singleton service (`SIPBridgeIntegration`) that runs within the main API process (no separate Docker Compose). It monitors rooms with prefix `sip‑inbound‑` and spawns exactly one agent per room, preventing duplicate voices.
+- **Agent Integration**: Connects Development Agent to SIP rooms for voice conversations.
 
 ### Configuration
 
-**SIP Server Settings**: `sip-server-config.yaml` (flood protection, ports)
-**Dispatch Rules**: Managed via `scripts/sip_integration/sip-dispatch-config.py`
+**SIP Server Settings**: `sip‑server‑config.yaml` (flood protection, ports)
+**Dispatch Rules**: Managed via `scripts/sip_integration/sip‑dispatch‑config.py`
 **Environment**: `ENABLE_SIP_BRIDGE=true` activates the integration
 
 ### Health Monitoring
 
 ```bash
-# Check SIP Bridge status
+# Basic health check
 curl http://localhost:8001/health/sip-bridge
 
+# Detailed status (processes, active rooms)
+curl http://localhost:8001/health/sip-bridge-status
+
 # View logs
-docker logs voicebot-app | grep "SIP"
+docker logs voicebot‑app | grep "SIP"
+```
+
+### Cleanup Commands
+
+Stale SIP rooms and agent processes can be cleaned up via the CLI:
+
+```bash
+# List all LiveKit rooms
+uv run python -m src.cli.main livekit list-rooms
+
+# Delete all SIP rooms and terminate agent processes
+uv run python -m src.cli.main livekit clear-sip-bridge
+
+# Delete all LiveKit rooms (SIP and non‑SIP; non‑SIP rooms may be protected)
+uv run python -m src.cli.main livekit clear-rooms
 ```
 
 ### Scripts
 
 Located in `scripts/sip_integration/`:
-- `create_sip_trunk.py` - Create SIP trunk configuration
-- `sip-dispatch-config.py` - Configure call routing rules
-- `update_trunk.sh` - Update existing trunk settings
+- `create_sip_trunk.py` – Create SIP trunk configuration
+- `sip‑dispatch‑config.py` – Configure call routing rules
+- `update_trunk.sh` – Update existing trunk settings
 
-The system supports real-time voice conversations with AI agents, demonstrated with French speech recognition and response generation.
+The system supports real‑time voice conversations with AI agents, demonstrated with French speech recognition and response generation.
 
 ## � Logging
 

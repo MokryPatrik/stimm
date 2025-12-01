@@ -103,9 +103,9 @@ async def startup_event():
         try:
             from services.sip_bridge_integration import start_sip_bridge
             
-            # Start SIP Bridge in background
+            # Start SIP Bridge in background (singleton ensures no duplicates)
             start_sip_bridge()
-            logger.info("✅ SIP Bridge Integration initialized")
+            logger.info("✅ SIP Bridge Integration initialized (robust singleton)")
             
         except ImportError as e:
             logger.warning(f"SIP Bridge Integration not available: {e}")
@@ -249,6 +249,22 @@ async def sip_bridge_health():
         return {
             "status": "error",
             "sip_bridge": "error",
+            "error": str(e)
+        }
+
+
+@app.get("/health/sip-bridge-status")
+async def sip_bridge_status():
+    """Detailed status of SIP Bridge"""
+    try:
+        from services.sip_bridge_integration import get_sip_bridge_status
+        return get_sip_bridge_status()
+    except ImportError:
+        return {
+            "error": "SIP Bridge Integration module not available"
+        }
+    except Exception as e:
+        return {
             "error": str(e)
         }
 
