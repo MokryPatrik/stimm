@@ -1,8 +1,8 @@
 """
 Database models for voicebot application.
 """
-from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Column, String, Boolean, DateTime, Text, ForeignKey, Index, Integer
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.sql import func
 import uuid
 
@@ -155,6 +155,48 @@ class RagConfig(Base):
             "provider_config": self.provider_config,
             "is_default": self.is_default,
             "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class Document(Base):
+    """Document model for tracking ingested documents in RAG configurations."""
+    
+    __tablename__ = "documents"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    rag_config_id = Column(UUID(as_uuid=True), ForeignKey("rag_configs.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(500), nullable=False)
+    file_type = Column(String(50), nullable=False)  # 'pdf', 'docx', 'markdown', 'text'
+    file_size_bytes = Column(Integer, nullable=True)
+    chunk_count = Column(Integer, nullable=False)
+    chunk_ids = Column(ARRAY(Text), nullable=False)  # Array of Qdrant point IDs
+    namespace = Column(String(255), nullable=True)
+    doc_metadata = Column(JSONB, nullable=True)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        Index('idx_documents_rag_config', 'rag_config_id'),
+        Index('idx_documents_created_at', 'created_at'),
+    )
+    
+    def __repr__(self):
+        return f"<Document(id={self.id}, filename='{self.filename}', type='{self.file_type}')>"
+    
+    def to_dict(self):
+        """Convert document to dictionary for API responses."""
+        return {
+            "id": str(self.id),
+            "rag_config_id": str(self.rag_config_id),
+            "filename": self.filename,
+            "file_type": self.file_type,
+            "file_size_bytes": self.file_size_bytes,
+            "chunk_count": self.chunk_count,
+            "chunk_ids": self.chunk_ids,
+            "namespace": self.namespace,
+            "metadata": self.doc_metadata,  # Return as 'metadata' in API
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
