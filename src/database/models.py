@@ -51,6 +51,9 @@ class Agent(Base):
     # System prompt (instructions)
     system_prompt = Column(Text)
     
+    # RAG configuration (optional)
+    rag_config_id = Column(UUID(as_uuid=True), ForeignKey("rag_configs.id", ondelete="SET NULL"), nullable=True)
+    
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -83,6 +86,7 @@ class Agent(Base):
             "is_active": self.is_active,
             "is_system_agent": self.is_system_agent,
             "system_prompt": self.system_prompt,
+            "rag_config_id": str(self.rag_config_id) if self.rag_config_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -110,3 +114,47 @@ class AgentSession(Base):
 
     def __repr__(self):
         return f"<AgentSession(id={self.id}, type='{self.session_type}', agent='{self.agent_id}')>"
+
+
+class RagConfig(Base):
+    """RAG configuration model representing a retrievable knowledge base."""
+    
+    __tablename__ = "rag_configs"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    provider_type = Column(String(20), nullable=False)  # 'vectorbase', 'saas_rag'
+    provider = Column(String(50), nullable=False)  # e.g., 'qdrant.internal', 'pinecone.io', 'rag.saas'
+    provider_config = Column(JSONB, nullable=False, default=dict)
+    is_default = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    __table_args__ = (
+        Index('idx_rag_configs_user_id', 'user_id'),
+        Index('idx_rag_configs_is_default', 'is_default', postgresql_where=(is_default.is_(True))),
+        Index('idx_rag_configs_user_default', 'user_id', unique=True,
+              postgresql_where=(is_default.is_(True))),
+    )
+    
+    def __repr__(self):
+        return f"<RagConfig(id={self.id}, name='{self.name}', provider='{self.provider}')>"
+    
+    def to_dict(self):
+        """Convert RAG config to dictionary for API responses."""
+        return {
+            "id": str(self.id),
+            "user_id": str(self.user_id),
+            "name": self.name,
+            "description": self.description,
+            "provider_type": self.provider_type,
+            "provider": self.provider,
+            "provider_config": self.provider_config,
+            "is_default": self.is_default,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
