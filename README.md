@@ -10,7 +10,7 @@ A modular, real-time AI voice assistant platform built with Python (FastAPI) and
   - **LLM**: Support for Groq, Mistral, OpenRouter, and local Llama.cpp.
   - **TTS**: Deepgram, ElevenLabs, Async.ai, and local Kokoro.
   - **STT**: Deepgram and local Whisper.
-- **RAG & Knowledge Base**: Integrated Retrieval-Augmented Generation using Qdrant vector database.
+- **Administrable RAG Configurations**: Create and manage multiple RAG configurations with different providers (Qdrant, Pinecone, SaaS) and per‑agent knowledge bases. Integrated Retrieval-Augmented Generation using Qdrant vector database.
 - **Agent Management**: Admin interface to configure and manage multiple agents with different personalities and provider settings.
 - **Modern Frontend**: Responsive web interface built with Next.js 16 and Tailwind CSS.
 - **Robust Infrastructure**: Dockerized deployment with Traefik reverse proxy, PostgreSQL for data persistence, and Alembic for migrations.
@@ -392,6 +392,57 @@ uv run python -m src.cli.main livekit clear-rooms
 ```
 
 The system supports real‑time voice conversations with AI agents, demonstrated with French speech recognition and response generation.
+## 🧠 RAG Administration
+
+The RAG (Retrieval-Augmented Generation) system is now fully administrable via the API and a dedicated web interface, similar to agents. You can create, update, delete, and manage multiple RAG configurations, each with its own provider and settings.
+
+### Providers
+
+Currently supported RAG providers:
+
+- **Qdrant.Internal** – Internal Qdrant vector database (default)
+- **Pinecone** – Pinecone.io cloud vector database
+- **Rag.Saas** – Third‑party SaaS RAG service (placeholder)
+
+Each provider has its own configuration fields (e.g., collection name, embedding model, top‑k, ultra‑low‑latency mode).
+
+### API Endpoints
+
+All endpoints are available under `/api/rag-configs` (see the interactive API documentation at `http://api.localhost/docs`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/rag-configs/` | List all RAG configurations |
+| POST | `/rag-configs/` | Create a new RAG configuration |
+| GET | `/rag-configs/{id}` | Retrieve a specific configuration |
+| PUT | `/rag-configs/{id}` | Update a configuration |
+| DELETE | `/rag-configs/{id}` | Delete a configuration |
+| GET | `/rag-configs/default/current` | Get the current default RAG configuration |
+| PUT | `/rag-configs/{id}/set-default` | Set a configuration as the default |
+| GET | `/rag-configs/providers/available` | List available RAG providers with field definitions |
+| GET | `/rag-configs/providers/{provider}/fields` | Get field definitions for a specific provider |
+
+### Frontend UI
+
+The platform includes a complete web interface for managing RAG configurations:
+
+- **RAG Admin Page** (`/rag/admin`) – Lists all RAG configurations with options to set default, edit, or delete.
+- **RAG Edit Page** (`/rag/create` and `/rag/edit/[id]`) – Create or edit a RAG configuration with provider selection and dynamic configuration fields.
+- **Agent Edit Page** (`/agent/edit/[id]`) – Includes a RAG configuration selector to associate an agent with a specific RAG configuration.
+
+The UI uses the same design patterns as agent administration, ensuring a consistent user experience.
+
+### Integration with Agents
+
+Each agent can be associated with a RAG configuration via the `rag_config_id` foreign key. When an agent uses RAG, the system will use the configured retrieval engine (collection, embedding model, etc.) for that specific agent, enabling per‑agent knowledge bases.
+
+### Default Configuration
+
+One RAG configuration can be marked as the default. If an agent does not have an explicit RAG configuration, the default is used. The default can be changed at any time via the `set‑default` endpoint.
+
+### Ultra‑Low‑Latency Focus
+
+The RAG system is designed with ultra‑low‑latency requirements in mind. The `ultra_low_latency` flag in provider configurations enables optimizations such as pre‑loaded embedding models, cached retrievals, and parallel query execution.
 
 ## 📝 Logging
 

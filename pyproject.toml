@@ -108,6 +108,13 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "--cov=. --cov-report=term-missing"
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
+]
+
 [tool.hatch.envs.default]
 skip-install = true
 PYTHONPATH = "src"
