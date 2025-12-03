@@ -56,14 +56,6 @@ class DocumentPayload(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class BulkIngestRequest(BaseModel):
-    documents: List[DocumentPayload]
-
-
-class IngestResponse(BaseModel):
-    inserted: int
-
-
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=MAX_TEXT_LENGTH)
     top_k: Optional[int] = Field(default=DEFAULT_TOP_K, ge=1, le=MAX_TOP_K)
