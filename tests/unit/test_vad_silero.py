@@ -24,17 +24,19 @@ class TestSileroVADService:
         assert vad.sample_rate == 16000
         assert vad.threshold == 0.5
     
-    def test_process_silence(self, silence_audio):
+    @pytest.mark.asyncio
+    async def test_process_silence(self, silence_audio):
         """Test processing of silent audio."""
         vad = SileroVADService(threshold=0.5)
         
-        events = vad.process_audio_chunk(silence_audio)
+        events = await vad.process_audio_chunk(silence_audio)
         
         # Should not detect speech in silence
         assert not vad.triggered
         assert len(events) == 0
     
-    def test_process_speech_file(self, audio_file_path):
+    @pytest.mark.asyncio
+    async def test_process_speech_file(self, audio_file_path):
         """Test processing a real audio file with speech."""
         import wave
         import os
@@ -54,7 +56,7 @@ class TestSileroVADService:
             data = wf.readframes(chunk_size)
             
             while len(data) > 0:
-                events = vad.process_audio_chunk(data)
+                events = await vad.process_audio_chunk(data)
                 events_found.extend(events)
                 data = wf.readframes(chunk_size)
         
@@ -70,12 +72,13 @@ class TestSileroVADService:
         assert vad_low.threshold == 0.3
         assert vad_high.threshold == 0.8
     
-    def test_reset_state(self, silence_audio):
+    @pytest.mark.asyncio
+    async def test_reset_state(self, silence_audio):
         """Test that VAD state can be reset."""
         vad = SileroVADService(threshold=0.5)
         
         # Process some audio
-        vad.process_audio_chunk(silence_audio)
+        await vad.process_audio_chunk(silence_audio)
         
         # Reset should clear internal state
         # (Implementation may vary, this tests the API exists)

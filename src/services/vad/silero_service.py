@@ -33,7 +33,6 @@ class VADStream:
     def __init__(self, session: onnxruntime.InferenceSession, opts: VADOptions):
         self._session = session
         self._opts = opts
-        self._loop = asyncio.get_event_loop()
         
         # State
         self._triggered = False
@@ -124,8 +123,9 @@ class VADStream:
         
         # Run in executor to avoid blocking event loop
         try:
-            ort_outs = await self._loop.run_in_executor(
-                None, 
+            loop = asyncio.get_running_loop()
+            ort_outs = await loop.run_in_executor(
+                None,
                 lambda: self._session.run(None, ort_inputs)
             )
             out, self._state = ort_outs
