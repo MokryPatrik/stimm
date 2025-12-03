@@ -94,7 +94,7 @@ export class LiveKitVoiceClient {
       })
   }
 
-  async connect(agentId: string): Promise<void> {
+  async connect(agentId: string, options?: { deviceId?: string }): Promise<void> {
     if (!this.room) {
       throw new Error('Room not initialized')
     }
@@ -120,17 +120,40 @@ export class LiveKitVoiceClient {
 
       console.log('🎯 Connecting to LiveKit room:', roomInfo.room_name)
 
-      // 2. Obtenir l'accès au microphone
-      const localStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 16000,
-          channelCount: 1,
-        },
-        video: false,
-      })
+      // 2. Obtenir l'accès au microphone avec l'appareil sélectionné
+      let localStream: MediaStream
+      try {
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 16000,
+            channelCount: 1,
+            ...(options?.deviceId && { deviceId: { exact: options.deviceId } }),
+          },
+          video: false,
+        }
+        localStream = await navigator.mediaDevices.getUserMedia(constraints)
+      } catch (err: any) {
+        // If exact device fails, try without deviceId
+        if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+          console.warn(`Device ${options?.deviceId} not available, falling back to default`)
+          const fallbackConstraints: MediaStreamConstraints = {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: 16000,
+              channelCount: 1,
+            },
+            video: false,
+          }
+          localStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints)
+        } else {
+          throw err
+        }
+      }
 
       // 3. Se connecter à la salle LiveKit (always use localhost for browser)
       const liveKitUrl = apiClient.getLiveKitUrl()

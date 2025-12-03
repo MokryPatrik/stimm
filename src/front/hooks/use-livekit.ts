@@ -21,7 +21,7 @@ export interface UseLiveKitReturn {
   ttsState: boolean
   metrics: { tokens: number, audioChunks: number, latency?: number }
   turnState: TurnState
-  connect: (agentId: string) => Promise<void>
+  connect: (agentId: string, options?: { deviceId?: string }) => Promise<void>
   disconnect: () => Promise<void>
 }
 
@@ -200,11 +200,11 @@ export function useLiveKit(): UseLiveKitReturn {
     }
   }, [connectionState])
 
-  const connect = useCallback(async (agentId: string) => {
+  const connect = useCallback(async (agentId: string, options?: { deviceId?: string }) => {
     try {
       setError(null)
       setConnectionState('connecting')
-      await liveKitClient.connect(agentId)
+      await liveKitClient.connect(agentId, options)
       // State updates will be handled by event listeners
     } catch (err) {
       if (isMounted.current) {

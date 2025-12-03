@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Agent } from '@/components/agent/types'
 import { useLiveKit } from '@/hooks/use-livekit'
+import { useMicrophoneDevices } from '@/hooks/use-microphone-devices'
 import { Mic, MicOff, MoreHorizontal, X, MessageSquare, Activity, Settings, Zap, Bot, User } from 'lucide-react'
 
 interface VoicebotStatus {
@@ -70,6 +71,19 @@ export function VoicebotInterface() {
     connect,
     disconnect
   } = useLiveKit()
+
+  // Microphone devices
+  const {
+    devices,
+    selectedDeviceId,
+    isLoading: devicesLoading,
+    error: devicesError,
+    refreshDevices,
+    setSelectedDeviceId,
+  } = useMicrophoneDevices()
+
+  const selectedDevice = devices.find(d => d.deviceId === selectedDeviceId)
+  const tooltipText = selectedDevice ? selectedDevice.label : 'Select microphone'
 
   const audioPlayerRef = useRef<HTMLAudioElement>(null)
 
@@ -197,7 +211,7 @@ export function VoicebotInterface() {
       if (animationRef.current) cancelAnimationFrame(animationRef.current)
       // We generally keep audioContext alive, but could close it if component unmounts
     }
-  }, [localAudioStream, audioStream, status.state, turnState.webrtc_streaming_agent_audio_response_started])
+  }, [localAudioStream, audioStream, status.state, turnState.webrtc_streaming_agent_audio_response_started, turnState.vad_speech_detected])
 
   // Sync LiveKit Data to Local State for UI
   useEffect(() => {
@@ -263,7 +277,7 @@ export function VoicebotInterface() {
   const handleVoiceToggle = async () => {
     if (!isConnected) {
       if (connectionState === 'connecting') return
-      await connect(selectedAgentId)
+      await connect(selectedAgentId, { deviceId: selectedDeviceId || undefined })
     } else {
       await disconnect()
       setTranscription('')
@@ -402,17 +416,36 @@ export function VoicebotInterface() {
              {connectionState === 'failed' && <span className="text-red-300">{liveKitError || 'Connection Failed'}</span>}
            </div>
 
-           {/* Microphone Settings Button - positioned in bottom right of center panel */}
-           <div className="absolute bottom-4 right-4">
-             <Button
-               variant="ghost"
-               size="icon"
-               onClick={() => alert('Microphone settings will be implemented')}
-               className="w-12 h-12 rounded-full bg-black/30 border border-white/10 text-white/70 hover:text-white hover:bg-white/20 z-10"
-               aria-label="Microphone settings"
+           {/* Microphone Settings Selector - positioned in bottom right of center panel */}
+           <div className="absolute bottom-4 right-4 z-10">
+             <Select
+               value={selectedDeviceId || ''}
+               onValueChange={setSelectedDeviceId}
+               disabled={devicesLoading || devices.length === 0}
              >
-               <Settings className="w-5 h-5" />
-             </Button>
+               <SelectTrigger
+                 className="w-12 h-12 rounded-full bg-black/30 border border-white/10 text-white/70 hover:text-white hover:bg-white/20 data-[state=open]:bg-white/20"
+                 aria-label="Select microphone"
+                 title={tooltipText}
+               >
+                 <Settings className="w-5 h-5" />
+               </SelectTrigger>
+               <SelectContent className="bg-black/80 backdrop-blur-md border border-white/10 text-white">
+                 {devicesLoading ? (
+                   <SelectItem value="loading" disabled>Loading microphones...</SelectItem>
+                 ) : devicesError ? (
+                   <SelectItem value="error" disabled>Error loading devices</SelectItem>
+                 ) : devices.length === 0 ? (
+                   <SelectItem value="none" disabled>No microphones found</SelectItem>
+                 ) : (
+                   devices.map((device) => (
+                     <SelectItem key={device.deviceId} value={device.deviceId}>
+                       {device.label}
+                     </SelectItem>
+                   ))
+                 )}
+               </SelectContent>
+             </Select>
            </div>
          </div>
 
