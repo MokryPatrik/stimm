@@ -30,8 +30,7 @@
       "SAMPLE_RATE": 16000
     },
     "whisper.local": {
-      "URL": "ws://whisper-stt:8003",
-      "PATH": "/api/stt/stream",
+      "URL": "ws://whisper-stt:8003/api/stt/stream",
       "SAMPLE_RATE": 16000
     }
   },

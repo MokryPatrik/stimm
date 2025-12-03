@@ -47,16 +47,20 @@ class WhisperLocalProvider:
         """
         Initialize Whisper Local STT provider using immutable constants.
 
-        Configuration is now fully code-defined via WhisperLocalSTTConstants and
-        does not depend on database-backed global configuration.
+        Configuration can be overridden via provider_config dictionary.
         
         Args:
-            provider_config: Configuration dictionary (currently unused but kept for API consistency)
+            provider_config: Configuration dictionary with optional 'url' keys.
         """
         constants = get_provider_constants()
-        self.websocket_url = constants['stt']['whisper.local']['URL']
-        self.websocket_path = constants['stt']['whisper.local']['PATH']
-        self.full_url = f"{self.websocket_url}{self.websocket_path}"
+        default_url = constants['stt']['whisper.local']['URL']
+        
+        if provider_config and isinstance(provider_config, dict):
+            self.websocket_url = provider_config.get('url', default_url)
+        else:
+            self.websocket_url = default_url
+            
+        self.full_url = f"{self.websocket_url}"
         self.websocket = None
         self.connected = False
         self.transcripts: List[Dict[str, Any]] = []

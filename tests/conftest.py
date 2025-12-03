@@ -177,9 +177,10 @@ def whisper_config() -> Dict[str, Any]:
     Returns:
         Configuration dict
     """
+    # Prefer CUSTOM_WHISPER_STT_URL for consistency with provider constants
+    url = os.getenv("CUSTOM_WHISPER_STT_URL") or os.getenv("WHISPER_LOCAL_STT_URL", "ws://whisper-stt:8003/api/stt/stream")
     return {
-        "url": os.getenv("WHISPER_LOCAL_STT_URL", "ws://whisper-stt:8003"),
-        "path": os.getenv("WHISPER_STT_WS_PATH", "/api/stt/stream"),
+        "url": url
     }
 
 
