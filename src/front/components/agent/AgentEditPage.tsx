@@ -58,33 +58,6 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    loadProviders()
-    loadRagConfigs()
-    if (agentId) {
-      loadAgent()
-    }
-  }, [agentId, loadProviders, loadRagConfigs, loadAgent])
-
-  // Load provider fields when agent data is loaded and providers are available
-  useEffect(() => {
-    if (agent && providers) {
-      // Load provider fields for existing agent providers
-      const loadExistingProviderFields = async () => {
-        if (agent.llm_provider) {
-          await loadProviderFields('llm', agent.llm_provider)
-        }
-        if (agent.tts_provider) {
-          await loadProviderFields('tts', agent.tts_provider)
-        }
-        if (agent.stt_provider) {
-          await loadProviderFields('stt', agent.stt_provider)
-        }
-      }
-      
-      loadExistingProviderFields()
-    }
-  }, [agent, providers, loadProviderFields])
 
   const loadProviders = useCallback(async () => {
     try {
@@ -147,6 +120,33 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
       console.error(`Failed to load fields for ${providerType}.${providerName}:`, err)
     }
   }, [])
+  useEffect(() => {
+    loadProviders()
+    loadRagConfigs()
+    if (agentId) {
+      loadAgent()
+    }
+  }, [agentId, loadProviders, loadRagConfigs, loadAgent])
+
+  // Load provider fields when agent data is loaded and providers are available
+  useEffect(() => {
+    if (agent && providers) {
+      // Load provider fields for existing agent providers
+      const loadExistingProviderFields = async () => {
+        if (agent.llm_provider) {
+          await loadProviderFields('llm', agent.llm_provider)
+        }
+        if (agent.tts_provider) {
+          await loadProviderFields('tts', agent.tts_provider)
+        }
+        if (agent.stt_provider) {
+          await loadProviderFields('stt', agent.stt_provider)
+        }
+      }
+      
+      loadExistingProviderFields()
+    }
+  }, [agent, providers, loadProviderFields])
 
   const handleProviderChange = async (providerType: string, providerName: string) => {
     // Update the provider selection
