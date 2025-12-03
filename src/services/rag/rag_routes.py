@@ -20,10 +20,8 @@ from sentence_transformers import CrossEncoder, SentenceTransformer
 from .config import rag_config
 from services.retrieval.config import retrieval_config
 from .rag_models import (
-    BulkIngestRequest,
     ConversationStateResponse,
     ConversationUpdateRequest,
-    IngestResponse,
     QueryRequest,
     QueryResponse,
     StoredDocument,
@@ -106,52 +104,6 @@ app.state.rag = RagState()
 app.include_router(chatbot_router, prefix="/rag", tags=["chatbot"])
 
 
-@app.post("/knowledge/documents", response_model=IngestResponse)
-async def ingest_documents(request: BulkIngestRequest) -> IngestResponse:
-    """Ingest documents into the knowledge base."""
-    if not request.documents:
-        raise HTTPException(status_code=400, detail="No documents provided")
-
-    rag_state: RagState = app.state.rag
-    async with rag_state.lock:
-        await rag_state.ensure_ready()
-        assert rag_state.embedder and rag_state.client
-        texts = [doc.text for doc in request.documents]
-        vectors = rag_state.embedder.encode(
-            texts,
-            batch_size=EMBED_BATCH_SIZE,
-            show_progress_bar=False,
-            normalize_embeddings=EMBED_NORMALIZE,
-        )
-        points = []
-        stored_documents: List[StoredDocument] = []
-        for doc, vector in zip(request.documents, vectors):
-            point_id = doc.id or str(uuid.uuid4())
-            payload = dict(doc.metadata)
-            payload.update({"text": doc.text})
-            if doc.namespace:
-                payload["namespace"] = doc.namespace
-            points.append(
-                qmodels.PointStruct(id=point_id, vector=vector.tolist(), payload=payload)
-            )
-
-        rag_state.client.upsert(collection_name=QDRANT_COLLECTION, points=points)
-        for doc, point in zip(request.documents, points):
-            payload = dict(point.payload or {})
-            text = (payload.get("text") or "").strip()
-            if not text:
-                continue
-            metadata = {k: v for k, v in payload.items() if k != "text"}
-            stored_documents.append(
-                StoredDocument(
-                    id=str(point.id),
-                    text=text,
-                    namespace=doc.namespace or metadata.get("namespace"),
-                    metadata=metadata,
-                )
-            )
-        rag_state.register_documents(stored_documents)
-    return IngestResponse(inserted=len(points))
 
 
 @app.post("/rag/query", response_model=QueryResponse)
