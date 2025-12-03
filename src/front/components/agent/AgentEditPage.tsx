@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -64,7 +64,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     if (agentId) {
       loadAgent()
     }
-  }, [agentId])
+  }, [agentId, loadProviders, loadRagConfigs, loadAgent])
 
   // Load provider fields when agent data is loaded and providers are available
   useEffect(() => {
@@ -84,9 +84,9 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
       
       loadExistingProviderFields()
     }
-  }, [agent, providers])
+  }, [agent, providers, loadProviderFields])
 
-  const loadProviders = async () => {
+  const loadProviders = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8001/api/agents/providers/available')
       if (!response.ok) {
@@ -97,9 +97,9 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     } catch (err) {
       console.error('Failed to load providers:', err)
     }
-  }
+  }, [])
 
-  const loadRagConfigs = async () => {
+  const loadRagConfigs = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8001/api/rag-configs/')
       if (!response.ok) {
@@ -110,9 +110,9 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     } catch (err) {
       console.error('Failed to load RAG configs:', err)
     }
-  }
+  }, [])
 
-  const loadAgent = async () => {
+  const loadAgent = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -129,9 +129,9 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [agentId])
 
-  const loadProviderFields = async (providerType: string, providerName: string) => {
+  const loadProviderFields = useCallback(async (providerType: string, providerName: string) => {
     try {
       const response = await fetch(`http://localhost:8001/api/agents/providers/${providerType}/${providerName}/fields`)
       if (!response.ok) {
@@ -146,7 +146,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     } catch (err) {
       console.error(`Failed to load fields for ${providerType}.${providerName}:`, err)
     }
-  }
+  }, [])
 
   const handleProviderChange = async (providerType: string, providerName: string) => {
     // Update the provider selection

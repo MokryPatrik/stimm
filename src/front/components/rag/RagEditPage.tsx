@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,21 +60,7 @@ export function RagEditPage({ configId }: RagEditPageProps) {
   const [activeTab, setActiveTab] = useState('configuration')
   const [documentsRefresh, setDocumentsRefresh] = useState(0)
 
-  useEffect(() => {
-    loadProviders()
-    if (configId) {
-      loadConfig()
-    }
-  }, [configId])
-
-  // Load provider fields when provider is selected
-  useEffect(() => {
-    if (config.provider) {
-      loadProviderFields(config.provider)
-    }
-  }, [config.provider])
-
-  const loadProviders = async () => {
+  const loadProviders = useCallback(async () => {
     try {
       const response = await fetch('http://localhost:8001/api/rag-configs/providers/available')
       if (!response.ok) {
@@ -85,9 +71,9 @@ export function RagEditPage({ configId }: RagEditPageProps) {
     } catch (err) {
       console.error('Failed to load providers:', err)
     }
-  }
+  }, [])
 
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -104,9 +90,9 @@ export function RagEditPage({ configId }: RagEditPageProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [configId])
 
-  const loadProviderFields = async (providerName: string): Promise<ProviderFields> => {
+  const loadProviderFields = useCallback(async (providerName: string): Promise<ProviderFields> => {
     try {
       const response = await fetch(`http://localhost:8001/api/rag-configs/providers/${providerName}/fields`)
       if (!response.ok) {
@@ -119,7 +105,21 @@ export function RagEditPage({ configId }: RagEditPageProps) {
       console.error(`Failed to load fields for rag.${providerName}:`, err)
       return {}
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    loadProviders()
+    if (configId) {
+      loadConfig()
+    }
+  }, [configId, loadProviders, loadConfig])
+
+  // Load provider fields when provider is selected
+  useEffect(() => {
+    if (config.provider) {
+      loadProviderFields(config.provider)
+    }
+  }, [config.provider, loadProviderFields])
 
   const handleProviderChange = async (providerName: string) => {
     // Update the provider selection

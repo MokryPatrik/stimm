@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Trash2, FileText, FileType, File as FileIcon } from 'lucide-react'
 
@@ -24,11 +24,7 @@ export function DocumentList({ ragConfigId, refreshTrigger }: DocumentListProps)
     const [error, setError] = useState<string | null>(null)
     const [deleting, setDeleting] = useState<string | null>(null)
 
-    useEffect(() => {
-        loadDocuments()
-    }, [ragConfigId, refreshTrigger])
-
-    const loadDocuments = async () => {
+    const loadDocuments = useCallback(async () => {
         try {
             setLoading(true)
             setError(null)
@@ -45,7 +41,11 @@ export function DocumentList({ ragConfigId, refreshTrigger }: DocumentListProps)
         } finally {
             setLoading(false)
         }
-    }
+    }, [ragConfigId])
+
+    useEffect(() => {
+        loadDocuments()
+    }, [ragConfigId, refreshTrigger, loadDocuments])
 
     const handleDelete = async (documentId: string) => {
         if (!confirm('Are you sure you want to delete this document? This will remove all its chunks from the vector database.')) {

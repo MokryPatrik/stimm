@@ -33,7 +33,7 @@ export function DocumentUpload({ ragConfigId, onUploadComplete }: DocumentUpload
         }
     }
 
-    const uploadFiles = async (files: FileList | null) => {
+    const uploadFiles = useCallback(async (files: FileList | null) => {
         if (!files || files.length === 0) return
 
         const filesArray = Array.from(files)
@@ -80,13 +80,13 @@ export function DocumentUpload({ ragConfigId, onUploadComplete }: DocumentUpload
         if (onUploadComplete) {
             setTimeout(onUploadComplete, 1000)
         }
-    }
+    }, [ragConfigId, onUploadComplete])
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault()
         setIsDragging(false)
         uploadFiles(e.dataTransfer.files)
-    }, [ragConfigId])
+    }, [uploadFiles])
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault()
