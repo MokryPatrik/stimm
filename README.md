@@ -491,6 +491,38 @@ LOG_LEVEL=debug python src/main.py
 └── README.md
 ```
 
-## 🤝 Contributing
+---
 
+## ⚖️ Legal & Licensing
+
+### License (AGPL v3)
+The source code of **Stimm** is open-source and distributed under the **GNU Affero General Public License v3.0 (AGPL v3)**.
+You are free to use, modify, and distribute this software, provided that any network services you deploy based on this code also make their source code available to users.
+
+### 🛡️ Trademark Notice
+**Important:** The name **"Stimm"**, the Stimm logo, and the project's brand assets are **exclusive trademarks** of the project maintainers. They are **not** covered by the Open Source license.
+
+* You are free to fork this repository and modify the code.
+* However, if you distribute a derivative product or offer a public service based on this code, you **must remove** the Stimm logo and change the name so as not to suggest an official affiliation or endorsement by Stimm.
+
+### 🤝 Contributing (CLA)
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+By submitting a Pull Request to this repository, you agree to the **Stimm Contributor License Agreement (CLA)**:
+
+1.  **License:** You certify that your contribution is your original work.
+2.  **Rights Assignment:** You grant the project maintainers (currently operating as "Stimm" and any future legal entity) the perpetual right to relicense your contribution under different terms (including proprietary commercial licenses) while retaining the open-source nature of the original contribution.
+3.  **Retention:** You retain full ownership and the right to use your own contributions for any other purpose.
+
+---
+
+## ⚡ Acknowledgments
+
+**Built with LiveKit**
+
+Stimm relies on [LiveKit](https://livekit.io/) for high-performance real-time media transport (WebRTC).
+
+* **Disclaimer:** Stimm is an independent project and is **not affiliated with, endorsed by, or sponsored by LiveKit**.
+* We gratefully acknowledge the LiveKit team for their contributions to the open-source community.
+
+
