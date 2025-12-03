@@ -1,5 +1,6 @@
 .env
 venv
+.venv
 data
 riva_quickstart_2.19.0
 ngc-cli
