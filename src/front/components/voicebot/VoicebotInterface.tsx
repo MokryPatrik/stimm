@@ -441,11 +441,11 @@ export function VoicebotInterface() {
                disabled={devicesLoading || devices.length === 0}
              >
                <SelectTrigger
-                 className="w-12 h-12 rounded-full bg-black/30 border border-white/10 text-white/70 hover:text-white hover:bg-white/20 data-[state=open]:bg-white/20"
+                 className="h-12 w-auto px-4 rounded-full bg-black/30 border border-white/10 text-white/70 hover:text-white hover:bg-white/20 data-[state=open]:bg-white/20 gap-2"
                  aria-label="Select microphone"
                  title={tooltipText}
                >
-                 <Settings className="w-5 h-5" />
+                 <Mic className="w-5 h-5" />
                </SelectTrigger>
                <SelectContent className="bg-black/80 backdrop-blur-md border border-white/10 text-white">
                  {devicesLoading ? (
