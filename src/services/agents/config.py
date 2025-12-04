@@ -32,9 +32,6 @@ class VoicebotConfig:
 
 
 
-    # TTS Interface text for simulation
-    TTS_INTERFACE_TEXT: str = os.getenv("TTS_INTERFACE_TEXT", "Cette démonstration met en avant la diffusion en temps réel des jetons d'un modèle de langage. Merci d'avoir écouté ce texte. Ce test permer, grâce à des sliders de visualisation, de vérifier si la réception de chunks auidio se fait bien en parrallèlle avec l'envoie des tokens issue du LLM. J'éspère que cela vous aidera. A bientôt pour de nouvelles aventures. Et surtout prenez soin de vous. Au revoir.")
-
     # TTS Buffering configuration
     PRE_TTS_BUFFERING_LEVEL: str = os.getenv("PRE_TTS_BUFFERING_LEVEL", "LOW")
 
