@@ -357,10 +357,24 @@ class AgentManager:
             if should_close:
                 session.close()
     
+    def list_agents(self, skip: int = 0, limit: int = 100):
+        """
+        List agents with pagination.
+
+        Args:
+            skip: Number of agents to skip
+            limit: Maximum number of agents to return
+
+        Returns:
+            List[AgentResponse]: List of agents
+        """
+        result = self.agent_service.list_agents(skip=skip, limit=limit)
+        return result.agents
+
     def invalidate_cache(self, agent_id: Optional[UUID] = None):
         """
         Invalidate agent cache.
-        
+
         Args:
             agent_id: Specific agent ID to invalidate (if None, invalidate all)
         """
