@@ -576,21 +576,11 @@ PYTHONPATH=./src uv run pytest tests/integration/stt/ -k whisper -v   # Whisper 
 # With coverage
 PYTHONPATH=./src uv run pytest --cov=src/services --cov-report=html -v
 ```
-### Test Coverage Visualization
-
-Coverage is measured with `pytest-cov`. Generate HTML reports via:
-
-```bash
-PYTHONPATH=./src uv run pytest --cov=. --cov-report=html
-```
-
 Open `htmlcov/index.html` in a browser. The `.coverage` data file is excluded from version control.
 
 
 ### Test Markers
 
-- `@pytest.mark.unit` - (Optional) Unit tests (no external dependencies). Typically run via directory selection (`pytest tests/unit/`).
-- `@pytest.mark.integration` - (Optional) Integration tests (may require services). Typically run via directory selection (`pytest tests/integration/`).
 - `@pytest.mark.requires_provider("stt"|"tts"|"llm")` - Provider-dependent tests
 - `@pytest.mark.slow` - Long-running tests
 
