@@ -85,16 +85,44 @@ def _check_provider_requirements(provider_type: str) -> str | None:
             "whisper.local": [],  # Local service, no API key needed
         },
         "tts": {
-            # TTS providers are configured via agent system
-            # We'll check for at least one agent configuration
+            "async.ai": ["ASYNC_API_KEY"],
+            "deepgram.com": ["DEEPGRAM_TTS_API_KEY"],
+            "elevenlabs.io": ["ELEVENLABS_TTS_API_KEY"],
+            "kokoro.local": [],  # Local service, no API key needed
         },
         "llm": {
             # LLM providers vary, check in the specific test
         },
     }
     
-    # For now, we'll do specific checks in individual test files
-    # This is a placeholder for future expansion
+    if provider_type not in requirements:
+        return None
+    
+    provider_reqs = requirements[provider_type]
+    
+    # For TTS, we consider at least one provider available if any API key is present
+    # or if kokoro.local is configured (always). If none are available, skip.
+    if provider_type == "tts":
+        # Check each provider's required env vars
+        any_available = False
+        for provider_name, env_vars in provider_reqs.items():
+            if not env_vars:
+                # Local provider always considered available
+                any_available = True
+                break
+            if all(os.getenv(var) for var in env_vars):
+                any_available = True
+                break
+        if not any_available:
+            return (
+                "No TTS provider configuration found. "
+                "Set at least one of: ASYNC_API_KEY, DEEPGRAM_TTS_API_KEY, ELEVENLABS_TTS_API_KEY "
+                "or ensure kokoro.local service is running."
+            )
+        return None
+    
+    # For STT, we could implement similar logic, but currently rely on per-test skips
+    # For now, keep placeholder behavior
     return None
 
 
@@ -185,6 +213,80 @@ def whisper_config() -> Dict[str, Any]:
 
 
 @pytest.fixture
+def async_ai_config() -> Dict[str, Any] | None:
+    """
+    Get Async.AI TTS provider configuration from environment.
+    
+    Returns:
+        Configuration dict or None if API key not available
+    """
+    api_key = os.getenv("ASYNC_API_KEY")
+    if not api_key:
+        return None
+    
+    model = os.getenv("ASYNC_AI_TTS_MODEL_ID", "asyncflow_v2.0")
+    return {
+        "api_key": api_key,
+        "voice": os.getenv("ASYNC_AI_TTS_VOICE_ID", "e7b694f8-d277-47ff-82bf-cb48e7662647"),
+        "model": model,
+        "model_id": model,  # provider expects model_id
+    }
+
+
+@pytest.fixture
+def deepgram_tts_config() -> Dict[str, Any] | None:
+    """
+    Get Deepgram TTS provider configuration from environment.
+    
+    Returns:
+        Configuration dict or None if API key not available
+    """
+    api_key = os.getenv("DEEPGRAM_TTS_API_KEY")
+    if not api_key:
+        return None
+    
+    return {
+        "api_key": api_key,
+        "model": os.getenv("DEEPGRAM_TTS_MODEL", "aura-asteria-en"),
+    }
+
+
+@pytest.fixture
+def elevenlabs_config() -> Dict[str, Any] | None:
+    """
+    Get ElevenLabs TTS provider configuration from environment.
+    
+    Returns:
+        Configuration dict or None if API key not available
+    """
+    api_key = os.getenv("ELEVENLABS_TTS_API_KEY")
+    if not api_key:
+        return None
+    
+    return {
+        "api_key": api_key,
+        "voice": os.getenv("ELEVENLABS_TTS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM"),
+        "model": os.getenv("ELEVENLABS_TTS_MODEL", "eleven_multilingual_v2"),
+    }
+
+
+@pytest.fixture
+def kokoro_local_config() -> Dict[str, Any]:
+    """
+    Get Kokoro local TTS provider configuration from environment.
+    
+    Returns:
+        Configuration dict (always available, uses defaults)
+    """
+    url = os.getenv("CUSTOM_KOKORO_TTS_URL") or os.getenv("KOKORO_LOCAL_TTS_URL", "ws://kokoro-tts:5000/ws/tts/stream")
+    return {
+        "voice": os.getenv("KOKORO_TTS_DEFAULT_VOICE", "af_sarah"),
+        "language": os.getenv("KOKORO_TTS_DEFAULT_LANGUAGE", "fr-fr"),
+        "url": url,
+    }
+
+
+@pytest.fixture
 def available_stt_providers(deepgram_config, whisper_config) -> List[tuple[str, Dict[str, Any]]]:
     """
     Get list of available STT providers for parametrized testing.
@@ -213,6 +315,50 @@ def stt_provider_ids(available_stt_providers) -> List[str]:
         List of provider names
     """
     return [name for name, _ in available_stt_providers]
+
+
+@pytest.fixture
+def available_tts_providers(
+    async_ai_config,
+    deepgram_tts_config,
+    elevenlabs_config,
+    kokoro_local_config,
+) -> List[tuple[str, Dict[str, Any]]]:
+    """
+    Get list of available TTS providers for parametrized testing.
+    
+    Returns:
+        List of (provider_name, config) tuples for available providers
+    """
+    providers = []
+    
+    # Always include Kokoro (local, no API key needed)
+    providers.append(("kokoro.local", kokoro_local_config))
+    
+    # Include async.ai only if API key is available
+    if async_ai_config:
+        providers.append(("async.ai", async_ai_config))
+    
+    # Include deepgram.com only if API key is available
+    if deepgram_tts_config:
+        providers.append(("deepgram.com", deepgram_tts_config))
+    
+    # Include elevenlabs.io only if API key is available
+    if elevenlabs_config:
+        providers.append(("elevenlabs.io", elevenlabs_config))
+    
+    return providers
+
+
+@pytest.fixture
+def tts_provider_ids(available_tts_providers) -> List[str]:
+    """
+    Get list of available TTS provider IDs for pytest.mark.parametrize.
+    
+    Returns:
+        List of provider names
+    """
+    return [name for name, _ in available_tts_providers]
 
 
 # ============================================================================
