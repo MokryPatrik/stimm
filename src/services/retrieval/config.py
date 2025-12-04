@@ -25,7 +25,7 @@ class RetrievalConfig:
                 self.qdrant_host = protocol_and_host.split("/")[0]
                 self.qdrant_port = 6333
         else:
-            # Fallback to environment variables
+            # Fallback to environment variables (deprecated, use QDRANT_URL)
             self.qdrant_host = os.getenv("QDRANT_HOST", "localhost")
             self.qdrant_port = int(os.getenv("QDRANT_PORT", "6333"))
             
@@ -35,18 +35,18 @@ class RetrievalConfig:
         self.qdrant_api_key = os.getenv("QDRANT_API_KEY")
 
         # Embedding configuration
-        self.embed_model_name = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-base-en-v1.5")
+        self.embed_model_name = os.getenv("QDRANT_EMBEDDING_MODEL", "BAAI/bge-base-en-v1.5")
         self.embed_batch_size = int(os.getenv("EMBED_BATCH_SIZE", "16"))
         self.embed_normalize = os.getenv("EMBED_NORMALIZE", "true").lower() in {"1", "true", "yes"}
 
         # Retrieval configuration - optimized for voicebot
-        self.default_top_k = int(os.getenv("RAG_DEFAULT_TOP_K", "2"))  # Reduced for voice
-        self.max_top_k = int(os.getenv("RAG_MAX_TOP_K", "4"))  # Reduced for voice
+        self.default_top_k = int(os.getenv("QDRANT_DEFAULT_TOP_K", "2"))  # Reduced for voice
+        self.max_top_k = int(os.getenv("QDRANT_MAX_TOP_K", "4"))  # Reduced for voice
         self.max_text_length = int(os.getenv("RAG_MAX_TEXT_LENGTH", "2048"))  # Reduced for voice
 
         # Candidate counts - optimized for voicebot
-        self.dense_candidate_count = int(os.getenv("RAG_DENSE_CANDIDATE_COUNT", "8"))  # Reduced
-        self.lexical_candidate_count = int(os.getenv("RAG_LEXICAL_CANDIDATE_COUNT", "8"))  # Reduced
+        self.dense_candidate_count = int(os.getenv("QDRANT_DENSE_CANDIDATE_COUNT", "8"))  # Reduced
+        self.lexical_candidate_count = int(os.getenv("QDRANT_LEXICAL_CANDIDATE_COUNT", "8"))  # Reduced
 
         # Reranker configuration
         self.reranker_model = os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-base").strip()

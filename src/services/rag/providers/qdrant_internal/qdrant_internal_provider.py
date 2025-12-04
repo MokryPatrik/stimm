@@ -26,8 +26,7 @@ class QdrantInternalProvider:
             "collection_name",
             "embedding_model",
             "top_k",
-            "enable_reranker",
-            "ultra_low_latency"
+            # Optional fields are not required for validation
         ]
 
     @classmethod
@@ -81,6 +80,40 @@ class QdrantInternalProvider:
                 "required": False,
                 "description": "Optimize for voicebot latency (reduces retrieval quality)",
                 "default": True
+            },
+            "qdrant_use_tls": {
+                "type": "boolean",
+                "label": "Use TLS",
+                "required": False,
+                "description": "Whether to use HTTPS for Qdrant connection",
+                "default": False
+            },
+            "dense_candidate_count": {
+                "type": "number",
+                "label": "Dense Candidate Count",
+                "required": False,
+                "description": "Number of dense candidates to retrieve before reranking",
+                "min": 1,
+                "max": 100,
+                "default": 24
+            },
+            "lexical_candidate_count": {
+                "type": "number",
+                "label": "Lexical Candidate Count",
+                "required": False,
+                "description": "Number of lexical candidates to retrieve before reranking",
+                "min": 1,
+                "max": 100,
+                "default": 24
+            },
+            "max_top_k": {
+                "type": "number",
+                "label": "Max Top K",
+                "required": False,
+                "description": "Maximum allowed top_k value (safety limit)",
+                "min": 1,
+                "max": 20,
+                "default": 8
             }
         }
 

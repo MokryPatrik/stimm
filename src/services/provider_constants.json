@@ -54,8 +54,7 @@
   },
   "rag": {
     "qdrant.internal": {
-      "HOST": "localhost",
-      "PORT": 6333,
+      "URL": "http://qdrant:6333",
       "USE_TLS": false,
       "API_KEY": null
     },

@@ -559,6 +559,9 @@ class RagConfigService:
             top_k = config.get('top_k')
             enable_reranker = config.get('enable_reranker')
             ultra_low_latency = config.get('ultra_low_latency', True)
+            dense_candidate_count = config.get('dense_candidate_count')
+            lexical_candidate_count = config.get('lexical_candidate_count')
+            max_top_k = config.get('max_top_k')
 
             # Qdrant connection parameters (could be overridden via config, but default to global)
             qdrant_host = config.get('qdrant_host')
@@ -572,6 +575,8 @@ class RagConfigService:
                 top_k=top_k,
                 enable_reranker=enable_reranker,
                 ultra_low_latency_mode=ultra_low_latency,
+                dense_candidate_count=dense_candidate_count,
+                lexical_candidate_count=lexical_candidate_count,
                 qdrant_host=qdrant_host,
                 qdrant_port=qdrant_port,
                 qdrant_use_tls=qdrant_use_tls,

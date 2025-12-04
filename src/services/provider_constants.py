@@ -8,6 +8,7 @@ Environment variables can override specific URLs for local services:
 - CUSTOM_WHISPER_STT_URL: Overrides stt.whisper.local.URL
 - CUSTOM_KOKORO_TTS_URL: Overrides tts.kokoro.local.URL
 - CUSTOM_LLAMA_CPP_URL: Overrides llm.llama-cpp.local.API_URL
+- CUSTOM_QDRANT_URL: Overrides rag.qdrant.internal.URL
 """
 
 import json
@@ -25,6 +26,7 @@ def get_provider_constants():
         ('CUSTOM_WHISPER_STT_URL', ['stt', 'whisper.local', 'URL']),
         ('CUSTOM_KOKORO_TTS_URL', ['tts', 'kokoro.local', 'URL']),
         ('CUSTOM_LLAMA_CPP_URL', ['llm', 'llama-cpp.local', 'API_URL']),
+        ('CUSTOM_QDRANT_URL', ['rag', 'qdrant.internal', 'URL']),
     ]
 
     for env_var, path in overrides:
