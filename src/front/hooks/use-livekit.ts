@@ -104,7 +104,7 @@ export function useLiveKit(): UseLiveKitReturn {
         const text = new TextDecoder().decode(payload)
         const data = JSON.parse(text)
         
-        console.log('📦 Hook Data:', data)
+        //console.log('📦 Hook Data:', data)
         
         switch (data.type) {
           case 'transcript_update':

@@ -17,7 +17,6 @@ from tests.fixtures.test_utils import verify_transcription_results, get_final_tr
 from tests.conftest import STREAM_SAMPLE_RATE, CHUNK_SIZE
 
 
-@pytest.mark.integration
 @pytest.mark.requires_provider("stt")
 class TestSTTStreaming:
     """Test suite for STT streaming across all providers."""
