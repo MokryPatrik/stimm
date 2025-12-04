@@ -91,7 +91,10 @@ def _check_provider_requirements(provider_type: str) -> str | None:
             "kokoro.local": [],  # Local service, no API key needed
         },
         "llm": {
-            # LLM providers vary, check in the specific test
+            "groq.com": ["GROQ_LLM_API_KEY"],
+            "mistral.ai": ["MISTRAL_LLM_API_KEY"],
+            "openrouter.ai": ["OPENROUTER_LLM_API_KEY"],
+            "llama-cpp.local": [],  # Local service, no API key needed
         },
     }
     
@@ -100,9 +103,9 @@ def _check_provider_requirements(provider_type: str) -> str | None:
     
     provider_reqs = requirements[provider_type]
     
-    # For TTS, we consider at least one provider available if any API key is present
-    # or if kokoro.local is configured (always). If none are available, skip.
-    if provider_type == "tts":
+    # For TTS and LLM, we consider at least one provider available if any API key is present
+    # or if a local provider is configured (always). If none are available, skip.
+    if provider_type in ("tts", "llm"):
         # Check each provider's required env vars
         any_available = False
         for provider_name, env_vars in provider_reqs.items():
@@ -114,11 +117,18 @@ def _check_provider_requirements(provider_type: str) -> str | None:
                 any_available = True
                 break
         if not any_available:
-            return (
-                "No TTS provider configuration found. "
-                "Set at least one of: ASYNC_API_KEY, DEEPGRAM_TTS_API_KEY, ELEVENLABS_TTS_API_KEY "
-                "or ensure kokoro.local service is running."
-            )
+            if provider_type == "tts":
+                return (
+                    "No TTS provider configuration found. "
+                    "Set at least one of: ASYNC_API_KEY, DEEPGRAM_TTS_API_KEY, ELEVENLABS_TTS_API_KEY "
+                    "or ensure kokoro.local service is running."
+                )
+            else:  # llm
+                return (
+                    "No LLM provider configuration found. "
+                    "Set at least one of: GROQ_LLM_API_KEY, MISTRAL_LLM_API_KEY, OPENROUTER_LLM_API_KEY "
+                    "or ensure llama-cpp.local service is running."
+                )
         return None
     
     # For STT, we could implement similar logic, but currently rely on per-test skips
@@ -359,6 +369,131 @@ def tts_provider_ids(available_tts_providers) -> List[str]:
         List of provider names
     """
     return [name for name, _ in available_tts_providers]
+
+
+# LLM Provider Configuration Fixtures
+
+@pytest.fixture
+def groq_config() -> Dict[str, Any] | None:
+    """
+    Get Groq LLM provider configuration from environment.
+    
+    Returns:
+        Configuration dict or None if API key not available
+    """
+    api_key = os.getenv("GROQ_LLM_API_KEY")
+    if not api_key:
+        return None
+    
+    return {
+        "api_key": api_key,
+        "model": os.getenv("GROQ_LLM_MODEL", "llama-3.1-8b-instant"),
+        "api_url": os.getenv("GROQ_LLM_API_URL", "https://api.groq.com"),
+        "completions_path": os.getenv("GROQ_LLM_COMPLETIONS_PATH", "/openai/v1/chat/completions"),
+    }
+
+
+@pytest.fixture
+def mistral_config() -> Dict[str, Any] | None:
+    """
+    Get Mistral LLM provider configuration from environment.
+    
+    Returns:
+        Configuration dict or None if API key not available
+    """
+    api_key = os.getenv("MISTRAL_LLM_API_KEY")
+    if not api_key:
+        return None
+    
+    return {
+        "api_key": api_key,
+        "model": os.getenv("MISTRAL_LLM_MODEL", "mistral-large-latest"),
+        "api_url": os.getenv("MISTRAL_LLM_API_URL", "https://api.mistral.ai/v1"),
+        "completions_path": os.getenv("MISTRAL_LLM_COMPLETIONS_PATH", "/chat/completions"),
+    }
+
+
+@pytest.fixture
+def openrouter_config() -> Dict[str, Any] | None:
+    """
+    Get OpenRouter LLM provider configuration from environment.
+    
+    Returns:
+        Configuration dict or None if API key not available
+    """
+    api_key = os.getenv("OPENROUTER_LLM_API_KEY")
+    if not api_key:
+        return None
+    
+    return {
+        "api_key": api_key,
+        "model": os.getenv("OPENROUTER_LLM_MODEL", "anthropic/claude-3.5-sonnet"),
+        "api_url": os.getenv("OPENROUTER_LLM_API_URL", "https://openrouter.ai/api/v1"),
+        "completions_path": os.getenv("OPENROUTER_LLM_COMPLETIONS_PATH", "/chat/completions"),
+        "app_name": os.getenv("OPENROUTER_LLM_APP_NAME", "VoiceBot"),
+        "app_url": os.getenv("OPENROUTER_LLM_APP_URL", "https://github.com/etienne/voicebot"),
+    }
+
+
+@pytest.fixture
+def llama_cpp_config() -> Dict[str, Any]:
+    """
+    Get Llama.cpp local LLM provider configuration from environment.
+    
+    Returns:
+        Configuration dict (always available, uses defaults)
+    """
+    api_url = os.getenv("CUSTOM_LLAMA_CPP_URL") or os.getenv("LLAMA_CPP_LLM_API_URL", "http://llama-cpp-server:8002")
+    return {
+        "api_url": api_url,
+        "api_key": os.getenv("LLAMA_CPP_LLM_API_KEY", "local"),
+        "model": os.getenv("LLAMA_CPP_LLM_MODEL", "default"),
+        "completions_path": os.getenv("LLAMA_CPP_LLM_COMPLETIONS_PATH", "/v1/chat/completions"),
+    }
+
+
+@pytest.fixture
+def available_llm_providers(
+    groq_config,
+    mistral_config,
+    openrouter_config,
+    llama_cpp_config,
+) -> List[tuple[str, Dict[str, Any]]]:
+    """
+    Get list of available LLM providers for parametrized testing.
+    
+    Returns:
+        List of (provider_name, config) tuples for available providers
+    """
+    providers = []
+    
+    # Always include llama-cpp.local (local, no API key needed)
+    providers.append(("llama-cpp.local", llama_cpp_config))
+    
+    # Include groq.com only if API key is available
+    if groq_config:
+        providers.append(("groq.com", groq_config))
+    
+    # Include mistral.ai only if API key is available
+    if mistral_config:
+        providers.append(("mistral.ai", mistral_config))
+    
+    # Include openrouter.ai only if API key is available
+    if openrouter_config:
+        providers.append(("openrouter.ai", openrouter_config))
+    
+    return providers
+
+
+@pytest.fixture
+def llm_provider_ids(available_llm_providers) -> List[str]:
+    """
+    Get list of available LLM provider IDs for pytest.mark.parametrize.
+    
+    Returns:
+        List of provider names
+    """
+    return [name for name, _ in available_llm_providers]
 
 
 # ============================================================================
