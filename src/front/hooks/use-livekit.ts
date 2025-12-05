@@ -21,6 +21,8 @@ export interface UseLiveKitReturn {
   ttsState: boolean
   metrics: { tokens: number, audioChunks: number, latency?: number }
   turnState: TurnState
+  ragLoading: boolean
+  ragLoadingMessage: string
   connect: (agentId: string, options?: { deviceId?: string }) => Promise<void>
   disconnect: () => Promise<void>
   switchMicrophone: (deviceId?: string) => Promise<void>
@@ -32,16 +34,20 @@ export function useLiveKit(): UseLiveKitReturn {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
   const [localAudioStream, setLocalAudioStream] = useState<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Data states
   const [transcription, setTranscription] = useState<string>('')
   const [response, setResponse] = useState<string>('')
   const [vadState, setVadState] = useState<{ energy: number, state: 'speaking' | 'silence' }>({ energy: 0, state: 'silence' })
-  
+
   // Indicator states
   const [llmState, setLlmState] = useState<boolean>(false)
   const [ttsState, setTtsState] = useState<boolean>(false)
   const [metrics, setMetrics] = useState<{ tokens: number, audioChunks: number, latency?: number }>({ tokens: 0, audioChunks: 0 })
+
+  // RAG loading state
+  const [ragLoading, setRagLoading] = useState<boolean>(false)
+  const [ragLoadingMessage, setRagLoadingMessage] = useState<string>('')
 
   // Telemetry hook
   const { turnState, updateTelemetry, resetTelemetry } = useTelemetry()
@@ -54,7 +60,7 @@ export function useLiveKit(): UseLiveKitReturn {
 
   useEffect(() => {
     isMounted.current = true
-    
+
     // Set up event listeners
     liveKitClient.onConnectionStateChange = (state: string) => {
       if (isMounted.current) {
@@ -80,7 +86,7 @@ export function useLiveKit(): UseLiveKitReturn {
         setAudioStream(stream)
       }
     }
-    
+
     liveKitClient.onLocalAudioTrack = (stream: MediaStream) => {
       if (isMounted.current) {
         setLocalAudioStream(stream)
@@ -99,90 +105,106 @@ export function useLiveKit(): UseLiveKitReturn {
 
     liveKitClient.onDataReceived = (payload: Uint8Array, participant?: RemoteParticipant) => {
       if (!isMounted.current) return
-      
+
       try {
         const text = new TextDecoder().decode(payload)
         const data = JSON.parse(text)
-        
+
         //console.log('📦 Hook Data:', data)
-        
+
         switch (data.type) {
           case 'transcript_update':
             // Append or replace? Usually STT sends partials then final.
             // Simplified: just show latest text for now, or append if final.
             if (data.is_final) {
-               setTranscription(prev => prev + ' ' + data.text)
+              setTranscription(prev => prev + ' ' + data.text)
             } else {
-               // For partials, we might want a separate "current utterance" state
-               // But here we'll just show it.
-               // To avoid flickering, maybe just log or have a separate UI element.
-               // Let's just update transcription for now.
-               // setTranscription(data.text)
+              // For partials, we might want a separate "current utterance" state
+              // But here we'll just show it.
+              // To avoid flickering, maybe just log or have a separate UI element.
+              // Let's just update transcription for now.
+              // setTranscription(data.text)
             }
             break
-            
+
           case 'assistant_response':
             if (data.text) {
               setResponse(prev => prev + data.text)
             }
             if (data.is_complete) {
-               setResponse(prev => prev + '\n\n')
-               setLlmState(false)
+              setResponse(prev => prev + '\n\n')
+              setLlmState(false)
             }
             break
-            
+
           case 'vad_update':
             setVadState({ energy: data.energy, state: data.state })
             if (data.telemetry) {
               updateTelemetry(data.telemetry)
             }
             break
-            
+
           case 'speech_start':
             setVadState(prev => ({ ...prev, state: 'speaking' }))
             resetTelemetry() // Reset telemetry on new speech start
             updateTelemetry({ vad_speech_detected: true })
             break
-            
+
           case 'speech_end':
             setVadState(prev => ({ ...prev, state: 'silence' }))
             lastSpeechEnd.current = Date.now()
             updateTelemetry({ vad_end_of_speech_detected: true })
             break
-            
-          case 'bot_responding_start':
-             // Maybe clear response if it's a new turn?
-             setResponse('')
-             setLlmState(true)
-             break
-             
-          case 'bot_responding_end':
-             setLlmState(false)
-             setTtsState(false) // Assuming TTS ends shortly after or we track chunks
-             break
-             
-          case 'audio_chunk':
-             // Calculate latency if this is the first chunk after speech end
-             let currentLatency: number | undefined;
-             if (lastSpeechEnd.current > 0) {
-                currentLatency = Date.now() - lastSpeechEnd.current;
-                lastSpeechEnd.current = 0; // Reset so we don't calculate for subsequent chunks
-             }
 
-             setMetrics(prev => ({
-               ...prev,
-               audioChunks: prev.audioChunks + 1,
-               latency: currentLatency !== undefined ? currentLatency : prev.latency
-             }))
-             setTtsState(true)
-             break
+          case 'bot_responding_start':
+            // Maybe clear response if it's a new turn?
+            setResponse('')
+            setLlmState(true)
+            break
+
+          case 'bot_responding_end':
+            setLlmState(false)
+            setTtsState(false) // Assuming TTS ends shortly after or we track chunks
+            break
+
+          case 'audio_chunk':
+            // Calculate latency if this is the first chunk after speech end
+            let currentLatency: number | undefined;
+            if (lastSpeechEnd.current > 0) {
+              currentLatency = Date.now() - lastSpeechEnd.current;
+              lastSpeechEnd.current = 0; // Reset so we don't calculate for subsequent chunks
+            }
+
+            setMetrics(prev => ({
+              ...prev,
+              audioChunks: prev.audioChunks + 1,
+              latency: currentLatency !== undefined ? currentLatency : prev.latency
+            }))
+            setTtsState(true)
+            break
 
           case 'telemetry_update':
-             if (data.data) {
-               updateTelemetry(data.data)
-             }
-             break
-         }
+            if (data.data) {
+              updateTelemetry(data.data)
+            }
+            break
+
+          case 'rag_loading_start':
+            setRagLoading(true)
+            setRagLoadingMessage(data.message || 'Initialisation du système RAG...')
+            break
+
+          case 'rag_loading_complete':
+            setRagLoading(false)
+            setRagLoadingMessage('')
+            break
+
+          case 'rag_loading_error':
+            setRagLoading(false)
+            setRagLoadingMessage('')
+            console.error('RAG loading error:', data.error)
+            break
+        }
       } catch (e) {
         console.error('Failed to parse data packet:', e)
       }
@@ -257,6 +279,8 @@ export function useLiveKit(): UseLiveKitReturn {
     ttsState,
     metrics,
     turnState,
+    ragLoading,
+    ragLoadingMessage,
     connect,
     disconnect,
     switchMicrophone

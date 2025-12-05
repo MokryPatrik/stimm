@@ -50,6 +50,7 @@ export function VoicebotInterface() {
     streamTime: 0
   })
   const [showAgentOverlay, setShowAgentOverlay] = useState(false)
+  const [ragPreloading, setRagPreloading] = useState(false)
 
   const [transcription, setTranscription] = useState<string>('')
   const [response, setResponse] = useState<string>('')
@@ -69,6 +70,8 @@ export function VoicebotInterface() {
     ttsState,
     metrics,
     turnState,
+    ragLoading,
+    ragLoadingMessage,
     connect,
     disconnect,
     switchMicrophone
@@ -114,6 +117,32 @@ export function VoicebotInterface() {
       }
     }
   }, [selectedAgentId, agents])
+
+  // Preload RAG when agent is selected (page load or change)
+  useEffect(() => {
+    if (!selectedAgentId) return
+
+    const preloadRAG = async () => {
+      setRagPreloading(true)
+      try {
+        const WSL2_IP = '172.23.126.232'
+        const response = await fetch(
+          `http://${WSL2_IP}:8001/api/rag-configs/preload/${selectedAgentId}`,
+          { method: 'POST' }
+        )
+        if (response.ok) {
+          const data = await response.json()
+          console.log('RAG preloaded:', data.message)
+        }
+      } catch (err) {
+        console.warn('RAG preload failed (non-critical):', err)
+      } finally {
+        setRagPreloading(false)
+      }
+    }
+
+    preloadRAG()
+  }, [selectedAgentId])
 
   // Track previous selected device ID to avoid unnecessary switches
   const prevDeviceIdRef = useRef<string | null>(selectedDeviceId ?? null)
@@ -520,6 +549,21 @@ export function VoicebotInterface() {
 
         {/* Hidden Audio Element */}
         <audio ref={audioPlayerRef} className="hidden" />
+
+        {/* RAG Loading Overlay */}
+        {(ragLoading || ragPreloading) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 rounded-xl">
+            <div className="flex flex-col items-center gap-4 p-8 bg-gradient-to-br from-blue-900/90 to-purple-900/90 rounded-2xl border border-white/20 shadow-2xl">
+              {/* Spinner */}
+              <div className="w-16 h-16 border-4 border-white/20 border-t-cyan-300 rounded-full animate-spin"></div>
+              {/* Message */}
+              <div className="text-white text-center">
+                <div className="font-semibold">{ragLoadingMessage || "Initialisation du système RAG..."}</div>
+                <div className="text-xs text-white/60 mt-1">Cela peut prendre quelques secondes...</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* RIGHT PANEL: Sidebar */}

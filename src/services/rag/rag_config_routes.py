@@ -534,3 +534,23 @@ async def get_documents_statistics(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get statistics: {str(e)}"
         )
+
+
+@router.post("/preload/{agent_id}")
+async def preload_rag_for_agent(agent_id: str):
+    """
+    Preload RAG state for a specific agent.
+    
+    This allows the frontend to trigger RAG preloading when an agent is selected,
+    providing immediate user feedback and faster connection times.
+    """
+    try:
+        from services.rag.rag_preloader import rag_preloader
+        
+        logger.info(f"Preloading RAG for agent {agent_id}")
+        await rag_preloader.get_rag_state_for_agent(agent_id=agent_id)
+        
+        return {"status": "success", "message": f"RAG preloaded for agent {agent_id}"}
+    except Exception as e:
+        logger.error(f"Failed to preload RAG for agent {agent_id}: {e}")
+        return {"status": "error", "error": str(e)}

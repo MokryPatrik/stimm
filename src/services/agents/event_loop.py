@@ -104,8 +104,7 @@ class VoicebotEventLoop:
         # Start STT stream processor
         self.stt_task = asyncio.create_task(self._process_stt_stream())
         
-        # Preload RAG state in background
-        asyncio.create_task(self._preload_rag())
+        # RAG is now preloaded via REST API before connection (on agent selection)
         
     async def _preload_rag(self):
         """
@@ -116,6 +115,12 @@ class VoicebotEventLoop:
         """
         try:
             if self.rag_state is None:
+                # Notify frontend: RAG loading started
+                await self.output_queue.put({
+                    "type": "rag_loading_start",
+                    "message": "Initialisation du système RAG..."
+                })
+                
                 logger.info("🚀 Getting RAG state from unified preloader...")
                 from services.rag.rag_preloader import rag_preloader
                 
@@ -124,13 +129,26 @@ class VoicebotEventLoop:
                     agent_id=self.agent_id
                 )
                 
+                # Notify frontend: RAG loading complete
+                await self.output_queue.put({
+                    "type": "rag_loading_complete"
+                })
+                
                 logger.info("✅ RAG state obtained from preloader")
         except Exception as e:
             logger.warning(f"⚠️ RAG preloading failed: {e}")
+            
+            # Notify frontend: RAG loading error
+            await self.output_queue.put({
+                "type": "rag_loading_error",
+                "error": str(e)
+            })
+            
             # Create empty state with skip_retrieval=True as safe fallback
             from services.rag.rag_state import RagState
             self.rag_state = RagState()
             self.rag_state.skip_retrieval = True
+
 
 
     async def stop(self):
