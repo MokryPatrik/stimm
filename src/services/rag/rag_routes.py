@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
     rag_state.clear_documents()
 
 
-app = FastAPI(title="Voicebot RAG Service", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Stimmm RAG Service", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "VoiceBot - Agent Management",
-  description: "VoiceBot Agent Management System",
+  title: "Stimm - Agent Management",
+  description: "Stimm Agent Management System",
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',

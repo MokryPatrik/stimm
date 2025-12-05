@@ -1,5 +1,5 @@
 /**
- * WebRTC Client for Voicebot
+ * WebRTC Client for Stimm
  * Handles microphone capture, SDP negotiation, and audio playback.
  */
 

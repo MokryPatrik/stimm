@@ -22,7 +22,7 @@ fi
 # Create .env.local file for frontend environment variables
 cat > .env.local << EOF
 # Frontend Environment Configuration
-NEXT_PUBLIC_VOICEBOT_API_URL=http://localhost:8001
+NEXT_PUBLIC_STIMM_API_URL=http://localhost:8001
 NEXT_PUBLIC_LIVEKIT_WS_URL=ws://localhost:7880
 NEXT_PUBLIC_ENVIRONMENT_TYPE=local
 EOF

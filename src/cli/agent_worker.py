@@ -1,6 +1,6 @@
 """
 Standalone Agent Worker for Local Development.
-This script instantiates the Voicebot Agent and connects it to a LiveKit room,
+This script instantiates the Stimm Agent and connects it to a LiveKit room,
 bypassing the FastAPI server orchestration.
 """
 
@@ -65,7 +65,7 @@ async def run_worker(room_name: str, agent_id: str, livekit_url: str, api_key: s
         traceback.print_exc()
 
 def main():
-    parser = argparse.ArgumentParser(description="Run a standalone Voicebot Agent Worker")
+    parser = argparse.ArgumentParser(description="Run a standalone Stimm Agent Worker")
     parser.add_argument("--room-name", required=True, help="LiveKit room name to join")
     parser.add_argument("--agent-id", default="default", help="Agent ID")
     parser.add_argument("--livekit-url", help="LiveKit URL (default: env LIVEKIT_URL)")

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -107,7 +108,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--base-url",
-        default=os.getenv("VOICEBOT_API_URL", "http://localhost:8001"),
+        default=os.getenv("STIMM_API_URL", "http://localhost:8001"),
         help="Base URL for the RAG service (default: %(default)s)",
     )
     parser.add_argument(

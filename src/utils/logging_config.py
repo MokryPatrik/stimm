@@ -1,5 +1,5 @@
 """
-Centralized logging configuration for the Voicebot platform.
+Centralized logging configuration for the Stimm platform.
 This ensures consistent logging behavior across CLI, Agent Worker, and Backend Server.
 """
 

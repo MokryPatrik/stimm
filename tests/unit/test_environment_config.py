@@ -55,17 +55,17 @@ class TestEnvironmentConfig:
         assert config.stimm_api_url == "http://custom-api:9000"
         assert config.livekit_url == "ws://custom-livekit:7000"
     
-    def test_get_service_config_voicebot(self):
-        """Test getting VoiceBot service configuration."""
+    def test_get_service_config_stimm(self):
+        """Test getting Stimm service configuration."""
         from environment_config import EnvironmentConfig
-        
+
         config = EnvironmentConfig()
-        voicebot_config = config.get_service_config("stimm")
-        
-        assert isinstance(voicebot_config, dict)
-        assert "api_url" in voicebot_config
-        assert "health_url" in voicebot_config
-        assert "/health" in voicebot_config["health_url"]
+        stimm_config = config.get_service_config("stimm")
+
+        assert isinstance(stimm_config, dict)
+        assert "api_url" in stimm_config
+        assert "health_url" in stimm_config
+        assert "/health" in stimm_config["health_url"]
     
     def test_get_service_config_livekit(self):
         """Test getting LiveKit service configuration."""
@@ -148,12 +148,12 @@ class TestEnvironmentConfig:
     def test_get_service_url_function(self):
         """Test get_service_url() convenience function."""
         from environment_config import get_service_url
-        
-        voicebot_url = get_service_url("stimm")
-        
-        assert isinstance(voicebot_url, str)
+
+        stimm_url = get_service_url("stimm")
+
+        assert isinstance(stimm_url, str)
         # Should return one of the URL fields
-        assert voicebot_url != f"Unknown service: stimm"
+        assert stimm_url != f"Unknown service: stimm"
     
     def test_get_service_url_with_fallback(self):
         """Test get_service_url() with fallback."""

@@ -1,5 +1,5 @@
 /**
- * Voicebot UI Controller
+ * Stimm UI Controller
  * Manages UI interactions and connects WebRTCClient.
  */
 

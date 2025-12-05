@@ -23,7 +23,7 @@ The project follows a modular monolith architecture, containerized with Docker C
 ```mermaid
 graph TD
     Client[Web Client / Next.js] -->|HTTPS/WSS| Traefik[Traefik Reverse Proxy]
-    Traefik -->|/api| Backend[Voicebot Backend / FastAPI]
+    Traefik -->|/api| Backend[Stimm Backend / FastAPI]
     Traefik -->|/| Frontend[Frontend Service]
 
     Backend --> Postgres[(PostgreSQL)]
@@ -44,7 +44,7 @@ sequenceDiagram
     participant WebRTC as WebRTC/WebSocket
     participant Media as MediaHandler
     participant VAD as Silero VAD
-    participant EvLoop as VoicebotEventLoop
+    participant EvLoop as StimmEventLoop
     participant STT as STT Service
     participant RAG as RAG/LLM Service
     participant TTS as TTS Service
@@ -74,7 +74,7 @@ sequenceDiagram
 1. **Ingestion**: Audio is captured by the client (browser) and sent via **WebRTC** (preferred) or **WebSocket** to the backend.
 2. **Media Handling**: The `WebRTCMediaHandler` receives the incoming audio track and buffers the raw audio frames.
 3. **Voice Activity Detection (VAD)**: The `SileroVADService` analyzes the audio frames in real-time to detect speech segments.
-4. **Orchestration**: The `VoicebotEventLoop` acts as the central brain, coordinating all services.
+4. **Orchestration**: The `StimmEventLoop` acts as the central brain, coordinating all services.
 5. **Speech-to-Text (STT)**: On "speech end", the `STTService` (e.g., Deepgram, Whisper) transcribes the audio buffer into text.
 6. **Intelligence (RAG/LLM)**: The transcribed text is sent to the `ChatbotService`, which may query **Qdrant** for context (RAG) before sending the prompt to the **LLM**.
 7. **Text-to-Speech (TTS)**: The LLM's response is streamed to the `TTSService` which converts text to audio.
@@ -141,7 +141,7 @@ Here are some of the key variables:
 
 ```env
 # Service URLs (defaults are for local development)
-VOICEBOT_API_URL=http://localhost:8001
+STIMM_API_URL=http://localhost:8001
 LIVEKIT_URL=ws://localhost:7880
 LIVEKIT_API_URL=http://localhost:7880
 DATABASE_URL=postgresql://stimm_user:stimm_password@localhost:5432/stimm
@@ -481,7 +481,7 @@ LOG_LEVEL=debug python src/main.py
 │   ├── database/         # Database models and session
 │   ├── front/            # Next.js Frontend
 │   ├── services/         # Backend services
-│   │   ├── agents/       # Voicebot logic
+│   │   ├── agents/       # stimm logic
 │   │   ├── agents_admin/ # Agent management
 │   │   ├── llm/          # LLM integrations
 │   │   ├── rag/          # RAG & Knowledge base
