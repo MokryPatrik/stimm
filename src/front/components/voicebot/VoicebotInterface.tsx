@@ -24,9 +24,9 @@ interface VoicebotStatus {
   playbackStartLatency?: number
 }
 
-// Dark theme with cyan accents
+// Reverting to original gradient theme but adapting to the new layout
 const THEME = {
-  bg: 'bg-gradient-to-br from-cyan-900 to-blue-900',
+  bg: 'bg-gradient-to-br from-blue-500 to-purple-600',
   panel: 'bg-white/10 backdrop-blur-md',
   border: 'border-white/20',
   text: 'text-white',
@@ -312,7 +312,6 @@ export function VoicebotInterface() {
          <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10">
            <div className="flex flex-col gap-1">
              <Image src={logo} alt="Stimm" width={120} height={33} className="drop-shadow-md" />
-             <p className="text-xs text-white/70 uppercase tracking-widest">Your voice agent</p>
            </div>
            <div className="flex items-center gap-4">
               {/* Agent Selection Button */}
@@ -329,7 +328,7 @@ export function VoicebotInterface() {
          {/* Custom Agent Selection Overlay */}
          {showAgentOverlay && (
            <div className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50">
-             <div className="bg-gradient-to-br from-cyan-900 to-blue-900 border border-white/20 rounded-xl p-6 shadow-2xl w-full max-w-4xl mx-4">
+             <div className="bg-gradient-to-br from-blue-900 to-purple-900 border border-white/20 rounded-xl p-6 shadow-2xl w-full max-w-4xl mx-4">
                <div className="flex justify-between items-center mb-4">
                  <h3 className="text-xl font-bold text-white">Select Voice Agent</h3>
                  <button
@@ -349,15 +348,15 @@ export function VoicebotInterface() {
                      }}
                      className={`px-4 py-5 rounded-lg border-2 transition-all cursor-pointer
                        ${selectedAgentId === agent.id
-                         ? 'border-cyan-300 bg-cyan-900/50 text-white shadow-[0_0_20px_rgba(103,232,249,0.3)]'
+                         ? 'border-cyan-400 bg-cyan-900/50 text-white shadow-[0_0_20px_rgba(103,232,249,0.3)]'
                          : 'border-white/10 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white'
                        }`}
                    >
                      <div className="font-bold text-white uppercase mb-2">{agent.name}</div>
                      <div className="text-[10px] text-white/60">{agent.description || 'Voice AI Agent'}</div>
                      <div className="mt-3 flex items-center gap-2">
-                       <span className="text-xs bg-cyan-500/20 px-2 py-1 rounded-full">{agent.stt_provider || 'Deepgram'}</span>
-                       <span className="text-xs bg-blue-500/20 px-2 py-1 rounded-full">{agent.llm_provider || 'Mistral'}</span>
+                       <span className="text-xs bg-cyan-400/20 px-2 py-1 rounded-full">{agent.stt_provider || 'Deepgram'}</span>
+                       <span className="text-xs bg-purple-400/20 px-2 py-1 rounded-full">{agent.llm_provider || 'Mistral'}</span>
                      </div>
                    </div>
                  ))}
@@ -378,7 +377,7 @@ export function VoicebotInterface() {
                  <div className={`
                    flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300
                    ${activeStreamType === 'agent'
-                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 shadow-[0_0_15px_rgba(103,232,249,0.3)]'
+                     ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-[0_0_15px_rgba(103,232,249,0.3)]'
                      : 'bg-white/10 text-white/70 border border-white/10'}
                  `}>
                    {activeStreamType === 'agent' ? <Bot className="w-3 h-3" /> : <User className="w-3 h-3" />}
@@ -582,7 +581,7 @@ export function VoicebotInterface() {
                {response && (
                  <div className="space-y-1 animate-in fade-in slide-in-from-bottom-2">
                     <div className="text-xs text-cyan-300/70 uppercase">Agent</div>
-                    <div className="text-cyan-300">{response}</div>
+                    <div className="text-cyan-200">{response}</div>
                  </div>
                )}
 
