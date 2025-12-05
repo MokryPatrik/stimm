@@ -364,10 +364,11 @@ class VoicebotEventLoop:
         self.turn_state.vad_speech_detected = True
         await self._push_telemetry_update()
 
-        if self.state == AgentState.SPEAKING:
-            # Interruption!
-            logger.info("User interrupted agent speech")
-            await self.push_event("interrupt")
+        # Always attempt to interrupt pending audio on new speech
+        # This handles cases where TTS finished generation (state=LISTENING)
+        # but audio is still buffered/playing.
+        logger.info("User speech detected - ensuring audio playback is interrupted")
+        await self.push_event("interrupt")
             
         self.state = AgentState.LISTENING
         # Notify client
