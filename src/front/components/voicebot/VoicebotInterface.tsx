@@ -117,18 +117,18 @@ export function VoicebotInterface() {
   }, [selectedAgentId, agents])
 
   // Track previous selected device ID to avoid unnecessary switches
-  const prevDeviceIdRef = useRef<string | undefined>(selectedDeviceId)
+  const prevDeviceIdRef = useRef<string | null>(selectedDeviceId ?? null)
 
   // Switch microphone when device changes while connected
   useEffect(() => {
     if (isConnected && selectedDeviceId !== prevDeviceIdRef.current) {
-      prevDeviceIdRef.current = selectedDeviceId
+      prevDeviceIdRef.current = selectedDeviceId ?? null
       switchMicrophone(selectedDeviceId || undefined).catch(err => {
         console.error('Failed to switch microphone:', err)
         // Optionally show error to user
       })
     } else {
-      prevDeviceIdRef.current = selectedDeviceId
+      prevDeviceIdRef.current = selectedDeviceId ?? null
     }
   }, [selectedDeviceId, isConnected, switchMicrophone])
 
