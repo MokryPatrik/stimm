@@ -30,7 +30,7 @@ export function NavigationBar() {
     return (
         <div className="mb-6">
             <div className={`${THEME.panel.base} ${THEME.panel.border} border rounded-xl p-4 shadow-lg`}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-end">
                     <nav className="flex items-center gap-2">
                         {navLinks.map((link) => (
                             <Link

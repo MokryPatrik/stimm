@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { PageCard } from '@/components/ui/PageCard'
-import { NavigationBar } from '@/components/ui/NavigationBar'
 import { ModalWrapper } from '@/components/ui/ModalWrapper'
 import { useModalRouter } from '@/hooks/use-modal-router'
 import { Button } from '@/components/ui/button'
@@ -477,7 +476,6 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
   if (loading) {
     return (
       <PageLayout title={agentId ? 'Edit Agent' : 'Create Agent'} icon={<Bot className="w-8 h-8" />}>
-        <NavigationBar />
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
@@ -505,7 +503,6 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
         { label: agentId ? 'Edit' : 'Create', href: '#' },
       ]}
     >
-      <NavigationBar />
       {content}
     </PageLayout>
   )

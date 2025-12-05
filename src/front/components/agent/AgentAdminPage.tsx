@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { PageHeaderActions } from '@/components/ui/PageHeaderActions'
-import { NavigationBar } from '@/components/ui/NavigationBar'
 import { AgentGrid } from './AgentGrid'
 import { AgentCard } from './AgentCard'
 import { Agent } from './types'
@@ -93,7 +92,6 @@ export function AgentAdminPage() {
   if (loading) {
     return (
       <PageLayout title="Agent Management" icon={<Bot className="w-8 h-8" />}>
-        <NavigationBar />
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
@@ -111,8 +109,6 @@ export function AgentAdminPage() {
       actions={<PageHeaderActions type="agent" />}
       error={error}
     >
-      <NavigationBar />
-
       {agents.length === 0 ? (
         <div className={`${THEME.card.base} p-12 text-center`}>
           <Bot className={`w-16 h-16 mx-auto mb-4 ${THEME.text.muted}`} />

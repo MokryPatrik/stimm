@@ -9,8 +9,7 @@ import { Agent } from '@/components/agent/types'
 import { useLiveKit } from '@/hooks/use-livekit'
 import { useMicrophoneDevices } from '@/hooks/use-microphone-devices'
 import { Mic, MicOff, MoreHorizontal, X, MessageSquare, Activity, Settings, Zap, Bot, User, Edit, Database } from 'lucide-react'
-import Image from 'next/image'
-import logo from '@/assets/dark_theme/logo_stimm_h.png'
+import { Logo } from '@/components/ui/Logo'
 
 interface VoicebotStatus {
   energy: number
@@ -311,7 +310,7 @@ export function VoicebotInterface() {
         {/* Top Header - Agent Selector */}
         <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10">
           <div className="flex flex-col gap-1">
-            <Image src={logo} alt="Stimm" width={120} height={33} className="drop-shadow-md" />
+            <Logo href="/voicebot" />
           </div>
           <div className="flex items-center gap-4">
             {/* Agent Selection Button */}
@@ -371,6 +370,7 @@ export function VoicebotInterface() {
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <span className="text-xs bg-cyan-400/20 px-2 py-1 rounded-full">{agent.stt_provider || 'Deepgram'}</span>
                         <span className="text-xs bg-purple-400/20 px-2 py-1 rounded-full">{agent.llm_provider || 'Mistral'}</span>
+                        <span className="text-xs bg-orange-400/20 px-2 py-1 rounded-full">{agent.tts_provider || 'Cartesia'}</span>
                       </div>
                     </div>
                   </div>

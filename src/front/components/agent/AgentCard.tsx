@@ -17,7 +17,7 @@ export function AgentCard({ agent, isDefault, onSetDefault, onDelete }: AgentCar
       className={`
         ${THEME.card.base} ${THEME.card.hover} 
         ${isDefault ? THEME.card.selected : ''}
-        p-5 transition-all duration-300
+        p-5 transition-all duration-300 flex flex-col h-full
       `}
     >
       {/* Header */}
@@ -36,43 +36,26 @@ export function AgentCard({ agent, isDefault, onSetDefault, onDelete }: AgentCar
       </div>
 
       {/* Provider Info */}
-      <div className="space-y-3 mb-4">
-        {agent.llm_provider && (
-          <div className={`p-3 rounded-lg ${getProviderAccent('llm').bg} border ${getProviderAccent('llm').border}`}>
-            <div className={`font-semibold text-sm ${getProviderAccent('llm').text} mb-1`}>
-              LLM: {agent.llm_provider.toUpperCase()}
-            </div>
-            <div className={`text-xs ${THEME.text.secondary}`}>
-              {agent.llm_config?.model || 'Default model'}
-            </div>
-          </div>
-        )}
-
-        {agent.tts_provider && (
-          <div className={`p-3 rounded-lg ${getProviderAccent('tts').bg} border ${getProviderAccent('tts').border}`}>
-            <div className={`font-semibold text-sm ${getProviderAccent('tts').text} mb-1`}>
-              TTS: {agent.tts_provider.toUpperCase()}
-            </div>
-            <div className={`text-xs ${THEME.text.secondary}`}>
-              {agent.tts_config?.voice || 'Default voice'}
-            </div>
-          </div>
-        )}
-
+      <div className="flex flex-wrap gap-2 mb-4">
         {agent.stt_provider && (
-          <div className={`p-3 rounded-lg ${getProviderAccent('stt').bg} border ${getProviderAccent('stt').border}`}>
-            <div className={`font-semibold text-sm ${getProviderAccent('stt').text} mb-1`}>
-              STT: {agent.stt_provider.toUpperCase()}
-            </div>
-            <div className={`text-xs ${THEME.text.secondary}`}>
-              {agent.stt_config?.model || 'Default model'}
-            </div>
-          </div>
+          <span className="text-xs bg-cyan-400/20 px-3 py-1.5 rounded-full border border-cyan-400/30">
+            {agent.stt_provider.toUpperCase()}
+          </span>
+        )}
+        {agent.llm_provider && (
+          <span className="text-xs bg-purple-400/20 px-3 py-1.5 rounded-full border border-purple-400/30">
+            {agent.llm_provider.toUpperCase()}
+          </span>
+        )}
+        {agent.tts_provider && (
+          <span className="text-xs bg-orange-400/20 px-3 py-1.5 rounded-full border border-orange-400/30">
+            {agent.tts_provider.toUpperCase()}
+          </span>
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 flex-wrap pt-3 border-t border-white/10">
+      {/* Actions - pushed to bottom with mt-auto */}
+      <div className="flex gap-2 flex-wrap pt-3 border-t border-white/10 mt-auto">
         <Button
           variant="outline"
           size="sm"

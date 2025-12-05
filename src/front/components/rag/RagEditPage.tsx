@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { PageLayout } from '@/components/ui/PageLayout'
 import { PageCard } from '@/components/ui/PageCard'
-import { NavigationBar } from '@/components/ui/NavigationBar'
 import { ModalWrapper } from '@/components/ui/ModalWrapper'
 import { useModalRouter } from '@/hooks/use-modal-router'
 import { Button } from '@/components/ui/button'
@@ -488,7 +487,6 @@ export function RagEditPage({ configId }: RagEditPageProps) {
   if (loading) {
     return (
       <PageLayout title={configId ? 'Edit RAG Configuration' : 'Create RAG Configuration'} icon={<Database className="w-8 h-8" />}>
-        <NavigationBar />
         <div className="flex justify-center items-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
@@ -516,7 +514,6 @@ export function RagEditPage({ configId }: RagEditPageProps) {
         { label: configId ? 'Edit' : 'Create', href: '#' },
       ]}
     >
-      <NavigationBar />
       {content}
     </PageLayout>
   )
