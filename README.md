@@ -126,9 +126,13 @@ docker-compose up --build
 ### Environment Configuration
 
 Create a `.env` file in the root directory by copying `.env.example` and filling in the required values.
+Create a `.env` file in the docker/voicebot-app directory by copying `docker/voicebot-app/.env.example` and filling in the required values.
+Create a `.env` file in the src/front directory by copying `src/front/.env.example` and filling in the required values.
 
 ```bash
 cp .env.example .env
+cp docker/voicebot-app/.env.example docker/voicebot-app/.env
+cp src/front/.env.example src/front/.env
 ```
 
 The `.env` file centralizes all service URLs, API keys, and other configuration. For local development, it defaults to `localhost` for all services. When running in Docker, these variables are overridden in `docker-compose.yml` to use the appropriate service names.
