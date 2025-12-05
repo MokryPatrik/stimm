@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { PageHeaderActions } from '@/components/ui/PageHeaderActions'
 import { NavigationBar } from '@/components/ui/NavigationBar'
 import { AgentGrid } from './AgentGrid'
 import { AgentCard } from './AgentCard'
@@ -107,22 +108,7 @@ export function AgentAdminPage() {
     <PageLayout
       title="Agent Management"
       icon={<Bot className="w-8 h-8" />}
-      actions={
-        <>
-          <Button asChild className={`${THEME.button.ghost} rounded-full px-4`}>
-            <a href="/voicebot" className="flex items-center gap-2">
-              <Mic className="w-4 h-4" />
-              Speak with an agent
-            </a>
-          </Button>
-          <Button asChild className={`${THEME.button.secondary} rounded-full px-4`}>
-            <a href="/agent/create" className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Create Agent
-            </a>
-          </Button>
-        </>
-      }
+      actions={<PageHeaderActions type="agent" />}
       error={error}
     >
       <NavigationBar />

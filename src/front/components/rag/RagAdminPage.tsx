@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageLayout } from '@/components/ui/PageLayout'
+import { PageHeaderActions } from '@/components/ui/PageHeaderActions'
 import { NavigationBar } from '@/components/ui/NavigationBar'
 import { RagConfig } from './types'
 import { THEME, getProviderAccent } from '@/lib/theme'
@@ -99,22 +100,7 @@ export function RagAdminPage() {
     <PageLayout
       title="RAG Configuration Management"
       icon={<Database className="w-8 h-8" />}
-      actions={
-        <>
-           <Button asChild className={`${THEME.button.ghost} rounded-full px-4`}>
-            <a href="/voicebot" className="flex items-center gap-2">
-              <Mic className="w-4 h-4" />
-              Speak with an agent
-            </a>
-          </Button>
-          <Button asChild className={`${THEME.button.secondary} rounded-full px-4`}>
-            <a href="/rag/create" className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Create RAG Config
-            </a>
-          </Button>
-        </>
-      }
+      actions={<PageHeaderActions type="rag" />}
       error={error}
     >
       <NavigationBar />
