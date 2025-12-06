@@ -30,6 +30,11 @@ COPY src/ src/
 # Copy pyproject.toml first for better Docker layer caching
 COPY pyproject.toml ./pyproject.toml
 
+# Copy alembic configuration
+COPY alembic.ini ./alembic.ini
+# Copy alembic migration scripts
+COPY alembic/ alembic/
+
 # Copy entrypoint script
 COPY docker/stimm/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
