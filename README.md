@@ -1,4 +1,25 @@
-# Stimm Platform
+<div align="center">
+  <img src=".github/assets/logo_stimm_h.png" alt="Stimm Voice Agent Platform" width="200" height="56">
+  <p>
+    <b>The Open Source Voice Agent Platform</b><br>
+    Orchestrate ultra-low latency AI pipelines for real-time conversations over WebRTC.
+  </p>
+
+  <a href="https://github.com/stimm-ai/stimm/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/stimm-ai/stimm/ci.yml?label=tests" alt="Tests">
+  </a>
+  <a href="https://github.com/stimm-ai/stimm/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-AGPL_v3-blue" alt="License">
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/python-3.12-blue" alt="Python">
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/livekit-compatible-purple" alt="LiveKit">
+  </a>
+</div>
+
+<br>
 
 A modular, real-time AI voice assistant platform built with Python (FastAPI) and Next.js. This project provides a flexible infrastructure for creating, managing, and interacting with voice agents using various LLM, TTS, and STT providers.
 
@@ -71,7 +92,7 @@ sequenceDiagram
     end
 ```
 
-1. **Ingestion**: Audio is captured by the client (browser) and sent via **WebRTC** (preferred) or **WebSocket** to the backend.
+1. **Ingestion**: Audio is captured by a client (browser or SIP) and sent via **WebRTC** to the backend.
 2. **Media Handling**: The `WebRTCMediaHandler` receives the incoming audio track and buffers the raw audio frames.
 3. **Voice Activity Detection (VAD)**: The `SileroVADService` analyzes the audio frames in real-time to detect speech segments.
 4. **Orchestration**: The `StimmEventLoop` acts as the central brain, coordinating all services.
