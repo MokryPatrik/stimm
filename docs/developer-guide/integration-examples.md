@@ -2,6 +2,16 @@
 
 This section provides practical examples of integrating Stimm into your own applications using the recommended communication protocols.
 
+## Development Testing
+
+Before diving into integration examples, you may want to test your Stimm instance with a softphone. This is especially useful during development and validation.
+
+### Testing with a Softphone
+
+You can use a softphone (e.g., MicroSIP, Linphone, Zoiper) to call your Stimm instance directly if you have a public SIP server. This is useful for development and validation.
+
+For production SIP integration, see the [SIP Integration for Deployed Instances](#sip-integration-for-deployed-instances) section below.
+
 ## WebRTC with LiveKit
 
 Stimm uses [LiveKit](https://livekit.io/) as its real‑time audio engine. LiveKit provides a robust WebRTC stack that handles media streaming, signaling, and room management. To build a custom client that interacts with Stimm agents, you should connect directly to LiveKit via its client SDKs.
@@ -19,8 +29,8 @@ You can create a custom web interface that connects to the same LiveKit room as 
 
 #### Steps
 
-1. **Obtain a LiveKit token**  
-   Stimm’s backend exposes an endpoint that returns a LiveKit token for a given agent. You can call it from your client (with appropriate authentication) or generate tokens server‑side.
+1. **Obtain a LiveKit token**
+   Stimm’s backend provides an endpoint (`/api/livekit/create-room`) that creates a LiveKit room for a given agent and returns a token for the frontend to connect. You can call it from your client (no authentication required for local development) or generate tokens server‑side using the LiveKit API keys.
 
 2. **Connect with the LiveKit JavaScript SDK**  
    Install `@livekit/client` and connect to the room:
@@ -89,9 +99,9 @@ Assume you have a cloud PBX that supports SIP trunking (e.g., FreePBX, 3CX). You
 
 Once configured, any call made to the PBX extension will be forwarded to Stimm, and the assigned agent will answer.
 
-### Testing with a Softphone
+### Testing SIP Connectivity
 
-You can use a softphone (e.g., Linphone, Zoiper) to call your Stimm instance directly if you have a public SIP server. This is useful for development and validation.
+For development and validation, you can test your SIP configuration using a softphone (e.g., MicroSIP, Linphone, Zoiper). See the [Development Testing](#development-testing) section above for details.
 
 ## Using the REST API for Management
 
@@ -101,19 +111,6 @@ While real‑time audio should go through WebRTC, the REST API remains useful fo
 - Uploading documents to RAG.
 - Retrieving conversation history.
 - Monitoring system health.
-
-### Example: Automate Agent Provisioning
-
-```bash
-curl -X POST http://api.localhost/api/agents/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "sales‑bot",
-    "system_prompt": "You are a sales assistant.",
-    "llm_provider": "groq",
-    "llm_model": "mixtral‑8x7b‑32768"
-  }'
-```
 
 ## Next Steps
 
