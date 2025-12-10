@@ -114,10 +114,8 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/stimm-ai/stimm
-    - icon: fontawesome/brands/discord
-      link: https://discord.gg/stimm
-    - icon: fontawesome/brands/twitter
-      link: https://twitter.com/stimm_ai
+
+
 
 extra_css:
   - assets/extra.css
@@ -137,7 +135,7 @@ nav:
   - Developer:
     - Integration Examples (WebRTC): developer-guide/integration-examples.md
     - SIP Integration: user-guide/sip-integration.md
-    - Deployment: developer-guide/deployment.md
+    - SIP Integration: user-guide/sip-integration.md
   - Contributors:
     - Architecture Overview: developer-guide/architecture-overview.md
     - Components: developer-guide/components.md
