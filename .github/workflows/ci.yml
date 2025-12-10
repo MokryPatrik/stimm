@@ -1,0 +1,95 @@
+name: CI Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  DATABASE_URL: postgresql://stimm_user:stimm_password@localhost:5432/stimm
+  REDIS_URL: redis://localhost:6379
+  QDRANT_URL: http://localhost:6333
+  LIVEKIT_URL: ws://localhost:7880
+  LIVEKIT_API_URL: http://localhost:7880
+  LIVEKIT_API_KEY: devkey
+  LIVEKIT_API_SECRET: secret
+  # Ensure provider API keys are not set to skip provider tests
+  DEEPGRAM_STT_API_KEY: ""
+  DEEPGRAM_TTS_API_KEY: ""
+  ELEVENLABS_TTS_API_KEY: ""
+  ASYNC_API_KEY: ""
+  GROQ_LLM_API_KEY: ""
+  MISTRAL_LLM_API_KEY: ""
+  OPENROUTER_LLM_API_KEY: ""
+  PINECONE_API_KEY: ""
+  RAG_SAAS_API_KEY: ""
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .uv
+            ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Start Docker services
+        run: |
+          docker compose up -d postgres qdrant redis livekit
+          # Wait for PostgreSQL
+          timeout 30 bash -c 'until docker compose exec -T postgres pg_isready -U stimm_user; do sleep 2; done'
+          # Wait for Qdrant
+          timeout 30 bash -c 'until curl -s http://localhost:6333; do sleep 2; done'
+          # Wait for Redis
+          timeout 30 bash -c 'until docker compose exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+          # Wait for LiveKit (HTTP endpoint)
+          timeout 30 bash -c 'until curl -s http://localhost:7880; do sleep 2; done'
+
+      - name: Run tests
+        run: uv run pytest -m "unit or integration" --cov=. --cov-report=term-missing --cov-report=xml --junitxml=test-results/junit.xml
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: coverage.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
