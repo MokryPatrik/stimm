@@ -63,6 +63,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev libasound2-dev
+
       - name: Install dependencies
         run: uv sync --group dev
 
