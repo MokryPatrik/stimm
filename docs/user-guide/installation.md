@@ -58,8 +58,8 @@ Using uv (recommended):
 # Install dependencies
 uv sync --group dev --group docs
 
-# Set PYTHONPATH
-export PYTHONPATH=./src
+# Set up environment files and Python path (optional)
+./scripts/setup_env.sh
 ```
 
 ### 3. Run Backend Locally

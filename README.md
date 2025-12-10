@@ -83,6 +83,12 @@ For local development, see the [Development Guide](https://stimm-ai.github.io/st
 # Start supporting services (PostgreSQL, Qdrant, LiveKit, Redis, SIP)
 docker compose up -d postgres qdrant traefik livekit redis sip
 
+# Install Python dependencies
+uv sync --group dev --group docs
+
+# Set up environment files and Python path (optional)
+./scripts/setup_env.sh
+
 # Run backend locally
 uv run python -m src.main
 

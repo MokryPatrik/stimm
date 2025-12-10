@@ -37,7 +37,7 @@ uv sync --group dev
 Unit tests have no external dependencies and run quickly.
 
 ```bash
-PYTHONPATH=./src uv run pytest tests/unit/ -v
+uv run pytest tests/unit/ -v
 ```
 
 ### Integration Tests
@@ -46,15 +46,15 @@ Integration tests require provider API keys. If a key is missing, the test is sk
 
 ```bash
 # Run all integration tests
-PYTHONPATH=./src uv run pytest tests/integration/ -v
+uv run pytest tests/integration/ -v
 
 # Run tests for a specific feature
-PYTHONPATH=./src uv run pytest tests/integration/stt/ -v
-PYTHONPATH=./src uv run pytest tests/integration/rag/ -v
+uv run pytest tests/integration/stt/ -v
+uv run pytest tests/integration/rag/ -v
 
 # Run tests for a specific provider
-PYTHONPATH=./src uv run pytest tests/integration/stt/ -k deepgram -v
-PYTHONPATH=./src uv run pytest tests/integration/stt/ -k whisper -v
+uv run pytest tests/integration/stt/ -k deepgram -v
+uv run pytest tests/integration/stt/ -k whisper -v
 ```
 
 ### With Coverage
@@ -62,7 +62,7 @@ PYTHONPATH=./src uv run pytest tests/integration/stt/ -k whisper -v
 Generate a coverage report:
 
 ```bash
-PYTHONPATH=./src uv run pytest --cov=src/services --cov-report=html -v
+uv run pytest --cov=src/services --cov-report=html -v
 ```
 
 Open `htmlcov/index.html` in a browser to view the coverage report. The `.coverage` data file is excluded from version control.
@@ -111,7 +111,7 @@ Common fixtures are defined in `tests/fixtures/`. Use them to share setup code a
 You can run tests excluding slow markers:
 
 ```bash
-PYTHONPATH=./src uv run pytest -m "not slow" -v
+uv run pytest -m "not slow" -v
 ```
 
 ## Continuous Integration
@@ -125,7 +125,7 @@ See `.github/workflows/test.yml` for details.
 If a test fails, you can increase verbosity with `-v` or `-s` (to see print statements). You can also run a single test file:
 
 ```bash
-PYTHONPATH=./src uv run pytest tests/integration/stt/test_stt_streaming.py -v
+uv run pytest tests/integration/stt/test_stt_streaming.py -v
 ```
 
 For provider‑specific failures, check that your API keys are correct and that the provider’s service is reachable.

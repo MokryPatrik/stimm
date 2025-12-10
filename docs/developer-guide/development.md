@@ -96,10 +96,10 @@ Run the test suite to ensure your changes don't break existing functionality.
 
 ```bash
 # Unit tests
-PYTHONPATH=./src uv run pytest tests/unit/ -v
+uv run pytest tests/unit/ -v
 
 # Integration tests (requires provider API keys)
-PYTHONPATH=./src uv run pytest tests/integration/ -v
+uv run pytest tests/integration/ -v
 ```
 
 See [Testing Guide](testing.md) for more details.
