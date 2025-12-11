@@ -21,12 +21,11 @@
     <img src="https://img.shields.io/badge/docs-online-success" alt="Documentation">
   </a>
   <div align="center">
-    <video src="https://github.com/user-attachments/assets/9eb75be8-a310-4b71-8737-acf9072e69e6" width="100%" controls="controls" muted="muted" autoplay="autoplay">
+    <video src="https://github.com/user-attachments/assets/a87909f2-0f44-45ba-9a27-c4f233805da8" width="100%" controls="controls" muted="muted" autoplay="autoplay">
     </video>
     <p><i>🔊 Sound on! Watch the ultra-low latency (< 1s) in action.</i></p>
   </div>
 </div>
-
 <br>
 
 A modular, real-time AI voice assistant platform built with Python (FastAPI) and Next.js. This project provides a flexible infrastructure for creating, managing, and interacting with voice agents using various LLM, TTS, and STT providers.
