@@ -17,6 +17,11 @@
   <a href="#">
     <img src="https://img.shields.io/badge/livekit-compatible-purple" alt="LiveKit">
   </a>
+  <div align="center">
+    <video src="https://github.com/user-attachments/assets/9eb75be8-a310-4b71-8737-acf9072e69e6" width="100%" controls="controls" muted="muted" autoplay="autoplay">
+    </video>
+    <p><i>🔊 Sound on! Watch the ultra-low latency (< 1s) in action.</i></p>
+  </div>
 </div>
 
 <br>
