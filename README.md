@@ -17,6 +17,9 @@
   <a href="#">
     <img src="https://img.shields.io/badge/livekit-compatible-purple" alt="LiveKit">
   </a>
+  <a href="https://stimm-ai.github.io/stimm/">
+    <img src="https://img.shields.io/badge/docs-online-success" alt="Documentation">
+  </a>
 </div>
 
 <br>
@@ -24,6 +27,8 @@
 A modular, real-time AI voice assistant platform built with Python (FastAPI) and Next.js. This project provides a flexible infrastructure for creating, managing, and interacting with voice agents using various LLM, TTS, and STT providers.
 
 📚 **[Read the Full Documentation](https://stimm-ai.github.io/stimm/)**
+
+#### [Features](#-features) · [Why Stimm?](#-why-stimm) · [Use Cases](#-use-cases) · [How it Works](#-how-it-works) · [Quick Start](#-quick-start) · [Docs](https://stimm-ai.github.io/stimm/)
 
 ## 🚀 Features
 
@@ -38,6 +43,19 @@ A modular, real-time AI voice assistant platform built with Python (FastAPI) and
 - **Modern Frontend**: Responsive web interface built with Next.js 16 and Tailwind CSS.
 - **Robust Infrastructure**: Dockerized deployment with Traefik reverse proxy, PostgreSQL for data persistence, and Alembic for migrations.
 - **Voice Activity Detection**: Integrated Silero VAD for accurate speech detection.
+
+## 💡 Why Stimm?
+
+- **Ultra-low latency** thanks to optimized Silero VAD and LiveKit real-time media pipeline.
+- **Provider-agnostic** (LLM, TTS, STT): choose any AI stack.
+- **Scalable architecture**: Docker, Traefik, Postgres, and a technical foundation designed for production deployment.
+
+## 🧩 Use Cases
+
+- **Customer support voicebots**: Handle common queries automatically.
+- **Interactive phone-based assistants (SIP)**: Connect traditional telephony to AI.
+- **Real-time agent demos**: Perfect for AI research and prototyping.
+- **On-premise conversational agents**: Deploy securely with AGPL-friendly terms.
 
 ## 🔄 How it Works
 
