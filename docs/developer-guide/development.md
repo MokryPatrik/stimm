@@ -106,8 +106,6 @@ See [Testing Guide](testing.md) for more details.
 
 ## Code Style
 
-### Backend (Python)
-
 Stimm uses **black** for formatting, **isort** for import sorting, and **flake8** for linting.
 
 ```bash
@@ -115,20 +113,6 @@ Stimm uses **black** for formatting, **isort** for import sorting, and **flake8*
 uv run black src/
 uv run isort src/
 uv run flake8 src/
-```
-
-### Frontend (TypeScript/React)
-
-The frontend uses **ESLint** for linting and **Prettier** for formatting, with Prettier integrated into ESLint.
-
-```bash
-# Lint and format
-cd src/front
-npm run lint
-npx prettier --check .
-
-# Auto-fix formatting
-npx prettier --write .
 ```
 
 You can also use the pre‑commit hooks (see `.pre‑commit‑config.yaml`).
