@@ -35,7 +35,7 @@ configure_logging()
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Stimm API", version="1.0.0")
+app = FastAPI(title="Stimm API", version="1.0.0", redirect_slashes=False)
 
 # Detect if we're running from src/ directory or root
 current_dir = Path.cwd()
