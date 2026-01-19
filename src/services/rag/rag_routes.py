@@ -30,7 +30,7 @@ from .rag_service import _prune_conversations, _touch_conversation
 from .rag_state import RagState
 
 LOGGER = logging.getLogger("rag_service")
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 
 # Configuration constants
 EMBED_MODEL_NAME = retrieval_config.embed_model_name
