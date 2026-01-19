@@ -28,7 +28,7 @@ export function AgentAdminPage() {
 
       const API_URL = config.browser.stimmApiUrl;
       // Fetch agents from FastAPI backend
-      const response = await fetch(`${API_URL}/api/agents`);
+      const response = await fetch(`${API_URL}/api/agents/`);
       if (!response.ok) {
         throw new Error(`Failed to load agents: ${response.statusText}`);
       }

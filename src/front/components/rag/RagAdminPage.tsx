@@ -34,7 +34,7 @@ export function RagAdminPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_URL}/api/rag-configs`);
+      const response = await fetch(`${API_URL}/api/rag-configs/`);
       if (!response.ok) {
         throw new Error(`Failed to load RAG configs: ${response.statusText}`);
       }

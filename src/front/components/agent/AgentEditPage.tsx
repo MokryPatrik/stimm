@@ -92,7 +92,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
 
   const loadRagConfigs = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/rag-configs`);
+      const response = await fetch(`${API_URL}/api/rag-configs/`);
       if (!response.ok) {
         throw new Error(`Failed to load RAG configs: ${response.statusText}`);
       }
@@ -239,7 +239,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
 
       const url = agentId
         ? `${API_URL}/api/agents/${agentId}`
-        : `${API_URL}/api/agents`;
+        : `${API_URL}/api/agents/`;
 
       const method = agentId ? 'PUT' : 'POST';
 
