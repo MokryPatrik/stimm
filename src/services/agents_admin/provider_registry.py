@@ -44,7 +44,11 @@ class ProviderRegistry:
             "kokoro.local": "kokoro_local.KokoroLocalProvider",
             "hume.ai": "hume.HumeProvider",
         },
-        "stt": {"deepgram.com": "deepgram.DeepgramProvider", "whisper.local": "whisper_local.WhisperLocalProvider"},
+        "stt": {
+            "deepgram.com": "deepgram.DeepgramProvider",
+            "gladia.io": "gladia.GladiaProvider",
+            "whisper.local": "whisper_local.WhisperLocalProvider",
+        },
         "rag": {
             "qdrant.internal": "qdrant_internal.QdrantInternalProvider",
             "pinecone.io": "pinecone_io.PineconeProvider",

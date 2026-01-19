@@ -8,6 +8,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from services.agents_admin.agent_manager import get_agent_manager
 
 from .providers.deepgram.deepgram_provider import DeepgramProvider
+from .providers.gladia.gladia_provider import GladiaProvider
 from .providers.whisper_local.whisper_local import WhisperLocalProvider
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,8 @@ class STTService:
             self.provider = WhisperLocalProvider(provider_config)
         elif provider_name == "deepgram.com":
             self.provider = DeepgramProvider(provider_config)
+        elif provider_name == "gladia.io":
+            self.provider = GladiaProvider(provider_config)
         else:
             raise ValueError(f"Unsupported STT provider: {provider_name}")
 

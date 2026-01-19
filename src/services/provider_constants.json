@@ -34,6 +34,10 @@
       "BASE_URL": "https://api.deepgram.com",
       "SAMPLE_RATE": 16000
     },
+    "gladia.io": {
+      "BASE_URL": "https://api.gladia.io",
+      "SAMPLE_RATE": 16000
+    },
     "whisper.local": {
       "URL": "ws://whisper-stt:8003/api/stt/stream",
       "SAMPLE_RATE": 16000
