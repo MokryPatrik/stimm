@@ -137,18 +137,13 @@ services:
 
   sip:
     image: livekit/sip
-    ports:
-      - "5060:5060/udp"
-      - "5060:5060/tcp"
-      - "10000-20000:10000-20000/udp"
+    network_mode: host
     volumes:
       - ./sip.prod.yaml:/etc/sip.yaml:ro
     command: --config /etc/sip.yaml
     depends_on:
       - livekit
       - redis
-    networks:
-      - stimm-network
     restart: unless-stopped
 
 
