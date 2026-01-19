@@ -13,14 +13,18 @@ rtc:
   node_ip: 46.224.225.142
 
 # IMPORTANT: Generate secure keys for production!
-# Use: openssl rand -base64 32
+# Run on VPS: openssl rand -base64 32
+# Then replace the key and secret below AND add to .env.prod:
+#   LIVEKIT_API_KEY=<same_key>
+#   LIVEKIT_API_SECRET=<same_secret>
 keys:
-  # Replace with your production keys
-  your_production_api_key: your_production_api_secret
+  # Format: api_key: api_secret (secret must be 32+ chars)
+  stimmprodkey: REPLACE_WITH_32_CHAR_SECRET_FROM_OPENSSL
 
-# Enable TURN server for NAT traversal
+# TURN disabled - Traefik handles TLS termination
+# If you need TURN for strict NAT traversal, you'll need to:
+# 1. Generate/obtain TLS certificates
+# 2. Mount them in the container
+# 3. Re-enable this section
 turn:
-  enabled: true
-  domain: livekit.stimm.bytech.sk
-  tls_port: 5349
-  udp_port: 3478
+  enabled: false
