@@ -1,0 +1,10 @@
+{
+  "rule": {
+    "name": "DIDWW Inbound Dispatch",
+    "rule": {
+      "dispatchRuleIndividual": {
+        "roomPrefix": "sip-inbound-"
+      }
+    }
+  }
+}
