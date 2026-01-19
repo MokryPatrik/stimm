@@ -160,11 +160,25 @@ class LiveKitAgentBridge:
             logger.debug(f"⏭️ Skipping audio from agent participant: {participant.identity}")
             return
 
+        # Store pending track if stimm_service not ready yet
         if not self.stimm_service:
-            logger.warning("⚠️ Stimm service not connected, cannot process user audio")
+            logger.info(f"📦 Storing pending audio track from {participant.identity} (waiting for stimm_service)")
+            if not hasattr(self, '_pending_audio_tracks'):
+                self._pending_audio_tracks = []
+            self._pending_audio_tracks.append((track, participant))
             return
 
-        logger.debug(f"🎤 Setting up audio processing for user {participant.identity}")
+        self._setup_audio_processing(track, participant)
+
+    def _setup_audio_processing(self, track: rtc.Track, participant: rtc.RemoteParticipant):
+        """
+        Set up audio processing for a user's audio track.
+        
+        Args:
+            track: Audio track from user participant
+            participant: Remote participant who published the track
+        """
+        logger.info(f"🎤 Setting up audio processing for user {participant.identity}")
 
         # Create audio stream for this track with 16kHz sample rate (required for VAD/STT)
         stream = rtc.AudioStream(track, sample_rate=16000)
@@ -357,6 +371,13 @@ class LiveKitAgentBridge:
 
         # Create stimm session for this conversation
         asyncio.create_task(self._create_stimm_session())
+        
+        # Process any pending audio tracks that arrived before stimm_service was set
+        if hasattr(self, '_pending_audio_tracks') and self._pending_audio_tracks:
+            logger.info(f"📦 Processing {len(self._pending_audio_tracks)} pending audio tracks")
+            for track, participant in self._pending_audio_tracks:
+                self._setup_audio_processing(track, participant)
+            self._pending_audio_tracks = []
 
         logger.debug(f"🔧 Agent bridge connected to stimm service for {self.agent_id}")
 

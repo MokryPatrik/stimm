@@ -206,33 +206,12 @@ class DevAgentCreator:
 
                 if existing_dev_agent:
                     logger.info(f"Found existing development agent: {existing_dev_agent.name} (ID: {existing_dev_agent.id})")
-
-                    # Check if the existing agent has extra config keys that cause validation warnings
-                    if self._has_extra_keys(existing_dev_agent):
-                        logger.info("Existing development agent has extra config keys, recreating to avoid validation warnings")
-                        # Temporarily set is_default=False to allow deletion
-                        if existing_dev_agent.is_default:
-                            update_non_default = AgentUpdate(is_default=False)
-                            self.agent_service.update_agent(existing_dev_agent.id, update_non_default)
-                        # Delete the agent
-                        self.agent_service.delete_agent(existing_dev_agent.id)
-                        logger.info(f"Deleted development agent with extra keys: {existing_dev_agent.id}")
-                        # Create new agent
-                        agent_data.is_default = True
-                        agent = self.agent_service.create_agent(agent_data)
-                        logger.info(f"Created new development agent: {agent.name} (ID: {agent.id})")
-                    else:
-                        logger.info("Updating development agent to match current .env configuration")
-                        # Update the existing agent
-                        update_data = AgentUpdate(
-                            llm_config=ProviderConfig(provider=agent_data.llm_config.provider, config=agent_data.llm_config.config),
-                            tts_config=ProviderConfig(provider=agent_data.tts_config.provider, config=agent_data.tts_config.config),
-                            stt_config=ProviderConfig(provider=agent_data.stt_config.provider, config=agent_data.stt_config.config),
-                            is_default=True,  # Always set as default for development agent
-                        )
-
-                        updated_agent = self.agent_service.update_agent(existing_dev_agent.id, update_data)
-                        logger.info(f"Updated development agent: {updated_agent.name} (ID: {updated_agent.id})")
+                    # Keep existing agent as-is, don't overwrite user changes
+                    # Just ensure it's set as default
+                    if not existing_dev_agent.is_default:
+                        update_data = AgentUpdate(is_default=True)
+                        self.agent_service.update_agent(existing_dev_agent.id, update_data)
+                        logger.info(f"Set existing development agent as default: {existing_dev_agent.id}")
 
                 else:
                     # No existing development agent found, create new one
