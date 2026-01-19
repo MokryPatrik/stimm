@@ -1,0 +1,173 @@
+services:
+  postgres:
+    extends:
+      file: ./docker/postgres/docker-compose.yml
+      service: stimm-postgres
+    networks:
+      - stimm-network
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+
+  stimm:
+    extends:
+      file: ./docker/stimm/docker-compose.yml
+      service: stimm
+    networks:
+      - stimm-network
+    env_file:
+      - .env.prod
+      - docker/stimm/.env.prod
+    environment:
+      - ENABLE_SIP_BRIDGE=true
+    labels:
+      - "traefik.enable=true"
+      # HTTP Router
+      - "traefik.http.routers.api.rule=Host(`api.stimm.bytech.sk`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.middlewares=redirect-to-https"
+      # HTTPS Router
+      - "traefik.http.routers.api-secure.rule=Host(`api.stimm.bytech.sk`)"
+      - "traefik.http.routers.api-secure.entrypoints=websecure"
+      - "traefik.http.routers.api-secure.tls=true"
+      - "traefik.http.routers.api-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=8001"
+    restart: unless-stopped
+
+  stimm-front:
+    extends:
+      file: ./docker/stimm-front/docker-compose.yml
+      service: stimm-front
+    networks:
+      - stimm-network
+    env_file:
+      - ./src/front/.env.prod
+    labels:
+      - "traefik.enable=true"
+      # HTTP Router
+      - "traefik.http.routers.front.rule=Host(`stimm.bytech.sk`)"
+      - "traefik.http.routers.front.entrypoints=web"
+      - "traefik.http.routers.front.middlewares=redirect-to-https"
+      # HTTPS Router
+      - "traefik.http.routers.front-secure.rule=Host(`stimm.bytech.sk`)"
+      - "traefik.http.routers.front-secure.entrypoints=websecure"
+      - "traefik.http.routers.front-secure.tls=true"
+      - "traefik.http.routers.front-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.front.loadbalancer.server.port=3000"
+    restart: unless-stopped
+
+  qdrant:
+    extends:
+      file: ./docker/qdrant/docker-compose.yml
+      service: qdrant
+    networks:
+      - stimm-network
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v3.2
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Let's Encrypt configuration
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=your-email@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Dashboard (consider removing in production or adding auth)
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "letsencrypt:/letsencrypt"
+    networks:
+      - stimm-network
+    labels:
+      - "traefik.enable=true"
+      # Redirect HTTP to HTTPS middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - stimm-network
+    restart: unless-stopped
+
+  livekit:
+    image: livekit/livekit-server
+    command: --config /etc/livekit.yaml --node-ip 46.224.225.142 --redis-host redis:6379 --bind 0.0.0.0
+    volumes:
+      - ./livekit.prod.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"   # WebSocket signaling
+      - "7881:7881"   # TCP for RTC
+      - "7882:7882/udp" # UDP for RTC
+      - "50000-50100:50000-50100/udp" # RTC port range
+    environment:
+      - LIVEKIT_LOG_LEVEL=info
+    depends_on:
+      redis:
+        condition: service_started
+    networks:
+      - stimm-network
+    labels:
+      - "traefik.enable=true"
+      # HTTP Router for WebSocket
+      - "traefik.http.routers.livekit.rule=Host(`livekit.stimm.bytech.sk`)"
+      - "traefik.http.routers.livekit.entrypoints=web"
+      - "traefik.http.routers.livekit.middlewares=redirect-to-https"
+      # HTTPS Router for WebSocket
+      - "traefik.http.routers.livekit-secure.rule=Host(`livekit.stimm.bytech.sk`)"
+      - "traefik.http.routers.livekit-secure.entrypoints=websecure"
+      - "traefik.http.routers.livekit-secure.tls=true"
+      - "traefik.http.routers.livekit-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.livekit.loadbalancer.server.port=7880"
+    restart: unless-stopped
+
+  sip:
+    image: livekit/sip
+    ports:
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "10000-20000:10000-20000/udp"
+    environment:
+      SIP_CONFIG_BODY: |
+        api_key: '${LIVEKIT_API_KEY}'
+        api_secret: '${LIVEKIT_API_SECRET}'
+        ws_url: 'ws://livekit:7880'
+        redis:
+          address: 'redis:6379'
+        sip_port: 5060
+        rtp_port_range: 10000-20000
+        use_external_ip: true
+        public_ip: "46.224.225.142"
+        logging:
+          level: info
+        bind_address: "0.0.0.0"
+        allow_anonymous: true
+    networks:
+      - stimm-network
+    restart: unless-stopped
+
+
+networks:
+  stimm-network:
+    name: stimm-network
+    driver: bridge
+
+volumes:
+  llm-models:
+  qdrant_storage:
+  postgres_storage:
+  redis_data:
+  stimm_front_node_modules:
+  letsencrypt:

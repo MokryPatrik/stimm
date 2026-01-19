@@ -1,0 +1,26 @@
+# LiveKit Production Configuration
+# For livekit.stimm.bytech.sk (VPS: 46.224.225.142)
+
+port: 7880
+log_level: info
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: true
+  # Set your VPS public IP
+  node_ip: 46.224.225.142
+
+# IMPORTANT: Generate secure keys for production!
+# Use: openssl rand -base64 32
+keys:
+  # Replace with your production keys
+  your_production_api_key: your_production_api_secret
+
+# Enable TURN server for NAT traversal
+turn:
+  enabled: true
+  domain: livekit.stimm.bytech.sk
+  tls_port: 5349
+  udp_port: 3478
