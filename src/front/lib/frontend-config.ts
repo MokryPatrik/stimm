@@ -10,22 +10,29 @@ const backendHostname = process.env.NEXT_PUBLIC_BACKEND_HOSTNAME || 'localhost';
 const liveKitHostname = process.env.NEXT_PUBLIC_LIVEKIT_HOSTNAME || 'localhost';
 
 const isServerSide = typeof window === 'undefined';
-const isProduction = process.env.NODE_ENV === 'production';
+
+// Check if hostname is a real domain (contains a dot and isn't localhost)
+const isRealDomain = (hostname: string) => 
+  hostname.includes('.') && !hostname.includes('localhost');
+
+// Determine if we're in production mode based on hostname or NODE_ENV
+const isProductionDomain = isRealDomain(backendHostname);
+const isProduction = process.env.NODE_ENV === 'production' || isProductionDomain;
 
 // Determine protocol based on environment
-const httpProtocol = isProduction ? 'https' : 'http';
-const wsProtocol = isProduction ? 'wss' : 'ws';
+const httpProtocol = isProductionDomain ? 'https' : 'http';
+const wsProtocol = isProductionDomain ? 'wss' : 'ws';
 
 // Determine if we need port numbers (production uses standard ports via reverse proxy)
-const backendUrl = isProduction 
+const backendUrl = isProductionDomain 
   ? `${httpProtocol}://${backendHostname}` 
   : `http://${backendHostname}:8001`;
-const livekitUrl = isProduction
+const livekitUrl = isProductionDomain
   ? `${wsProtocol}://${liveKitHostname}`
   : `ws://${liveKitHostname}:7880`;
 
 // Log the configuration once for debugging purposes
-console.log(`Frontend Config Initialized (isServerSide: ${isServerSide}, isProduction: ${isProduction})`);
+console.log(`Frontend Config Initialized (isServerSide: ${isServerSide}, isProduction: ${isProduction}, isProductionDomain: ${isProductionDomain})`);
 console.log(`- Backend Host: ${backendHostname}`);
 console.log(`- LiveKit Host: ${liveKitHostname}`);
 console.log(`- Backend URL: ${backendUrl}`);
