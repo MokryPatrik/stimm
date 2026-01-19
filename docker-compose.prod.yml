@@ -40,8 +40,10 @@ services:
       service: stimm-front
     networks:
       - stimm-network
-    env_file:
-      - ./src/front/.env.prod
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_BACKEND_HOSTNAME=api.stimm.bytech.sk
+      - NEXT_PUBLIC_LIVEKIT_HOSTNAME=livekit.stimm.bytech.sk
     labels:
       - "traefik.enable=true"
       # HTTP Router
