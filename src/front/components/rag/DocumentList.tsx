@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash2, FileText, FileType, File as FileIcon } from 'lucide-react';
+import { config } from '@/lib/frontend-config';
+
+const API_URL = config.browser.stimmApiUrl;
 
 interface Document {
   id: string;
@@ -33,7 +36,7 @@ export function DocumentList({
       setError(null);
 
       const response = await fetch(
-        `http://localhost:8001/api/rag-configs/${ragConfigId}/documents`
+        `${API_URL}/api/rag-configs/${ragConfigId}/documents`
       );
       if (!response.ok) {
         throw new Error(`Failed to load documents: ${response.statusText}`);
@@ -65,7 +68,7 @@ export function DocumentList({
       setDeleting(documentId);
 
       const response = await fetch(
-        `http://localhost:8001/api/rag-configs/${ragConfigId}/documents/${documentId}`,
+        `${API_URL}/api/rag-configs/${ragConfigId}/documents/${documentId}`,
         { method: 'DELETE' }
       );
 

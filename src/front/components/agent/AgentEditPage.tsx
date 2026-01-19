@@ -19,6 +19,9 @@ import {
 import { Agent } from './types';
 import { THEME } from '@/lib/theme';
 import { Bot, Database, ArrowLeft, Save } from 'lucide-react';
+import { config } from '@/lib/frontend-config';
+
+const API_URL = config.browser.stimmApiUrl;
 
 interface ProviderConfig {
   providers: { value: string; label: string }[];
@@ -75,7 +78,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
   const loadProviders = useCallback(async () => {
     try {
       const response = await fetch(
-        'http://localhost:8001/api/agents/providers/available'
+        `${API_URL}/api/agents/providers/available`
       );
       if (!response.ok) {
         throw new Error(`Failed to load providers: ${response.statusText}`);
@@ -89,7 +92,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
 
   const loadRagConfigs = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:8001/api/rag-configs/');
+      const response = await fetch(`${API_URL}/api/rag-configs/`);
       if (!response.ok) {
         throw new Error(`Failed to load RAG configs: ${response.statusText}`);
       }
@@ -108,7 +111,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
       setError(null);
 
       const response = await fetch(
-        `http://localhost:8001/api/agents/${agentId}`
+        `${API_URL}/api/agents/${agentId}`
       );
       if (!response.ok) {
         throw new Error(`Failed to load agent: ${response.statusText}`);
@@ -127,7 +130,7 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     async (providerType: string, providerName: string) => {
       try {
         const response = await fetch(
-          `http://localhost:8001/api/agents/providers/${providerType}/${providerName}/fields`
+          `${API_URL}/api/agents/providers/${providerType}/${providerName}/fields`
         );
         if (!response.ok) {
           throw new Error(
@@ -235,8 +238,8 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
       };
 
       const url = agentId
-        ? `http://localhost:8001/api/agents/${agentId}/`
-        : 'http://localhost:8001/api/agents/';
+        ? `${API_URL}/api/agents/${agentId}/`
+        : `${API_URL}/api/agents/`;
 
       const method = agentId ? 'PUT' : 'POST';
 

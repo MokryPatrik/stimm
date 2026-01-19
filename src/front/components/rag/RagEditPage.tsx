@@ -22,6 +22,9 @@ import { DocumentUpload } from './DocumentUpload';
 import { DocumentList } from './DocumentList';
 import { THEME } from '@/lib/theme';
 import { Database, ArrowLeft, Save, Trash2, FileText } from 'lucide-react';
+import { config } from '@/lib/frontend-config';
+
+const API_URL = config.browser.stimmApiUrl;
 
 interface ProviderConfig {
   providers: { value: string; label: string }[];
@@ -73,7 +76,7 @@ export function RagEditPage({ configId }: RagEditPageProps) {
   const loadProviders = useCallback(async () => {
     try {
       const response = await fetch(
-        'http://localhost:8001/api/rag-configs/providers/available'
+        `${API_URL}/api/rag-configs/providers/available`
       );
       if (!response.ok) {
         throw new Error(`Failed to load providers: ${response.statusText}`);
@@ -91,7 +94,7 @@ export function RagEditPage({ configId }: RagEditPageProps) {
       setError(null);
 
       const response = await fetch(
-        `http://localhost:8001/api/rag-configs/${configId}`
+        `${API_URL}/api/rag-configs/${configId}`
       );
       if (!response.ok) {
         throw new Error(`Failed to load RAG config: ${response.statusText}`);
@@ -112,7 +115,7 @@ export function RagEditPage({ configId }: RagEditPageProps) {
     async (providerName: string): Promise<ProviderFields> => {
       try {
         const response = await fetch(
-          `http://localhost:8001/api/rag-configs/providers/${providerName}/fields`
+          `${API_URL}/api/rag-configs/providers/${providerName}/fields`
         );
         if (!response.ok) {
           throw new Error(
@@ -182,8 +185,8 @@ export function RagEditPage({ configId }: RagEditPageProps) {
       };
 
       const url = configId
-        ? `http://localhost:8001/api/rag-configs/${configId}/`
-        : 'http://localhost:8001/api/rag-configs/';
+        ? `${API_URL}/api/rag-configs/${configId}/`
+        : `${API_URL}/api/rag-configs/`;
 
       const method = configId ? 'PUT' : 'POST';
 
@@ -260,7 +263,7 @@ export function RagEditPage({ configId }: RagEditPageProps) {
     }
     try {
       const response = await fetch(
-        `http://localhost:8001/api/rag-configs/${configId}/`,
+        `${API_URL}/api/rag-configs/${configId}/`,
         {
           method: 'DELETE',
         }

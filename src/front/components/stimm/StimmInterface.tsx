@@ -26,6 +26,9 @@ import {
   Database,
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { config } from '@/lib/frontend-config';
+
+const API_URL = config.browser.stimmApiUrl;
 
 interface StimmStatus {
   energy: number;
@@ -140,8 +143,6 @@ export function StimmInterface() {
     const preloadRAG = async () => {
       setRagPreloading(true);
       try {
-        const API_URL =
-          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
         const response = await fetch(
           `${API_URL}/api/rag-configs/preload/${selectedAgentId}`,
           { method: 'POST' }
@@ -309,8 +310,6 @@ export function StimmInterface() {
 
   const loadAgents = async () => {
     try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
       const response = await fetch(`${API_URL}/api/agents/`);
       if (response.ok) {
         const agentsData = await response.json();

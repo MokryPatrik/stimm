@@ -10,11 +10,26 @@ const backendHostname = process.env.NEXT_PUBLIC_BACKEND_HOSTNAME || 'localhost';
 const liveKitHostname = process.env.NEXT_PUBLIC_LIVEKIT_HOSTNAME || 'localhost';
 
 const isServerSide = typeof window === 'undefined';
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Determine protocol based on environment
+const httpProtocol = isProduction ? 'https' : 'http';
+const wsProtocol = isProduction ? 'wss' : 'ws';
+
+// Determine if we need port numbers (production uses standard ports via reverse proxy)
+const backendUrl = isProduction 
+  ? `${httpProtocol}://${backendHostname}` 
+  : `http://${backendHostname}:8001`;
+const livekitUrl = isProduction
+  ? `${wsProtocol}://${liveKitHostname}`
+  : `ws://${liveKitHostname}:7880`;
 
 // Log the configuration once for debugging purposes
-console.log(`Frontend Config Initialized (isServerSide: ${isServerSide})`);
+console.log(`Frontend Config Initialized (isServerSide: ${isServerSide}, isProduction: ${isProduction})`);
 console.log(`- Backend Host: ${backendHostname}`);
 console.log(`- LiveKit Host: ${liveKitHostname}`);
+console.log(`- Backend URL: ${backendUrl}`);
+console.log(`- LiveKit URL: ${livekitUrl}`);
 
 // Main configuration object
 export const config = {
@@ -23,16 +38,17 @@ export const config = {
    * Uses service names when running in Docker, localhost otherwise.
    */
   backend: {
-    apiUrl: `http://${backendHostname}:8001`,
+    apiUrl: backendUrl,
   },
 
   /**
    * URLs for the browser.
-   * Always connects to localhost, assuming Docker ports are exposed.
+   * In production, uses the configured hostnames with HTTPS.
+   * In development, connects to localhost with explicit ports.
    */
   browser: {
-    stimmApiUrl: 'http://localhost:8001',
-    liveKitWsUrl: `ws://localhost:7880`,
+    stimmApiUrl: backendUrl,
+    liveKitWsUrl: livekitUrl,
   },
 };
 

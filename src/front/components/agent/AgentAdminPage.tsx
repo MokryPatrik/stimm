@@ -9,6 +9,7 @@ import { AgentCard } from './AgentCard';
 import { Agent } from './types';
 import { Bot, Plus } from 'lucide-react';
 import { THEME } from '@/lib/theme';
+import { config } from '@/lib/frontend-config';
 
 export function AgentAdminPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -25,8 +26,7 @@ export function AgentAdminPage() {
       setLoading(true);
       setError(null);
 
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+      const API_URL = config.browser.stimmApiUrl;
       // Fetch agents from FastAPI backend
       const response = await fetch(`${API_URL}/api/agents/`);
       if (!response.ok) {
@@ -55,8 +55,7 @@ export function AgentAdminPage() {
 
   const handleSetDefault = async (agentId: string) => {
     try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+      const API_URL = config.browser.stimmApiUrl;
       const response = await fetch(
         `${API_URL}/api/agents/${agentId}/set-default/`,
         {
@@ -89,8 +88,7 @@ export function AgentAdminPage() {
     }
 
     try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+      const API_URL = config.browser.stimmApiUrl;
       const response = await fetch(`${API_URL}/api/agents/${agentId}/`, {
         method: 'DELETE',
       });

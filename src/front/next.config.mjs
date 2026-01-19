@@ -4,8 +4,8 @@ const nextConfig = {
     // Make environment info available to the frontend
     NEXT_PUBLIC_ENVIRONMENT_TYPE:
       process.env.NODE_ENV === 'development' ? 'local' : 'docker',
-    NEXT_PUBLIC_STIMM_API_URL: 'http://localhost:8001',
-    NEXT_PUBLIC_LIVEKIT_WS_URL: 'ws://localhost:7880',
+    // These will be overridden by actual env vars if set
+    // In production, the .env.prod file sets the correct hostnames
   },
   experimental: {
     serverComponentsExternalPackages: [],

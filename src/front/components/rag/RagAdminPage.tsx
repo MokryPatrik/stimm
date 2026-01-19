@@ -15,6 +15,9 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react';
+import { config } from '@/lib/frontend-config';
+
+const API_URL = config.browser.stimmApiUrl;
 
 export function RagAdminPage() {
   const [configs, setConfigs] = useState<RagConfig[]>([]);
@@ -31,8 +34,6 @@ export function RagAdminPage() {
       setLoading(true);
       setError(null);
 
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
       const response = await fetch(`${API_URL}/api/rag-configs/`);
       if (!response.ok) {
         throw new Error(`Failed to load RAG configs: ${response.statusText}`);
@@ -57,8 +58,6 @@ export function RagAdminPage() {
 
   const handleSetDefault = async (configId: string) => {
     try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
       const response = await fetch(
         `${API_URL}/api/rag-configs/${configId}/set-default/`,
         {
@@ -91,8 +90,6 @@ export function RagAdminPage() {
     }
 
     try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
       const response = await fetch(`${API_URL}/api/rag-configs/${configId}/`, {
         method: 'DELETE',
       });

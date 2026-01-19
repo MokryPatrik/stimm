@@ -3,6 +3,9 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, FileText, FileType, File as FileIcon } from 'lucide-react';
+import { config } from '@/lib/frontend-config';
+
+const API_URL = config.browser.stimmApiUrl;
 
 interface DocumentUploadProps {
   ragConfigId: string;
@@ -61,8 +64,6 @@ export function DocumentUpload({
         }
 
         try {
-          const API_URL =
-            process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
           const response = await fetch(
             `${API_URL}/api/rag-configs/${ragConfigId}/documents/upload`,
             {
