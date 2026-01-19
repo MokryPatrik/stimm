@@ -5,12 +5,12 @@
 api_key: 'stimmprodkey'
 api_secret: 'K7xYz9AbCdEfGhIjKlMnOpQrStUvWxYz1234567890=='
 
-# Connect to LiveKit (using host network, so use localhost or docker gateway)
-ws_url: 'ws://172.17.0.1:7880'
+# Connect to LiveKit (using host network, ports exposed to host)
+ws_url: 'ws://127.0.0.1:7880'
 
-# Redis for coordination (using host network)
+# Redis for coordination (exposed to host)
 redis:
-  address: '172.17.0.1:6379'
+  address: '127.0.0.1:6379'
 
 # SIP settings
 sip_port: 5060
