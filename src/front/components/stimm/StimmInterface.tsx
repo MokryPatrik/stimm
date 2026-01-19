@@ -310,7 +310,7 @@ export function StimmInterface() {
 
   const loadAgents = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/agents/`);
+      const response = await fetch(`${API_URL}/api/agents`);
       if (response.ok) {
         const agentsData = await response.json();
         setAgents(agentsData);

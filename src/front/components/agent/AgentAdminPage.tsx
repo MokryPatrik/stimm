@@ -28,7 +28,7 @@ export function AgentAdminPage() {
 
       const API_URL = config.browser.stimmApiUrl;
       // Fetch agents from FastAPI backend
-      const response = await fetch(`${API_URL}/api/agents/`);
+      const response = await fetch(`${API_URL}/api/agents`);
       if (!response.ok) {
         throw new Error(`Failed to load agents: ${response.statusText}`);
       }
@@ -38,7 +38,7 @@ export function AgentAdminPage() {
 
       // Fetch default agent separately
       const defaultResponse = await fetch(
-        `${API_URL}/api/agents/default/current/`
+        `${API_URL}/api/agents/default/current`
       );
       if (defaultResponse.ok) {
         const defaultAgent = await defaultResponse.json();
@@ -57,7 +57,7 @@ export function AgentAdminPage() {
     try {
       const API_URL = config.browser.stimmApiUrl;
       const response = await fetch(
-        `${API_URL}/api/agents/${agentId}/set-default/`,
+        `${API_URL}/api/agents/${agentId}/set-default`,
         {
           method: 'PUT',
           headers: {
@@ -89,7 +89,7 @@ export function AgentAdminPage() {
 
     try {
       const API_URL = config.browser.stimmApiUrl;
-      const response = await fetch(`${API_URL}/api/agents/${agentId}/`, {
+      const response = await fetch(`${API_URL}/api/agents/${agentId}`, {
         method: 'DELETE',
       });
 

@@ -34,7 +34,7 @@ export function RagAdminPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_URL}/api/rag-configs/`);
+      const response = await fetch(`${API_URL}/api/rag-configs`);
       if (!response.ok) {
         throw new Error(`Failed to load RAG configs: ${response.statusText}`);
       }
@@ -59,7 +59,7 @@ export function RagAdminPage() {
   const handleSetDefault = async (configId: string) => {
     try {
       const response = await fetch(
-        `${API_URL}/api/rag-configs/${configId}/set-default/`,
+        `${API_URL}/api/rag-configs/${configId}/set-default`,
         {
           method: 'PUT',
           headers: {
@@ -90,7 +90,7 @@ export function RagAdminPage() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/rag-configs/${configId}/`, {
+      const response = await fetch(`${API_URL}/api/rag-configs/${configId}`, {
         method: 'DELETE',
       });
 

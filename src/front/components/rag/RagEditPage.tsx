@@ -185,8 +185,8 @@ export function RagEditPage({ configId }: RagEditPageProps) {
       };
 
       const url = configId
-        ? `${API_URL}/api/rag-configs/${configId}/`
-        : `${API_URL}/api/rag-configs/`;
+        ? `${API_URL}/api/rag-configs/${configId}`
+        : `${API_URL}/api/rag-configs`;
 
       const method = configId ? 'PUT' : 'POST';
 
@@ -263,7 +263,7 @@ export function RagEditPage({ configId }: RagEditPageProps) {
     }
     try {
       const response = await fetch(
-        `${API_URL}/api/rag-configs/${configId}/`,
+        `${API_URL}/api/rag-configs/${configId}`,
         {
           method: 'DELETE',
         }
