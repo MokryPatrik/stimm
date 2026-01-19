@@ -1,0 +1,29 @@
+# LiveKit SIP Configuration
+# For DIDWW integration with Stimm
+
+# LiveKit connection - use the same keys as livekit.prod.yaml
+api_key: 'stimmprodkey'
+api_secret: 'K7xYz9AbCdEfGhIjKlMnOpQrStUvWxYz1234567890=='
+
+# Connect to LiveKit via internal Docker network
+ws_url: 'ws://livekit:7880'
+
+# Redis for coordination
+redis:
+  address: 'redis:6379'
+
+# SIP settings
+sip_port: 5060
+rtp_port_range: 10000-20000
+
+# Network settings
+use_external_ip: true
+public_ip: "46.224.225.142"
+bind_address: "0.0.0.0"
+
+# Allow incoming calls without authentication (DIDWW will authenticate)
+allow_anonymous: true
+
+# Logging
+logging:
+  level: info
