@@ -576,6 +576,23 @@ class LiveKitAgentBridge:
         logger.debug("🔄 Session monitoring started - agent is ready for conversation")
 
         try:
+            # Check for pending greeting (set by agent_factory for SIP calls)
+            pending_greeting = getattr(self, '_pending_greeting', None)
+            if pending_greeting and self.stimm_service:
+                logger.info(f"📞 Speaking greeting for SIP call: '{pending_greeting}'")
+                # Wait a moment for the SIP participant to be ready
+                await asyncio.sleep(1.0)
+                
+                # Get the event loop from the session and speak greeting
+                session = self.stimm_service.active_sessions.get(self.conversation_id)
+                if session:
+                    await session.speak_greeting(pending_greeting)
+                else:
+                    logger.warning("⚠️ No active session found for greeting")
+                    
+                # Clear the pending greeting
+                self._pending_greeting = None
+
             # Keep the session active and log periodic status
             session_counter = 0
             while self.is_connected:

@@ -720,3 +720,35 @@ class StimmEventLoop:
 
         # If no condition met, return the buffer unchanged
         return text_buffer
+
+    async def speak_greeting(self, greeting_text: str):
+        """
+        Speak a greeting message directly through TTS.
+        
+        This is useful for SIP calls where the agent should speak first.
+        
+        Args:
+            greeting_text: The greeting message to speak
+        """
+        logger.info(f"🎙️ Speaking greeting: '{greeting_text}'")
+        
+        try:
+            self.state = AgentState.SPEAKING
+            await self.output_queue.put({"type": "bot_responding_start"})
+            
+            # Start TTS task
+            self.tts_task = asyncio.create_task(self._process_tts_stream())
+            
+            # Send greeting text to TTS queue
+            await self.tts_text_queue.put(greeting_text)
+            await self.tts_text_queue.put(None)  # End of stream
+            
+            # Wait for TTS to complete
+            if self.tts_task:
+                await self.tts_task
+                
+            logger.info("✅ Greeting spoken successfully")
+            
+        except Exception as e:
+            logger.error(f"❌ Error speaking greeting: {e}")
+            self.state = AgentState.LISTENING
