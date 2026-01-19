@@ -186,9 +186,9 @@ class SIPBridgeIntegration:
 
                         # If room not in monitored_rooms, it's a new detection
                         if room.name not in monitored_rooms:
-                            logger.debug(f"Detected new SIP room: {room.name} ({room.num_participants} participants)")
+                            logger.info(f"📞 Detected new SIP room: {room.name} ({room.num_participants} participants)")
                         else:
-                            logger.debug(f"Respawning agent for SIP room: {room.name}")
+                            logger.info(f"🔄 Respawning agent for SIP room: {room.name}")
 
                         # Spawn agent
                         if self._spawn_agent_for_room(room.name):
@@ -199,7 +199,7 @@ class SIPBridgeIntegration:
                 # Clean up rooms that no longer exist
                 for room_name in list(monitored_rooms):
                     if room_name not in current_room_names:
-                        logger.debug(f"SIP room ended: {room_name}")
+                        logger.info(f"📴 SIP room ended: {room_name}")
                         self._cleanup_process_for_room(room_name)
                         monitored_rooms.remove(room_name)
 
@@ -209,9 +209,9 @@ class SIPBridgeIntegration:
             except Exception as e:
                 logger.error(f"Error in SIP room monitoring iteration: {e}")
 
-            # Sleep with interruptible wait (async version)
+            # Sleep with interruptible wait (async version) - poll every 1s for faster SIP detection
             try:
-                await asyncio.wait_for(asyncio.get_event_loop().run_in_executor(None, self._stop_event.wait, 5), timeout=5)
+                await asyncio.wait_for(asyncio.get_event_loop().run_in_executor(None, self._stop_event.wait, 1), timeout=1)
             except asyncio.TimeoutError:
                 pass  # Normal, just continue
 
@@ -220,14 +220,14 @@ class SIPBridgeIntegration:
     def _spawn_agent_for_room(self, room_name: str) -> bool:
         """Spawn an agent worker process for a SIP room"""
         try:
-            logger.debug(f"Spawning agent for SIP room: {room_name}")
+            logger.info(f"🔔 Spawning agent for SIP room: {room_name}")
 
             # Get the Development Agent from database
             try:
                 default_agent = self.agent_service.get_default_agent()
                 agent_id = str(default_agent.id)
                 agent_name = default_agent.name
-                logger.debug(f"Found default agent: {agent_name} (ID: {agent_id})")
+                logger.info(f"   Using agent: {agent_name} (ID: {agent_id})")
             except Exception as e:
                 logger.error(f"Failed to get default agent: {e}")
                 return False
@@ -249,16 +249,16 @@ class SIPBridgeIntegration:
                 config.livekit_url,
             ]
 
-            logger.debug(f"Starting agent worker: {' '.join(cmd)}")
+            logger.info(f"   Command: {' '.join(cmd)}")
 
-            # Start process
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)  # nosec B603
+            # Start process - inherit stdout/stderr so we can see agent logs
+            process = subprocess.Popen(cmd, stdout=None, stderr=None, text=True, env=env)  # nosec B603
 
             # Store the process
             with self.process_lock:
                 self.active_processes[room_name] = process
 
-            logger.debug(f"Agent worker spawned for SIP room: {room_name} (PID: {process.pid})")
+            logger.info(f"✅ Agent worker spawned for SIP room: {room_name} (PID: {process.pid})")
             return True
 
         except Exception as e:
