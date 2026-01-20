@@ -35,13 +35,14 @@ class StimmService:
         # Event handlers for real-time updates
         self.event_handlers: Dict[str, Callable] = {}
 
-    async def create_session(self, conversation_id: str, session_id: str = None) -> StimmEventLoop:
+    async def create_session(self, conversation_id: str, session_id: str = None, call_context: Dict[str, Any] = None) -> StimmEventLoop:
         """
         Create a new stimm session.
 
         Args:
             conversation_id: Unique identifier for the conversation
             session_id: Optional session identifier
+            call_context: Optional call context for voice calls (e.g., caller_phone)
 
         Returns:
             StimmEventLoop instance for the new session
@@ -63,6 +64,7 @@ class StimmService:
             vad_service=self.vad_service,
             agent_id=self.agent_id,
             session_id=session_id,
+            call_context=call_context,
         )
 
         # Start the event loop

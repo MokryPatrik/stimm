@@ -8,7 +8,7 @@ services:
       # Mount source files to src subdirectory to preserve Python environment (read-write for development)
       - ../../src:/app/src
       # PulseAudio socket (host -> container)
-      - /mnt/wslg:/mnt/wslg
+#      - /mnt/wslg:/mnt/wslg
     environment:
       - PULSE_SERVER=unix:/mnt/wslg/PulseServer
       - LOG_LEVEL=${LOG_LEVEL:-info}

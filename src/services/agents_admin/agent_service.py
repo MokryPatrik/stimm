@@ -4,13 +4,13 @@ Agent Service for CRUD operations and agent management.
 
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from database import Agent, RagConfig, User
+from database import Agent, AgentTool, RagConfig, User
 
 from .exceptions import AgentAlreadyExistsError, AgentNotFoundError, AgentValidationError
 from .models import AgentCreate, AgentListResponse, AgentResponse, AgentUpdate
@@ -520,5 +520,237 @@ class AgentService:
             return AgentResponse.model_validate(agent)
         finally:
             # Close the session only if it's locally created (not provided via db_session)
+            if self.db_session is None:
+                session.close()
+
+    # ==================== Agent Tools Methods ====================
+
+    def get_agent_tools(self, agent_id: UUID, user_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
+        """
+        Get all tools configured for an agent.
+
+        Args:
+            agent_id: Agent ID
+            user_id: User ID (if None, uses system user)
+
+        Returns:
+            List of tool configurations
+        """
+        session = self._get_session()
+        try:
+            user_id = user_id or self._get_system_user_id()
+
+            # Verify agent exists and belongs to user
+            agent = session.query(Agent).filter(and_(Agent.id == agent_id, Agent.user_id == user_id)).first()
+            if not agent:
+                raise AgentNotFoundError(agent_id=str(agent_id))
+
+            # Get all tools for this agent
+            tools = session.query(AgentTool).filter(AgentTool.agent_id == agent_id).all()
+
+            return [tool.to_dict() for tool in tools]
+        finally:
+            if self.db_session is None:
+                session.close()
+
+    def get_agent_tools_enabled(self, agent_id: UUID) -> List[Dict[str, Any]]:
+        """
+        Get enabled tools for an agent (for runtime use).
+
+        This is a lightweight method that doesn't validate user ownership,
+        used during conversation processing.
+
+        Args:
+            agent_id: Agent ID
+
+        Returns:
+            List of enabled tool configurations
+        """
+        session = self._get_session()
+        try:
+            tools = session.query(AgentTool).filter(
+                and_(AgentTool.agent_id == agent_id, AgentTool.is_enabled == True)
+            ).all()
+
+            return [tool.to_dict() for tool in tools]
+        finally:
+            if self.db_session is None:
+                session.close()
+
+    def add_agent_tool(
+        self,
+        agent_id: UUID,
+        tool_slug: str,
+        integration_slug: str,
+        integration_config: Dict[str, Any],
+        user_id: Optional[UUID] = None,
+    ) -> Dict[str, Any]:
+        """
+        Add a tool to an agent.
+
+        Args:
+            agent_id: Agent ID
+            tool_slug: Tool slug (e.g., "product_search")
+            integration_slug: Integration slug (e.g., "wordpress")
+            integration_config: Integration configuration (API keys, URLs, etc.)
+            user_id: User ID (if None, uses system user)
+
+        Returns:
+            Created tool configuration
+
+        Raises:
+            AgentNotFoundError: If agent not found
+            AgentValidationError: If tool already exists for agent
+        """
+        session = self._get_session()
+        try:
+            user_id = user_id or self._get_system_user_id()
+
+            # Verify agent exists and belongs to user
+            agent = session.query(Agent).filter(and_(Agent.id == agent_id, Agent.user_id == user_id)).first()
+            if not agent:
+                raise AgentNotFoundError(agent_id=str(agent_id))
+
+            # Check if tool already exists for this agent
+            existing = session.query(AgentTool).filter(
+                and_(AgentTool.agent_id == agent_id, AgentTool.tool_slug == tool_slug)
+            ).first()
+            if existing:
+                raise AgentValidationError(f"Tool '{tool_slug}' already configured for this agent")
+
+            # Validate tool and integration exist in registry
+            from services.tools import get_tool_registry
+            registry = get_tool_registry()
+
+            tool_def = registry.get_tool_definition(tool_slug)
+            if not tool_def:
+                raise AgentValidationError(f"Unknown tool: {tool_slug}")
+
+            # Note: Integration class validation is optional - it may not be implemented yet
+            # but we still allow the configuration to be saved
+
+            # Create new agent tool
+            agent_tool = AgentTool(
+                agent_id=agent_id,
+                tool_slug=tool_slug,
+                integration_slug=integration_slug,
+                integration_config=integration_config,
+                is_enabled=True,
+            )
+
+            session.add(agent_tool)
+            session.commit()
+            session.refresh(agent_tool)
+
+            logger.info(f"Added tool {tool_slug}/{integration_slug} to agent {agent_id}")
+            return agent_tool.to_dict()
+        finally:
+            if self.db_session is None:
+                session.close()
+
+    def update_agent_tool(
+        self,
+        agent_id: UUID,
+        tool_slug: str,
+        integration_slug: Optional[str] = None,
+        integration_config: Optional[Dict[str, Any]] = None,
+        is_enabled: Optional[bool] = None,
+        user_id: Optional[UUID] = None,
+    ) -> Dict[str, Any]:
+        """
+        Update a tool configuration for an agent.
+
+        Args:
+            agent_id: Agent ID
+            tool_slug: Tool slug to update
+            integration_slug: New integration slug (optional)
+            integration_config: New integration configuration (optional)
+            is_enabled: Enable/disable tool (optional)
+            user_id: User ID (if None, uses system user)
+
+        Returns:
+            Updated tool configuration
+
+        Raises:
+            AgentNotFoundError: If agent or tool not found
+        """
+        session = self._get_session()
+        try:
+            user_id = user_id or self._get_system_user_id()
+
+            # Verify agent exists and belongs to user
+            agent = session.query(Agent).filter(and_(Agent.id == agent_id, Agent.user_id == user_id)).first()
+            if not agent:
+                raise AgentNotFoundError(agent_id=str(agent_id))
+
+            # Find the tool
+            agent_tool = session.query(AgentTool).filter(
+                and_(AgentTool.agent_id == agent_id, AgentTool.tool_slug == tool_slug)
+            ).first()
+            if not agent_tool:
+                raise AgentNotFoundError(f"Tool '{tool_slug}' not found for agent")
+
+            # Update fields
+            if integration_slug is not None:
+                agent_tool.integration_slug = integration_slug
+            if integration_config is not None:
+                # Merge with existing config to preserve secrets
+                merged_config = agent_tool.integration_config.copy()
+                merged_config.update(integration_config)
+                agent_tool.integration_config = merged_config
+            if is_enabled is not None:
+                agent_tool.is_enabled = is_enabled
+
+            session.commit()
+            session.refresh(agent_tool)
+
+            logger.info(f"Updated tool {tool_slug} for agent {agent_id}")
+            return agent_tool.to_dict()
+        finally:
+            if self.db_session is None:
+                session.close()
+
+    def remove_agent_tool(
+        self,
+        agent_id: UUID,
+        tool_slug: str,
+        user_id: Optional[UUID] = None,
+    ) -> bool:
+        """
+        Remove a tool from an agent.
+
+        Args:
+            agent_id: Agent ID
+            tool_slug: Tool slug to remove
+            user_id: User ID (if None, uses system user)
+
+        Returns:
+            True if removed successfully
+
+        Raises:
+            AgentNotFoundError: If agent or tool not found
+        """
+        session = self._get_session()
+        try:
+            user_id = user_id or self._get_system_user_id()
+
+            # Verify agent exists and belongs to user
+            agent = session.query(Agent).filter(and_(Agent.id == agent_id, Agent.user_id == user_id)).first()
+            if not agent:
+                raise AgentNotFoundError(agent_id=str(agent_id))
+
+            # Find and delete the tool
+            agent_tool = session.query(AgentTool).filter(
+                and_(AgentTool.agent_id == agent_id, AgentTool.tool_slug == tool_slug)
+            ).first()
+            if not agent_tool:
+                raise AgentNotFoundError(f"Tool '{tool_slug}' not found for agent")
+
+            session.delete(agent_tool)
+            session.commit()
+
+            logger.info(f"Removed tool {tool_slug} from agent {agent_id}")
+            return True
+        finally:
             if self.db_session is None:
                 session.close()

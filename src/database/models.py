@@ -201,3 +201,52 @@ class Document(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class AgentTool(Base):
+    """
+    Agent-Tool association model linking agents to tools with specific integrations.
+
+    Tools and integrations are defined statically in code (like providers).
+    This table only stores the agent-specific configuration for each tool.
+    """
+
+    __tablename__ = "agent_tools"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agent_id = Column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+
+    # Tool slug references static tool definitions in code (e.g., "product_search", "order_lookup")
+    tool_slug = Column(String(100), nullable=False)
+
+    # Integration slug references static integration classes (e.g., "wordpress", "shopify")
+    integration_slug = Column(String(100), nullable=False)
+
+    # Integration-specific configuration (API keys, URLs, etc.)
+    integration_config = Column(JSONB, nullable=False, default=dict)
+
+    is_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_agent_tools_agent_id", "agent_id"),
+        Index("idx_agent_tools_tool_slug", "tool_slug"),
+        Index("idx_agent_tools_is_enabled", "is_enabled", postgresql_where=(is_enabled.is_(True))),
+    )
+
+    def __repr__(self):
+        return f"<AgentTool(id={self.id}, agent_id='{self.agent_id}', tool='{self.tool_slug}/{self.integration_slug}')>"
+
+    def to_dict(self):
+        """Convert agent tool to dictionary for API responses."""
+        return {
+            "id": str(self.id),
+            "agent_id": str(self.agent_id),
+            "tool_slug": self.tool_slug,
+            "integration_slug": self.integration_slug,
+            "integration_config": self.integration_config,
+            "is_enabled": self.is_enabled,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

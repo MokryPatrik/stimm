@@ -26,3 +26,44 @@ export interface AgentResponse {
   agents: Agent[];
   default_agent?: Agent;
 }
+
+// Tool-related types
+export interface ToolFieldDefinition {
+  name: string;
+  type: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  default?: unknown;
+  options?: string[];
+}
+
+export interface IntegrationDefinition {
+  slug: string;
+  name: string;
+  description: string;
+  fields: ToolFieldDefinition[];
+}
+
+export interface ToolDefinition {
+  slug: string;
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  integrations: IntegrationDefinition[];
+}
+
+export interface AvailableToolsResponse {
+  tools: ToolDefinition[];
+}
+
+export interface AgentTool {
+  id: string;
+  agent_id: string;
+  tool_slug: string;
+  integration_slug: string;
+  integration_config: Record<string, string>;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}

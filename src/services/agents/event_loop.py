@@ -41,11 +41,13 @@ class StimmEventLoop:
         vad_service,
         agent_id: str = None,
         session_id: str = None,
+        call_context: Dict[str, Any] = None,
     ):
         self.conversation_id = conversation_id
         self.output_queue = output_queue
         self.agent_id = agent_id
         self.session_id = session_id
+        self.call_context = call_context or {}  # Call context for voice calls (e.g., caller_phone)
 
         # Services
         self.stt_service = stt_service
@@ -513,6 +515,7 @@ class StimmEventLoop:
                         rag_state=self.rag_state,
                         agent_id=self.agent_id,
                         session_id=self.session_id,
+                        call_context=self.call_context,
                     ):
                         # Reset inactivity timer on each chunk
                         last_chunk_time = time.time()

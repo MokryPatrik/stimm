@@ -3,7 +3,7 @@ Language Model Service Module with Agent Support
 """
 
 import logging
-from typing import AsyncIterator, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 from uuid import UUID
 
 from ..agents_admin.agent_manager import get_agent_manager
@@ -74,31 +74,49 @@ class LLMService:
         else:
             raise ValueError(f"Unsupported LLM provider: {provider_name}")
 
-    async def generate(self, prompt: str, **kwargs) -> str:
+    async def generate(
+        self,
+        prompt: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: Optional[List[Dict[str, Any]]] = None,
+        **kwargs,
+    ) -> Union[str, Dict[str, Any]]:
         """
         Generate text using the configured LLM provider
 
         Args:
             prompt: Input text prompt
+            tools: Optional list of tool definitions for function calling
+            messages: Optional list of messages for multi-turn conversation
             **kwargs: Additional parameters for the provider
 
         Returns:
-            str: Generated text
+            str: Generated text (if no tool calls)
+            Dict: Response with tool_calls (if model wants to call tools)
         """
-        return await self.provider.generate(prompt, **kwargs)
+        return await self.provider.generate(prompt, tools=tools, messages=messages, **kwargs)
 
-    async def generate_stream(self, prompt: str, **kwargs) -> AsyncIterator[str]:
+    async def generate_stream(
+        self,
+        prompt: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        messages: Optional[List[Dict[str, Any]]] = None,
+        **kwargs,
+    ) -> AsyncIterator[Union[str, Dict[str, Any]]]:
         """
         Stream text generation using the configured LLM provider
 
         Args:
             prompt: Input text prompt
+            tools: Optional list of tool definitions for function calling
+            messages: Optional list of messages for multi-turn conversation
             **kwargs: Additional parameters for the provider
 
         Yields:
             str: Generated text chunks
+            Dict: Tool call data (if model wants to call tools)
         """
-        async for chunk in self.provider.generate_stream(prompt, **kwargs):
+        async for chunk in self.provider.generate_stream(prompt, tools=tools, messages=messages, **kwargs):
             yield chunk
 
     async def close(self):

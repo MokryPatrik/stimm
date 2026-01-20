@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from services.agents.routes import router as stimm_router
 from services.agents_admin.routes import router as agent_router
+from services.agents_admin.tools_routes import router as tools_router
 from services.livekit.routes import router as livekit_router
 
 # Import route modules
@@ -145,6 +146,7 @@ app.include_router(stt_router, prefix="/api", tags=["stt"])
 app.include_router(tts_router, prefix="/api", tags=["tts"])
 app.include_router(stimm_router, prefix="/api", tags=["stimm"])
 app.include_router(agent_router, prefix="/api", tags=["agents"])
+app.include_router(tools_router, prefix="/api", tags=["agent-tools"])
 app.include_router(rag_config_router, prefix="/api", tags=["rag-configs"])
 app.include_router(signaling_router, prefix="/api", tags=["webrtc"])
 app.include_router(livekit_router, prefix="/api", tags=["livekit"])

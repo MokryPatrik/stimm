@@ -12,6 +12,7 @@ import {
   Activity,
   Cpu,
   Layers,
+  TestTube,
 } from 'lucide-react';
 
 export default function Home() {
@@ -39,6 +40,14 @@ export default function Home() {
       href: '/stimm',
       icon: <MessageSquare className="w-8 h-8 text-green-300" />,
       color: 'green',
+    },
+    {
+      title: 'Chat Test',
+      description:
+        'Test your agents via text chat. Debug function calling and tool integrations without voice.',
+      href: '/chat',
+      icon: <TestTube className="w-8 h-8 text-pink-300" />,
+      color: 'pink',
     },
     {
       title: 'Documentation',
@@ -130,6 +139,11 @@ export default function Home() {
                     ${
                       link.color === 'orange'
                         ? 'bg-orange-500/10 group-hover:bg-orange-500/20'
+                        : ''
+                    }
+                    ${
+                      link.color === 'pink'
+                        ? 'bg-pink-500/10 group-hover:bg-pink-500/20'
                         : ''
                     }
                     `}

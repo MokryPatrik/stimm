@@ -131,3 +131,92 @@ class AgentSessionCreate(BaseModel):
         if v not in valid_types:
             raise ValueError(f"Session type must be one of: {', '.join(valid_types)}")
         return v
+
+
+# ==================== Agent Tools Models ====================
+
+
+class AgentToolCreate(BaseModel):
+    """Model for adding a tool to an agent."""
+
+    tool_slug: str = Field(..., min_length=1, description="Tool slug (e.g., 'product_search')")
+    integration_slug: str = Field(..., min_length=1, description="Integration slug (e.g., 'wordpress')")
+    integration_config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Integration configuration (API keys, URLs, etc.)"
+    )
+
+    @validator("tool_slug", "integration_slug")
+    def validate_slugs(cls, v):
+        """Validate slug format."""
+        if not v or not v.strip():
+            raise ValueError("Slug cannot be empty")
+        return v.strip().lower()
+
+
+class AgentToolUpdate(BaseModel):
+    """Model for updating a tool configuration."""
+
+    integration_slug: Optional[str] = Field(None, description="New integration slug")
+    integration_config: Optional[Dict[str, Any]] = Field(None, description="Updated integration configuration")
+    is_enabled: Optional[bool] = Field(None, description="Enable or disable the tool")
+
+
+class AgentToolResponse(BaseModel):
+    """Response model for an agent tool."""
+
+    id: UUID
+    agent_id: UUID
+    tool_slug: str
+    integration_slug: str
+    integration_config: Dict[str, Any]
+    is_enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AgentToolsListResponse(BaseModel):
+    """Response model for listing agent tools."""
+
+    tools: List[AgentToolResponse]
+    total: int
+
+
+class ToolFieldDefinition(BaseModel):
+    """Definition of a configuration field for a tool integration."""
+
+    name: str
+    type: str = Field(..., description="Field type: 'string', 'number', 'boolean', 'select'")
+    label: str
+    description: Optional[str] = None
+    required: bool = True
+    default: Optional[Any] = None
+    options: Optional[List[str]] = Field(None, description="Options for 'select' type fields")
+
+
+class IntegrationDefinition(BaseModel):
+    """Definition of an integration for a tool."""
+
+    slug: str
+    name: str
+    description: str
+    fields: List[ToolFieldDefinition]
+
+
+class ToolDefinition(BaseModel):
+    """Definition of an available tool."""
+
+    slug: str
+    name: str
+    description: str
+    parameters: Dict[str, Any] = Field(..., description="OpenAI function calling parameters schema")
+    integrations: List[IntegrationDefinition]
+
+
+class AvailableToolsResponse(BaseModel):
+    """Response model for listing all available tools and integrations."""
+
+    tools: List[ToolDefinition]

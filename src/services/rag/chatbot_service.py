@@ -8,13 +8,19 @@ that avoids circular dependencies with the RAG routes.
 import logging
 import time
 import uuid
+from typing import Any, Dict, List, Optional
 
+from ..agents_admin.agent_service import AgentService
 from ..llm.llm import LLMService
+from ..tools import ToolExecutor, get_tool_executor
 from .config import rag_config
 from .rag_service import _touch_conversation
 from .rag_state import RagState
 
 LOGGER = logging.getLogger("rag_chatbot")
+
+# Maximum number of tool call rounds to prevent infinite loops
+MAX_TOOL_ROUNDS = 5
 
 
 class ChatbotService:
@@ -24,6 +30,7 @@ class ChatbotService:
         # LLM service will be created per request with agent configuration
         self.llm_service = None
         self._is_prewarmed = False
+        self._tool_executor: Optional[ToolExecutor] = None
 
     async def prewarm_models(self, agent_id: str = None, session_id: str = None):
         """Pre-warm models and connections at startup"""
@@ -63,9 +70,13 @@ class ChatbotService:
         rag_state: RagState = None,
         agent_id: str = None,
         session_id: str = None,
+        call_context: Dict[str, Any] = None,
     ):
         """
-        Process a chat message with RAG context and return a streaming response
+        Process a chat message with RAG context and return a streaming response.
+        
+        Supports tool/function calling: if the LLM decides to call a tool,
+        this method executes the tool and continues the conversation with results.
 
         Args:
             message: User message
@@ -73,12 +84,18 @@ class ChatbotService:
             rag_state: RAG state instance
             agent_id: Optional agent ID for provider configuration
             session_id: Optional session ID for tracking
+            call_context: Optional call context for voice calls, may contain:
+                - caller_phone: Caller's phone number (for SIP calls)
+                - caller_id: Caller identity
 
         Yields:
             Dict with response data
         """
         conversation_id = conversation_id or str(uuid.uuid4())
         processing_start = time.time()
+        rag_time = 0
+        contexts = []
+        context_text = ""
 
         try:
             # Create LLM service with agent configuration
@@ -88,12 +105,22 @@ class ChatbotService:
             if not self._is_prewarmed:
                 await self.prewarm_models(agent_id=agent_id, session_id=session_id)
 
+            # Load agent's enabled tools
+            tools_for_llm = []
+            if agent_id:
+                try:
+                    agent_service = AgentService()
+                    agent_tools = agent_service.get_agent_tools_enabled(uuid.UUID(agent_id))
+                    if agent_tools:
+                        self._tool_executor = get_tool_executor(agent_tools)
+                        tools_for_llm = self._tool_executor.get_tools_for_llm()
+                        LOGGER.info(f"Loaded {len(tools_for_llm)} tools for agent {agent_id}: {[t['function']['name'] for t in tools_for_llm]}")
+                except Exception as e:
+                    LOGGER.warning(f"Failed to load agent tools: {e}")
+
             # Check if RAG retrieval should be skipped (no RAG config)
             if rag_state.skip_retrieval:
                 LOGGER.info("RAG retrieval skipped (no RAG configuration)")
-                rag_time = 0
-                contexts = []
-                context_text = ""
                 # Still add user message to conversation for history
                 async with rag_state.lock:
                     await rag_state.ensure_ready()
@@ -103,7 +130,7 @@ class ChatbotService:
                         "metadata": {},
                         "created_at": time.time(),
                     }
-                    conversation_messages = await _touch_conversation(rag_state, conversation_id, user_message)
+                    await _touch_conversation(rag_state, conversation_id, user_message)
             # Check if RAG state is properly initialized
             elif rag_state.client is None or rag_state.embedder is None:
                 LOGGER.warning("RAG state not fully initialized - falling back to basic LLM response")
@@ -117,9 +144,6 @@ class ChatbotService:
                     "content": "I'll answer your question without access to the knowledge base: ",
                     "conversation_id": conversation_id,
                 }
-                rag_time = 0
-                contexts = []
-                context_text = ""
             else:
                 # Step 1: Retrieve relevant contexts using RAG
                 rag_start = time.time()
@@ -133,7 +157,7 @@ class ChatbotService:
                         "metadata": {},
                         "created_at": time.time(),
                     }
-                    conversation_messages = await _touch_conversation(rag_state, conversation_id, user_message)
+                    await _touch_conversation(rag_state, conversation_id, user_message)
 
                     # Always use ultra-low latency retrieval for stimm
                     LOGGER.info("Using ultra-low latency retrieval mode")
@@ -150,8 +174,6 @@ class ChatbotService:
                         # No retrieval engine - this means agent has no RAG config
                         # This should have been caught by skip_retrieval flag, but handle gracefully
                         LOGGER.warning("No retrieval engine available and skip_retrieval not set - skipping retrieval")
-                        contexts = []
-                        context_text = ""
 
                 rag_time = time.time() - rag_start
                 LOGGER.info(f"RAG retrieval completed in {rag_time:.3f}s (ultra-low latency mode)")
@@ -185,44 +207,109 @@ class ChatbotService:
             else:
                 base_system_prompt = rag_config.get_system_prompt()
 
+            # Add call context information if available (e.g., caller's phone for voice calls)
+            call_context_text = ""
+            if call_context:
+                caller_phone = call_context.get("caller_phone")
+                if caller_phone:
+                    call_context_text = f"\n\n## Call Context\nThe caller's phone number is: {caller_phone}\nWhen looking up orders, you can use this phone number for verification automatically without asking the caller."
+
             # Build the complete prompt with system instructions, conversation history, and user message
             if context_text:
                 # Include context and conversation history in the system prompt for RAG
-                enhanced_system_prompt = f"{base_system_prompt}\n\nContexte fourni:\n{context_text}{conversation_history}\n\nQuestion actuelle de l'utilisateur: {message}"
+                enhanced_system_prompt = f"{base_system_prompt}{call_context_text}\n\nContexte fourni:\n{context_text}{conversation_history}\n\nQuestion actuelle de l'utilisateur: {message}"
             else:
                 # No context available, use base system prompt with conversation history and user message
-                enhanced_system_prompt = f"{base_system_prompt}{conversation_history}\n\nQuestion actuelle de l'utilisateur: {message}"
+                enhanced_system_prompt = f"{base_system_prompt}{call_context_text}{conversation_history}\n\nQuestion actuelle de l'utilisateur: {message}"
 
-            # Step 4: Stream the LLM response with first token tracking
+            # Step 5: Build messages for multi-turn conversation with tools
+            messages: List[Dict[str, Any]] = [
+                {"role": "system", "content": enhanced_system_prompt},
+                {"role": "user", "content": message},
+            ]
+
+            # Step 6: Stream the LLM response with tool calling support
             full_response = ""
             first_token_sent = False
             llm_start = time.time()
+            tool_round = 0
 
-            async for chunk in self.llm_service.generate_stream(enhanced_system_prompt):
-                full_response += chunk
+            while tool_round < MAX_TOOL_ROUNDS:
+                tool_round += 1
+                accumulated_tool_calls = []
+                response_text = ""
 
-                # Track first token
-                if not first_token_sent:
-                    first_token_sent = True
-                    first_token_time = time.time() - processing_start
-                    LOGGER.info(f"First token received in {first_token_time:.3f}s")
+                async for chunk in self.llm_service.generate_stream(
+                    enhanced_system_prompt,
+                    tools=tools_for_llm if tools_for_llm else None,
+                    messages=messages if tool_round > 1 else None,  # Use messages for subsequent rounds
+                ):
+                    # Check if this is a tool call response
+                    if isinstance(chunk, dict) and chunk.get("type") == "tool_calls":
+                        accumulated_tool_calls = chunk.get("tool_calls", [])
+                        LOGGER.info(f"LLM requested tool calls: {[tc.get('function', {}).get('name') for tc in accumulated_tool_calls]}")
+                        break
+                    
+                    # Regular text chunk
+                    if isinstance(chunk, str):
+                        response_text += chunk
+                        full_response += chunk
+
+                        # Track first token
+                        if not first_token_sent:
+                            first_token_sent = True
+                            first_token_time = time.time() - processing_start
+                            LOGGER.info(f"First token received in {first_token_time:.3f}s")
+                            yield {
+                                "type": "first_token",
+                                "content": chunk,
+                                "conversation_id": conversation_id,
+                                "latency_metrics": {
+                                    "rag_retrieval_time": rag_time,
+                                    "first_token_time": first_token_time,
+                                    "total_processing_time": first_token_time,
+                                },
+                            }
+                        else:
+                            yield {"type": "chunk", "content": chunk, "conversation_id": conversation_id}
+
+                # If no tool calls, we're done with the LLM loop
+                if not accumulated_tool_calls:
+                    break
+
+                # Execute tool calls
+                if self._tool_executor and accumulated_tool_calls:
+                    LOGGER.info(f"Executing {len(accumulated_tool_calls)} tool calls (round {tool_round})")
+                    
+                    # Yield tool execution status to client
                     yield {
-                        "type": "first_token",
-                        "content": chunk,
+                        "type": "tool_execution",
                         "conversation_id": conversation_id,
-                        "latency_metrics": {
-                            "rag_retrieval_time": rag_time if "rag_time" in locals() else 0,
-                            "first_token_time": first_token_time,
-                            "total_processing_time": first_token_time,
-                        },
+                        "tools": [tc.get("function", {}).get("name") for tc in accumulated_tool_calls],
                     }
-                else:
-                    yield {"type": "chunk", "content": chunk, "conversation_id": conversation_id}
+
+                    # Execute tools and get results
+                    tool_results = await self._tool_executor.execute_tool_calls(accumulated_tool_calls)
+                    LOGGER.info(f"Tool results: {tool_results}")
+
+                    # Add assistant message with tool calls to messages
+                    messages.append({
+                        "role": "assistant",
+                        "content": response_text if response_text else None,
+                        "tool_calls": accumulated_tool_calls,
+                    })
+
+                    # Add tool results to messages
+                    for result in tool_results:
+                        messages.append(result)
+
+                    # Continue the loop to get LLM's response with tool results
+                    continue
 
             llm_time = time.time() - llm_start
             total_time = time.time() - processing_start
 
-            # Step 4: Add assistant response to conversation
+            # Step 7: Add assistant response to conversation
             if rag_state and rag_state.client and rag_state.embedder:
                 async with rag_state.lock:
                     await rag_state.ensure_ready()
@@ -238,13 +325,13 @@ class ChatbotService:
                 "type": "complete",
                 "conversation_id": conversation_id,
                 "latency_metrics": {
-                    "rag_retrieval_time": rag_time if "rag_time" in locals() else 0,
+                    "rag_retrieval_time": rag_time,
                     "llm_generation_time": llm_time,
                     "total_processing_time": total_time,
                 },
             }
 
-            LOGGER.info(f"Total processing time: {total_time:.3f}s (RAG: {rag_time if 'rag_time' in locals() else 0:.3f}s, LLM: {llm_time:.3f}s)")
+            LOGGER.info(f"Total processing time: {total_time:.3f}s (RAG: {rag_time:.3f}s, LLM: {llm_time:.3f}s)")
 
         except Exception as e:
             LOGGER.error(f"Error in chat message processing: {e}")
@@ -252,6 +339,9 @@ class ChatbotService:
         finally:
             if self.llm_service:
                 await self.llm_service.close()
+            if self._tool_executor:
+                await self._tool_executor.close()
+                self._tool_executor = None
 
 
 # Global chatbot service instance

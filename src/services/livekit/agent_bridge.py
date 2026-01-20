@@ -7,6 +7,7 @@ audio conversations between users and agents.
 
 import asyncio
 import logging
+import re
 import uuid
 from typing import Any, Dict, Optional
 
@@ -54,8 +55,11 @@ class LiveKitAgentBridge:
         # Track user participants and their audio tracks
         self.user_participants = {}
         self.user_audio_tracks = {}
+        
+        # Call context for voice calls (e.g., caller phone from SIP)
+        self.call_context: Dict[str, Any] = {}
 
-        logger.info(f"🎯 Agent bridge initialized for agent {agent_id} in room {room_name}")
+        logger.info(f"Agent bridge initialized for agent {agent_id} in room {room_name}")
 
     async def connect(self):
         """
@@ -104,18 +108,25 @@ class LiveKitAgentBridge:
 
         @self.room.on("connected")
         def on_connected():
-            logger.debug("✅ Successfully connected to LiveKit room")
+            logger.debug("Successfully connected to LiveKit room")
 
         @self.room.on("disconnected")
         def on_disconnected():
-            logger.debug("🔌 Disconnected from LiveKit room")
+            logger.debug("Disconnected from LiveKit room")
             self.is_connected = False
             self._cleanup()
 
         @self.room.on("participant_connected")
         def on_participant_connected(participant: rtc.RemoteParticipant):
-            logger.debug(f"👤 Participant connected: {participant.identity}")
+            logger.debug(f"Participant connected: {participant.identity}")
             self.user_participants[participant.sid] = participant
+            
+            # Extract caller phone from SIP participant identity
+            caller_phone = self._extract_phone_from_identity(participant.identity)
+            if caller_phone:
+                self.call_context["caller_phone"] = caller_phone
+                self.call_context["caller_identity"] = participant.identity
+                logger.info(f"Extracted caller phone from SIP identity: {caller_phone}")
 
         @self.room.on("track_subscribed")
         def on_track_subscribed(
@@ -145,7 +156,44 @@ class LiveKitAgentBridge:
 
         @self.room.on("track_published")
         def on_track_published(publication: rtc.RemoteTrackPublication, participant: rtc.RemoteParticipant):
-            logger.debug(f"📡 Track published by {participant.identity}: {publication.sid}")
+            logger.debug(f"Track published by {participant.identity}: {publication.sid}")
+
+    def _extract_phone_from_identity(self, identity: str) -> Optional[str]:
+        """
+        Extract phone number from SIP participant identity.
+        
+        SIP identities typically look like:
+        - sip:+15551234567@provider.com
+        - +15551234567
+        - sip:15551234567@provider
+        
+        Args:
+            identity: Participant identity string
+            
+        Returns:
+            Normalized phone number (digits only) or None if not found
+        """
+        if not identity:
+            return None
+            
+        # Try to extract phone number from various SIP identity formats
+        # Pattern 1: sip:+15551234567@provider or sip:15551234567@provider
+        sip_match = re.search(r'sip:[\+]?(\d+)@', identity)
+        if sip_match:
+            return sip_match.group(1)
+        
+        # Pattern 2: Just a phone number with optional + prefix
+        phone_match = re.match(r'[\+]?(\d{10,15})$', identity)
+        if phone_match:
+            return phone_match.group(1)
+        
+        # Pattern 3: Phone number anywhere in the identity string
+        # This is a fallback for other formats
+        digits_match = re.search(r'[\+]?(\d{10,15})', identity)
+        if digits_match:
+            return digits_match.group(1)
+        
+        return None
 
     def _handle_user_audio_track(self, track: rtc.Track, participant: rtc.RemoteParticipant):
         """
@@ -384,8 +432,12 @@ class LiveKitAgentBridge:
     async def _create_stimm_session(self):
         """Create a stimm session and set up event handlers"""
         try:
-            # Create session
-            self.event_loop = await self.stimm_service.create_session(conversation_id=self.conversation_id, session_id=f"livekit_{self.agent_id}")
+            # Create session with call context (contains caller phone for SIP calls)
+            self.event_loop = await self.stimm_service.create_session(
+                conversation_id=self.conversation_id, 
+                session_id=f"livekit_{self.agent_id}",
+                call_context=self.call_context if self.call_context else None,
+            )
 
             # Set up event handler for agent audio responses
             self.stimm_service.register_event_handler("audio_chunk", self._handle_agent_audio_response)

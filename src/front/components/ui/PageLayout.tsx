@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { THEME } from '@/lib/theme';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Logo } from '@/components/ui/Logo';
-import { Bot, Database } from 'lucide-react';
+import { Bot, Database, MessageSquare } from 'lucide-react';
 
 interface PageLayoutProps {
   title: string;
@@ -29,6 +29,11 @@ const navLinks: NavigationLink[] = [
     href: '/rag/admin',
     label: 'RAG Configs',
     icon: <Database className="w-4 h-4" />,
+  },
+  {
+    href: '/chat',
+    label: 'Chat Test',
+    icon: <MessageSquare className="w-4 h-4" />,
   },
 ];
 

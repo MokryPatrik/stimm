@@ -11,8 +11,8 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_BACKEND_HOSTNAME=stimm
-      - NEXT_PUBLIC_LIVEKIT_HOSTNAME=livekit
+      - NEXT_PUBLIC_BACKEND_HOSTNAME=localhost
+      - NEXT_PUBLIC_LIVEKIT_HOSTNAME=localhost
     # Environment variables are loaded from env_file in root docker-compose.yml
     stdin_open: true
     tty: true

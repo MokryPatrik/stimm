@@ -16,9 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Agent } from './types';
+import {
+  Agent,
+  AgentTool,
+  AvailableToolsResponse,
+  ToolDefinition,
+} from './types';
 import { THEME } from '@/lib/theme';
-import { Bot, Database, ArrowLeft, Save } from 'lucide-react';
+import { Bot, Database, ArrowLeft, Save, Wrench, Plus, Trash2, ToggleLeft, ToggleRight, Settings, X, Check } from 'lucide-react';
 import { config } from '@/lib/frontend-config';
 
 const API_URL = config.browser.stimmApiUrl;
@@ -74,6 +79,20 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
   const [loading, setLoading] = useState(!!agentId);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Tools state
+  const [availableTools, setAvailableTools] = useState<ToolDefinition[]>([]);
+  const [agentTools, setAgentTools] = useState<AgentTool[]>([]);
+  const [showAddTool, setShowAddTool] = useState(false);
+  const [newToolSlug, setNewToolSlug] = useState('');
+  const [newIntegrationSlug, setNewIntegrationSlug] = useState('');
+  const [newToolConfig, setNewToolConfig] = useState<Record<string, string>>({});
+  const [addingTool, setAddingTool] = useState(false);
+  
+  // Tool editing state
+  const [editingToolSlug, setEditingToolSlug] = useState<string | null>(null);
+  const [editToolConfig, setEditToolConfig] = useState<Record<string, string>>({});
+  const [savingToolConfig, setSavingToolConfig] = useState(false);
 
   const loadProviders = useCallback(async () => {
     try {
@@ -153,13 +172,169 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
     []
   );
 
+  // Load available tools catalog
+  const loadAvailableTools = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/tools/available`);
+      if (!response.ok) {
+        throw new Error(`Failed to load available tools: ${response.statusText}`);
+      }
+      const data: AvailableToolsResponse = await response.json();
+      setAvailableTools(data.tools);
+    } catch (err) {
+      console.error('Failed to load available tools:', err);
+    }
+  }, []);
+
+  // Load agent's configured tools
+  const loadAgentTools = useCallback(async () => {
+    if (!agentId) return;
+    try {
+      const response = await fetch(`${API_URL}/api/agents/${agentId}/tools`);
+      if (!response.ok) {
+        throw new Error(`Failed to load agent tools: ${response.statusText}`);
+      }
+      const data: AgentTool[] = await response.json();
+      setAgentTools(data);
+    } catch (err) {
+      console.error('Failed to load agent tools:', err);
+    }
+  }, [agentId]);
+
+  // Add tool to agent
+  const handleAddTool = async () => {
+    if (!agentId || !newToolSlug || !newIntegrationSlug) return;
+    
+    try {
+      setAddingTool(true);
+      const response = await fetch(`${API_URL}/api/agents/${agentId}/tools`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tool_slug: newToolSlug,
+          integration_slug: newIntegrationSlug,
+          integration_config: newToolConfig,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to add tool: ${errorText}`);
+      }
+      
+      // Reset form and reload tools
+      setNewToolSlug('');
+      setNewIntegrationSlug('');
+      setNewToolConfig({});
+      setShowAddTool(false);
+      await loadAgentTools();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add tool');
+    } finally {
+      setAddingTool(false);
+    }
+  };
+
+  // Remove tool from agent
+  const handleRemoveTool = async (toolSlug: string) => {
+    if (!agentId) return;
+    
+    try {
+      const response = await fetch(
+        `${API_URL}/api/agents/${agentId}/tools/${toolSlug}`,
+        { method: 'DELETE' }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to remove tool: ${response.statusText}`);
+      }
+      
+      await loadAgentTools();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove tool');
+    }
+  };
+
+  // Toggle tool enabled/disabled
+  const handleToggleTool = async (toolSlug: string, currentEnabled: boolean) => {
+    if (!agentId) return;
+    
+    try {
+      const endpoint = currentEnabled ? 'disable' : 'enable';
+      const response = await fetch(
+        `${API_URL}/api/agents/${agentId}/tools/${toolSlug}/${endpoint}`,
+        { method: 'PUT' }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to toggle tool: ${response.statusText}`);
+      }
+      
+      await loadAgentTools();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to toggle tool');
+    }
+  };
+
+  // Start editing a tool's configuration
+  const handleStartEditTool = (tool: AgentTool) => {
+    setEditingToolSlug(tool.tool_slug);
+    setEditToolConfig({ ...tool.integration_config });
+  };
+
+  // Cancel editing
+  const handleCancelEditTool = () => {
+    setEditingToolSlug(null);
+    setEditToolConfig({});
+  };
+
+  // Save tool configuration
+  const handleSaveToolConfig = async (toolSlug: string) => {
+    if (!agentId) return;
+    
+    try {
+      setSavingToolConfig(true);
+      const response = await fetch(
+        `${API_URL}/api/agents/${agentId}/tools/${toolSlug}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            integration_config: editToolConfig,
+          }),
+        }
+      );
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update tool config: ${errorText}`);
+      }
+      
+      setEditingToolSlug(null);
+      setEditToolConfig({});
+      await loadAgentTools();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save tool config');
+    } finally {
+      setSavingToolConfig(false);
+    }
+  };
+
+  // Get selected tool definition
+  const selectedTool = availableTools.find((t) => t.slug === newToolSlug);
+  const selectedIntegration = selectedTool?.integrations.find(
+    (i) => i.slug === newIntegrationSlug
+  );
+
   useEffect(() => {
     loadProviders();
     loadRagConfigs();
+    loadAvailableTools();
     if (agentId) {
       loadAgent();
+      loadAgentTools();
     }
-  }, [agentId, loadProviders, loadRagConfigs, loadAgent]);
+  }, [agentId, loadProviders, loadRagConfigs, loadAgent, loadAvailableTools, loadAgentTools]);
 
   useEffect(() => {
     if (agent && providers) {
@@ -618,6 +793,306 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
               </div>
             </div>
           </div>
+
+          {/* Tools Configuration - Only show for existing agents */}
+          {agentId && (
+            <div className="space-y-4 pt-6 border-t border-white/10">
+              <div className="flex items-center justify-between">
+                <h3
+                  className={`text-lg font-semibold ${THEME.text.accent} flex items-center gap-2`}
+                >
+                  <Wrench className="w-5 h-5" />
+                  Tools / Function Calling
+                </h3>
+                <Button
+                  onClick={() => setShowAddTool(!showAddTool)}
+                  className={`${THEME.button.ghost} rounded-full px-4 py-2 flex items-center gap-2`}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Tool
+                </Button>
+              </div>
+
+              <p className={`text-sm ${THEME.text.muted}`}>
+                Enable tools to allow your agent to perform actions like searching products,
+                looking up orders, or calling external APIs.
+              </p>
+
+              {/* Add Tool Form */}
+              {showAddTool && (
+                <div className="p-4 rounded-lg bg-white/5 border border-white/10 space-y-4">
+                  <h4 className={`font-medium ${THEME.text.primary}`}>Add New Tool</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className={THEME.text.secondary}>Tool</Label>
+                      <Select
+                        value={newToolSlug}
+                        onValueChange={(value) => {
+                          setNewToolSlug(value);
+                          setNewIntegrationSlug('');
+                          setNewToolConfig({});
+                        }}
+                      >
+                        <SelectTrigger className={`${THEME.input.select} mt-1`}>
+                          <SelectValue placeholder="Select a tool" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-900 border-white/20">
+                          {availableTools
+                            .filter((t) => !agentTools.some((at) => at.tool_slug === t.slug))
+                            .map((tool) => (
+                              <SelectItem key={tool.slug} value={tool.slug} className="text-white">
+                                {tool.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedTool && (
+                        <p className={`text-xs ${THEME.text.muted} mt-1`}>
+                          {selectedTool.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className={THEME.text.secondary}>Integration</Label>
+                      <Select
+                        value={newIntegrationSlug}
+                        onValueChange={(value) => {
+                          setNewIntegrationSlug(value);
+                          setNewToolConfig({});
+                        }}
+                        disabled={!newToolSlug}
+                      >
+                        <SelectTrigger className={`${THEME.input.select} mt-1`}>
+                          <SelectValue placeholder="Select an integration" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-900 border-white/20">
+                          {selectedTool?.integrations.map((integration) => (
+                            <SelectItem
+                              key={integration.slug}
+                              value={integration.slug}
+                              className="text-white"
+                            >
+                              {integration.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Integration config fields */}
+                  {selectedIntegration && selectedIntegration.fields.length > 0 && (
+                    <div className="space-y-3 pl-4 border-l-2 border-green-500/30">
+                      <p className={`text-sm ${THEME.text.secondary}`}>
+                        Configuration for {selectedIntegration.name}:
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedIntegration.fields.map((field) => (
+                          <div key={field.name}>
+                            <Label className={THEME.text.secondary}>
+                              {field.label}
+                              {field.required && <span className="text-red-400 ml-1">*</span>}
+                            </Label>
+                            <Input
+                              type={field.type === 'password' ? 'password' : 'text'}
+                              value={newToolConfig[field.name] || ''}
+                              onChange={(e) =>
+                                setNewToolConfig((prev) => ({
+                                  ...prev,
+                                  [field.name]: e.target.value,
+                                }))
+                              }
+                              placeholder={field.description || `Enter ${field.label}`}
+                              className={`${THEME.input.base} mt-1`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleAddTool}
+                      disabled={addingTool || !newToolSlug || !newIntegrationSlug}
+                      className={`${THEME.button.secondary} rounded-full px-4`}
+                    >
+                      {addingTool ? 'Adding...' : 'Add Tool'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowAddTool(false);
+                        setNewToolSlug('');
+                        setNewIntegrationSlug('');
+                        setNewToolConfig({});
+                      }}
+                      className={`${THEME.button.ghost} rounded-full px-4`}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Configured Tools List */}
+              {agentTools.length > 0 ? (
+                <div className="space-y-2">
+                  {agentTools.map((tool) => {
+                    const toolDef = availableTools.find((t) => t.slug === tool.tool_slug);
+                    const integrationDef = toolDef?.integrations.find(
+                      (i) => i.slug === tool.integration_slug
+                    );
+                    const isEditing = editingToolSlug === tool.tool_slug;
+                    
+                    return (
+                      <div
+                        key={tool.id}
+                        className={`p-4 rounded-lg border ${
+                          tool.is_enabled
+                            ? 'bg-green-500/10 border-green-500/30'
+                            : 'bg-gray-500/10 border-gray-500/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Wrench
+                              className={`w-5 h-5 ${
+                                tool.is_enabled ? 'text-green-400' : 'text-gray-400'
+                              }`}
+                            />
+                            <div>
+                              <p className={`font-medium ${THEME.text.primary}`}>
+                                {toolDef?.name || tool.tool_slug}
+                              </p>
+                              <p className={`text-sm ${THEME.text.muted}`}>
+                                Integration: {integrationDef?.name || tool.integration_slug}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleStartEditTool(tool)}
+                              className="p-2 text-blue-400 hover:bg-blue-400/10"
+                              title="Configure tool"
+                            >
+                              <Settings className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleTool(tool.tool_slug, tool.is_enabled)}
+                              className={`p-2 ${
+                                tool.is_enabled ? 'text-green-400' : 'text-gray-400'
+                              } hover:bg-white/10`}
+                              title={tool.is_enabled ? 'Disable tool' : 'Enable tool'}
+                            >
+                              {tool.is_enabled ? (
+                                <ToggleRight className="w-5 h-5" />
+                              ) : (
+                                <ToggleLeft className="w-5 h-5" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveTool(tool.tool_slug)}
+                              className="p-2 text-red-400 hover:bg-red-400/10"
+                              title="Remove tool"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Edit Configuration Form */}
+                        {isEditing && integrationDef && (
+                          <div className="mt-4 pt-4 border-t border-white/10 space-y-4">
+                            <h4 className={`text-sm font-medium ${THEME.text.secondary}`}>
+                              Configuration for {integrationDef.name}
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {integrationDef.fields.map((field) => (
+                                <div key={field.name}>
+                                  <Label
+                                    htmlFor={`edit-${field.name}`}
+                                    className={`${THEME.text.secondary} text-sm`}
+                                  >
+                                    {field.label}
+                                    {field.required && (
+                                      <span className="text-red-400 ml-1">*</span>
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id={`edit-${field.name}`}
+                                    type={field.type === 'password' ? 'password' : 'text'}
+                                    value={editToolConfig[field.name] || ''}
+                                    onChange={(e) =>
+                                      setEditToolConfig((prev) => ({
+                                        ...prev,
+                                        [field.name]: e.target.value,
+                                      }))
+                                    }
+                                    placeholder={field.description || `Enter ${field.label}`}
+                                    className={`${THEME.input.base} mt-1`}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => handleSaveToolConfig(tool.tool_slug)}
+                                disabled={savingToolConfig}
+                                className={`${THEME.button.secondary} rounded-full px-4 flex items-center gap-2`}
+                              >
+                                <Check className="w-4 h-4" />
+                                {savingToolConfig ? 'Saving...' : 'Save Config'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={handleCancelEditTool}
+                                className={`${THEME.button.ghost} rounded-full px-4 flex items-center gap-2`}
+                              >
+                                <X className="w-4 h-4" />
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={`text-center py-8 ${THEME.text.muted}`}>
+                  <Wrench className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>No tools configured for this agent yet.</p>
+                  <p className="text-sm mt-1">
+                    Click &quot;Add Tool&quot; to enable function calling capabilities.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tools notice for new agents */}
+          {!agentId && (
+            <div className="space-y-4 pt-6 border-t border-white/10">
+              <h3
+                className={`text-lg font-semibold ${THEME.text.muted} flex items-center gap-2`}
+              >
+                <Wrench className="w-5 h-5" />
+                Tools / Function Calling
+              </h3>
+              <p className={`text-sm ${THEME.text.muted}`}>
+                Save the agent first, then you can configure tools for function calling.
+              </p>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-4 pt-6 border-t border-white/10">
