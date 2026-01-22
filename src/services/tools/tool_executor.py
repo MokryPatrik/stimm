@@ -116,6 +116,8 @@ class ToolExecutor:
         Returns:
             Tool execution result
         """
+        logger.info(f"Executing tool '{tool_name}' with arguments: {arguments}")
+        
         integration = self._get_integration(tool_name)
         if not integration:
             return {
@@ -125,6 +127,7 @@ class ToolExecutor:
 
         try:
             result = await integration.execute(arguments)
+            logger.info(f"Tool '{tool_name}' result: success={result.get('success')}, count={result.get('count', 'N/A')}")
             return result
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {e}")

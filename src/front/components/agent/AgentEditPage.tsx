@@ -23,7 +23,7 @@ import {
   ToolDefinition,
 } from './types';
 import { THEME } from '@/lib/theme';
-import { Bot, Database, ArrowLeft, Save, Wrench, Plus, Trash2, ToggleLeft, ToggleRight, Settings, X, Check } from 'lucide-react';
+import { Bot, Database, ArrowLeft, Save, Wrench, Plus, Trash2, ToggleLeft, ToggleRight, Settings, X, Check, RefreshCw } from 'lucide-react';
 import { config } from '@/lib/frontend-config';
 
 const API_URL = config.browser.stimmApiUrl;
@@ -93,6 +93,16 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
   const [editingToolSlug, setEditingToolSlug] = useState<string | null>(null);
   const [editToolConfig, setEditToolConfig] = useState<Record<string, string>>({});
   const [savingToolConfig, setSavingToolConfig] = useState(false);
+
+  // RAG sync state
+  const [syncStatus, setSyncStatus] = useState<Record<string, {
+    rag_sync_enabled: boolean;
+    last_sync_at: string | null;
+    last_sync_count: number;
+    sync_interval_hours: number;
+    next_sync_at: string | null;
+  }>>({});
+  const [syncingTools, setSyncingTools] = useState<Set<string>>(new Set());
 
   const loadProviders = useCallback(async () => {
     try {
@@ -196,10 +206,72 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
       }
       const data: AgentTool[] = await response.json();
       setAgentTools(data);
+      
+      // Load sync status for each tool
+      for (const tool of data) {
+        loadToolSyncStatus(tool.tool_slug);
+      }
     } catch (err) {
       console.error('Failed to load agent tools:', err);
     }
   }, [agentId]);
+
+  // Load sync status for a specific tool
+  const loadToolSyncStatus = useCallback(async (toolSlug: string) => {
+    if (!agentId) return;
+    try {
+      const response = await fetch(
+        `${API_URL}/api/agents/${agentId}/tools/${toolSlug}/sync/status`
+      );
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      setSyncStatus((prev) => ({
+        ...prev,
+        [toolSlug]: data,
+      }));
+    } catch (err) {
+      console.error(`Failed to load sync status for ${toolSlug}:`, err);
+    }
+  }, [agentId]);
+
+  // Trigger sync for a tool
+  const handleTriggerSync = async (toolSlug: string) => {
+    if (!agentId) return;
+    
+    try {
+      setSyncingTools((prev) => new Set(prev).add(toolSlug));
+      
+      const response = await fetch(
+        `${API_URL}/api/agents/${agentId}/tools/${toolSlug}/sync?force=true`,
+        { method: 'POST' }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to trigger sync');
+      }
+      
+      // Poll for sync completion
+      const pollStatus = async () => {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await loadToolSyncStatus(toolSlug);
+        await loadAgentTools(); // Refresh to get updated config
+      };
+      
+      // Start polling
+      pollStatus();
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to trigger sync');
+    } finally {
+      setSyncingTools((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(toolSlug);
+        return newSet;
+      });
+    }
+  };
 
   // Add tool to agent
   const handleAddTool = async () => {
@@ -1059,6 +1131,51 @@ export function AgentEditPage({ agentId }: AgentEditPageProps) {
                               >
                                 <X className="w-4 h-4" />
                                 Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* RAG Sync Status - Show for product_search tool when use_as_rag is enabled */}
+                        {tool.tool_slug === 'product_search' && 
+                         tool.integration_config?.use_as_rag && (
+                          <div className="mt-4 pt-4 border-t border-white/10">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className={`text-sm font-medium ${THEME.text.secondary}`}>
+                                  RAG Sync Status
+                                </p>
+                                {syncStatus[tool.tool_slug]?.last_sync_at ? (
+                                  <div className={`text-xs ${THEME.text.muted} mt-1`}>
+                                    <p>
+                                      Last sync: {new Date(syncStatus[tool.tool_slug].last_sync_at!).toLocaleString()}
+                                    </p>
+                                    <p>
+                                      Products synced: {syncStatus[tool.tool_slug].last_sync_count}
+                                    </p>
+                                    {syncStatus[tool.tool_slug].next_sync_at && (
+                                      <p>
+                                        Next auto-sync: {new Date(syncStatus[tool.tool_slug].next_sync_at!).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className={`text-xs ${THEME.text.muted} mt-1`}>
+                                    Never synced - click Sync Now to import products to RAG
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                onClick={() => handleTriggerSync(tool.tool_slug)}
+                                disabled={syncingTools.has(tool.tool_slug)}
+                                className={`${THEME.button.ghost} rounded-full px-4 flex items-center gap-2`}
+                              >
+                                <RefreshCw 
+                                  className={`w-4 h-4 ${
+                                    syncingTools.has(tool.tool_slug) ? 'animate-spin' : ''
+                                  }`} 
+                                />
+                                {syncingTools.has(tool.tool_slug) ? 'Syncing...' : 'Sync Now'}
                               </Button>
                             </div>
                           </div>

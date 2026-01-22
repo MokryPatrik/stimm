@@ -9,12 +9,14 @@ This module provides FastAPI routes for managing agent tools, including:
 
 import logging
 from typing import Any, Dict, List
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database.session import get_db
 from services.tools import get_tool_registry
+from services.tools.product_rag_sync import get_product_rag_sync_service
 
 from .agent_service import AgentService
 from .exceptions import AgentNotFoundError, AgentValidationError
@@ -326,3 +328,123 @@ async def disable_agent_tool(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to disable tool"
         )
+
+
+# ==================== RAG Sync Routes ====================
+
+
+@router.post("/agents/{agent_id}/tools/{tool_slug}/sync")
+async def trigger_tool_sync(
+    agent_id: str,
+    tool_slug: str,
+    background_tasks: BackgroundTasks,
+    force: bool = False,
+    db: Session = Depends(get_db),
+):
+    """
+    Trigger a manual sync of products to RAG for a tool.
+    
+    This endpoint starts the sync in the background and returns immediately.
+    Use the /sync/status endpoint to check progress.
+    
+    Args:
+        agent_id: Agent ID
+        tool_slug: Tool slug (e.g., "product_search")
+        force: Force sync even if recently synced
+    """
+    agent_service = AgentService(db)
+    
+    # Verify agent exists
+    try:
+        agent_service.get_agent(agent_id)
+    except AgentNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent with ID {agent_id} not found"
+        )
+    
+    # Verify tool exists and has RAG enabled
+    tools = agent_service.get_agent_tools(agent_id)
+    tool = next((t for t in tools if t["tool_slug"] == tool_slug), None)
+    
+    if not tool:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tool {tool_slug} not found for agent"
+        )
+    
+    config = tool.get("integration_config", {})
+    if not config.get("use_as_rag"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="RAG sync is not enabled for this tool. Enable 'use_as_rag' in tool configuration first."
+        )
+    
+    # Start sync in background
+    sync_service = get_product_rag_sync_service()
+    
+    async def run_sync():
+        try:
+            result = await sync_service.sync_products_for_agent(
+                agent_id=UUID(agent_id),
+                tool_slug=tool_slug,
+                force=force,
+            )
+            logger.info(f"Sync completed for agent {agent_id}: {result}")
+        except Exception as e:
+            logger.error(f"Sync failed for agent {agent_id}: {e}")
+    
+    background_tasks.add_task(run_sync)
+    
+    return {
+        "status": "started",
+        "message": f"Sync started for {tool_slug}. Check /sync/status for progress.",
+        "agent_id": agent_id,
+        "tool_slug": tool_slug,
+    }
+
+
+@router.get("/agents/{agent_id}/tools/{tool_slug}/sync/status")
+async def get_tool_sync_status(
+    agent_id: str,
+    tool_slug: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get the sync status for a tool.
+    
+    Returns information about the last sync, including:
+    - Last sync timestamp
+    - Number of products synced
+    - Products in database vs indexed in RAG
+    - Next scheduled sync time
+    """
+    agent_service = AgentService(db)
+    
+    # Verify agent exists
+    try:
+        agent_service.get_agent(agent_id)
+    except AgentNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent with ID {agent_id} not found"
+        )
+    
+    # Get tool configuration
+    tools = agent_service.get_agent_tools(agent_id)
+    tool = next((t for t in tools if t["tool_slug"] == tool_slug), None)
+    
+    if not tool:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tool {tool_slug} not found for agent"
+        )
+    
+    # Get detailed sync status from the service
+    sync_service = get_product_rag_sync_service()
+    status_data = sync_service.get_sync_status(
+        agent_id=UUID(agent_id),
+        tool_slug=tool_slug,
+    )
+    
+    return status_data

@@ -11,6 +11,7 @@ from .providers import (
     create_groq_provider,
     create_llama_cpp_provider,
     create_mistral_provider,
+    create_openai_provider,
     create_openrouter_provider,
 )
 
@@ -63,7 +64,9 @@ class LLMService:
         logger.debug(f"🔍 LLM provider config for {provider_name}: {provider_config}")
 
         # Initialize provider - mapping is now handled within each provider
-        if provider_name == "groq.com":
+        if provider_name == "openai.com":
+            return create_openai_provider(provider_config)
+        elif provider_name == "groq.com":
             return create_groq_provider(provider_config)
         elif provider_name == "mistral.ai":
             return create_mistral_provider(provider_config)

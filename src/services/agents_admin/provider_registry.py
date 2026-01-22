@@ -32,6 +32,7 @@ class ProviderRegistry:
     # Provider name to class name mapping
     PROVIDER_CLASSES = {
         "llm": {
+            "openai.com": "openai.OpenAIProvider",
             "groq.com": "groq.GroqProvider",
             "mistral.ai": "mistral.MistralProvider",
             "openrouter.ai": "openrouter.OpenRouterProvider",
@@ -47,6 +48,7 @@ class ProviderRegistry:
         "stt": {
             "deepgram.com": "deepgram.DeepgramProvider",
             "gladia.io": "gladia.GladiaProvider",
+            "google.cloud": "google.GoogleSTTProvider",
             "whisper.local": "whisper_local.WhisperLocalProvider",
         },
         "rag": {

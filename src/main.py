@@ -119,6 +119,37 @@ async def startup_event():
         # Note: Stimm services are now initialized per-session in LiveKit service
         # to avoid concurrency issues with providers like Deepgram
 
+        # Start Product RAG Sync scheduler
+        try:
+            from services.tools.product_rag_sync import get_product_rag_sync_service
+
+            sync_service = get_product_rag_sync_service()
+
+            async def product_sync_scheduler():
+                """Background task that runs product sync for all agents periodically."""
+                # Wait 5 minutes after startup before first run
+                await asyncio.sleep(5 * 60)
+                
+                while True:
+                    try:
+                        logger.info("Running scheduled product RAG sync for all agents...")
+                        result = await sync_service.sync_all_agents()
+                        agents_processed = result.get("agents_processed", 0)
+                        logger.info(f"Product RAG sync completed: {agents_processed} agents processed")
+                    except Exception as e:
+                        logger.error(f"Product RAG sync scheduler error: {e}")
+                    
+                    # Run every hour (sync service respects individual agent intervals)
+                    await asyncio.sleep(60 * 60)
+
+            asyncio.create_task(product_sync_scheduler())
+            logger.info("✅ Product RAG Sync scheduler started (runs hourly)")
+
+        except ImportError as e:
+            logger.warning(f"Product RAG Sync service not available: {e}")
+        except Exception as e:
+            logger.error(f"Failed to start Product RAG Sync scheduler: {e}")
+
     except Exception as e:
         logger.error(f"Failed to start startup procedures: {e}")
 

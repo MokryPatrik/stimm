@@ -73,10 +73,14 @@ class ChatbotService:
         call_context: Dict[str, Any] = None,
     ):
         """
-        Process a chat message with RAG context and return a streaming response.
+        Process a chat message and return a streaming response.
         
-        Supports tool/function calling: if the LLM decides to call a tool,
-        this method executes the tool and continues the conversation with results.
+        Flow:
+        1. Get conversation history
+        2. Retrieve RAG context based on the full conversation
+        3. Send system prompt + RAG context + full conversation to LLM
+        4. Handle tool calls if needed
+        5. Stream response back
 
         Args:
             message: User message
@@ -84,9 +88,7 @@ class ChatbotService:
             rag_state: RAG state instance
             agent_id: Optional agent ID for provider configuration
             session_id: Optional session ID for tracking
-            call_context: Optional call context for voice calls, may contain:
-                - caller_phone: Caller's phone number (for SIP calls)
-                - caller_id: Caller identity
+            call_context: Optional call context for voice calls
 
         Yields:
             Dict with response data
@@ -95,7 +97,6 @@ class ChatbotService:
         processing_start = time.time()
         rag_time = 0
         contexts = []
-        context_text = ""
 
         try:
             # Create LLM service with agent configuration
@@ -114,121 +115,75 @@ class ChatbotService:
                     if agent_tools:
                         self._tool_executor = get_tool_executor(agent_tools)
                         tools_for_llm = self._tool_executor.get_tools_for_llm()
-                        LOGGER.info(f"Loaded {len(tools_for_llm)} tools for agent {agent_id}: {[t['function']['name'] for t in tools_for_llm]}")
+                        LOGGER.info(f"Loaded {len(tools_for_llm)} tools for agent {agent_id}")
                 except Exception as e:
                     LOGGER.warning(f"Failed to load agent tools: {e}")
 
-            # Check if RAG retrieval should be skipped (no RAG config)
-            if rag_state.skip_retrieval:
-                LOGGER.info("RAG retrieval skipped (no RAG configuration)")
-                # Still add user message to conversation for history
-                async with rag_state.lock:
-                    await rag_state.ensure_ready()
-                    user_message = {
-                        "role": "user",
-                        "content": message,
-                        "metadata": {},
-                        "created_at": time.time(),
-                    }
-                    await _touch_conversation(rag_state, conversation_id, user_message)
-            # Check if RAG state is properly initialized
-            elif rag_state.client is None or rag_state.embedder is None:
-                LOGGER.warning("RAG state not fully initialized - falling back to basic LLM response")
-                yield {
-                    "type": "chunk",
-                    "content": "⚠️ RAG system is not available. ",
-                    "conversation_id": conversation_id,
+            # Add user message to conversation history
+            async with rag_state.lock:
+                await rag_state.ensure_ready()
+                user_message = {
+                    "role": "user",
+                    "content": message,
+                    "metadata": {},
+                    "created_at": time.time(),
                 }
-                yield {
-                    "type": "chunk",
-                    "content": "I'll answer your question without access to the knowledge base: ",
-                    "conversation_id": conversation_id,
-                }
-            else:
-                # Step 1: Retrieve relevant contexts using RAG
+                await _touch_conversation(rag_state, conversation_id, user_message)
+
+            # Get conversation history for RAG query building
+            conversation_messages = []
+            if conversation_id in rag_state.conversations:
+                conv_entry = rag_state.conversations[conversation_id]
+                conversation_messages = conv_entry.messages.copy()
+
+            # Build RAG search query from recent conversation context
+            # Use last few messages to understand what user is looking for
+            rag_query = self._build_rag_query(conversation_messages)
+            LOGGER.info(f"RAG query: {rag_query[:150]}...")
+
+            # Retrieve RAG context if available
+            context_text = ""
+            if not rag_state.skip_retrieval and rag_state.retrieval_engine is not None:
                 rag_start = time.time()
                 async with rag_state.lock:
-                    await rag_state.ensure_ready()
-
-                    # Add user message to conversation
-                    user_message = {
-                        "role": "user",
-                        "content": message,
-                        "metadata": {},
-                        "created_at": time.time(),
-                    }
-                    await _touch_conversation(rag_state, conversation_id, user_message)
-
-                    # Always use ultra-low latency retrieval for stimm
-                    LOGGER.info("Using ultra-low latency retrieval mode")
-                    if rag_state.retrieval_engine is not None:
-                        # Use per‑agent retrieval engine (respects RAG config collection)
-                        # We use cache=True to avoid repeated latency
-                        contexts = await rag_state.retrieval_engine.retrieve_contexts(
-                            text=message,
-                            namespace=None,
-                            use_cache=True,
-                        )
-                        LOGGER.info(f"Using retrieval engine with collection: {rag_state.retrieval_engine.collection_name}")
-                    else:
-                        # No retrieval engine - this means agent has no RAG config
-                        # This should have been caught by skip_retrieval flag, but handle gracefully
-                        LOGGER.warning("No retrieval engine available and skip_retrieval not set - skipping retrieval")
-
+                    contexts = await rag_state.retrieval_engine.retrieve_contexts(
+                        text=rag_query,
+                        namespace=None,
+                        use_cache=True,
+                    )
                 rag_time = time.time() - rag_start
-                LOGGER.info(f"RAG retrieval completed in {rag_time:.3f}s (ultra-low latency mode)")
-                LOGGER.info(f"Retrieved {len(contexts)} context chunks")
-                for i, ctx in enumerate(contexts):
-                    LOGGER.info(f"Context {i + 1}: {ctx.text[:100]}...")
-
-                # Step 2: Build the prompt with retrieved contexts
+                LOGGER.info(f"RAG retrieval: {len(contexts)} contexts in {rag_time:.3f}s")
                 context_text = "\n\n".join([ctx.text for ctx in contexts])
 
-            # Step 3: Build conversation history for context
-            conversation_history = ""
-            if rag_state and conversation_id in rag_state.conversations:
-                conv_entry = rag_state.conversations[conversation_id]
-                # Get recent messages (excluding current one being processed)
-                recent_messages = conv_entry.messages[:-1] if conv_entry.messages else []
-                if recent_messages:
-                    conversation_history = "\n\nHistorique de la conversation:\n"
-                    for msg in recent_messages[-4:]:  # Last 4 messages for context
-                        role = msg.get("role", "unknown")
-                        content = msg.get("content", "")
-                        if role == "user":
-                            conversation_history += f"Client: {content}\n"
-                        elif role == "assistant":
-                            conversation_history += f"Assistant: {content}\n"
-
-            # Step 4: Build the prompt using the configured system prompt
-            # Use the agent's system prompt if available, otherwise fallback to the hardcoded French prompt
+            # Build system prompt
             if self.llm_service.agent_config and self.llm_service.agent_config.system_prompt:
-                base_system_prompt = self.llm_service.agent_config.system_prompt
+                system_prompt = self.llm_service.agent_config.system_prompt
             else:
-                base_system_prompt = rag_config.get_system_prompt()
+                system_prompt = rag_config.get_system_prompt()
 
-            # Add call context information if available (e.g., caller's phone for voice calls)
-            call_context_text = ""
-            if call_context:
-                caller_phone = call_context.get("caller_phone")
-                if caller_phone:
-                    call_context_text = f"\n\n## Call Context\nThe caller's phone number is: {caller_phone}\nWhen looking up orders, you can use this phone number for verification automatically without asking the caller."
-
-            # Build the complete prompt with system instructions, conversation history, and user message
+            # Add RAG context to system prompt if available
             if context_text:
-                # Include context and conversation history in the system prompt for RAG
-                enhanced_system_prompt = f"{base_system_prompt}{call_context_text}\n\nContexte fourni:\n{context_text}{conversation_history}\n\nQuestion actuelle de l'utilisateur: {message}"
-            else:
-                # No context available, use base system prompt with conversation history and user message
-                enhanced_system_prompt = f"{base_system_prompt}{call_context_text}{conversation_history}\n\nQuestion actuelle de l'utilisateur: {message}"
+                system_prompt = f"{system_prompt}\n\n## Product Catalog (use this to answer product questions):\nThe following products match the customer's query. Use this information to recommend products, compare options, and answer questions about prices and specifications. Do NOT call the product_stock tool unless customer specifically asks about stock availability.\n\n{context_text}"
 
-            # Step 5: Build messages for multi-turn conversation with tools
+            # Add call context if available (for voice calls)
+            if call_context and call_context.get("caller_phone"):
+                system_prompt += f"\n\n## Call Context\nCaller phone: {call_context['caller_phone']}"
+
+            # Build messages array for LLM (OpenAI chat format)
             messages: List[Dict[str, Any]] = [
-                {"role": "system", "content": enhanced_system_prompt},
-                {"role": "user", "content": message},
+                {"role": "system", "content": system_prompt}
             ]
+            
+            # Add conversation history (last N messages)
+            for msg in conversation_messages[-10:]:  # Last 10 messages
+                role = msg.get("role")
+                content = msg.get("content", "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
 
-            # Step 6: Stream the LLM response with tool calling support
+            LOGGER.info(f"Sending {len(messages)} messages to LLM (1 system + {len(messages)-1} conversation)")
+
+            # Stream the LLM response with tool calling support
             full_response = ""
             first_token_sent = False
             llm_start = time.time()
@@ -240,9 +195,9 @@ class ChatbotService:
                 response_text = ""
 
                 async for chunk in self.llm_service.generate_stream(
-                    enhanced_system_prompt,
+                    prompt="",  # Not used when messages are provided
+                    messages=messages,
                     tools=tools_for_llm if tools_for_llm else None,
-                    messages=messages if tool_round > 1 else None,  # Use messages for subsequent rounds
                 ):
                     # Check if this is a tool call response
                     if isinstance(chunk, dict) and chunk.get("type") == "tool_calls":
@@ -259,7 +214,6 @@ class ChatbotService:
                         if not first_token_sent:
                             first_token_sent = True
                             first_token_time = time.time() - processing_start
-                            LOGGER.info(f"First token received in {first_token_time:.3f}s")
                             yield {
                                 "type": "first_token",
                                 "content": chunk,
@@ -273,53 +227,45 @@ class ChatbotService:
                         else:
                             yield {"type": "chunk", "content": chunk, "conversation_id": conversation_id}
 
-                # If no tool calls, we're done with the LLM loop
+                # If no tool calls, we're done
                 if not accumulated_tool_calls:
                     break
 
                 # Execute tool calls
                 if self._tool_executor and accumulated_tool_calls:
-                    LOGGER.info(f"Executing {len(accumulated_tool_calls)} tool calls (round {tool_round})")
+                    LOGGER.info(f"Executing {len(accumulated_tool_calls)} tool calls")
                     
-                    # Yield tool execution status to client
                     yield {
                         "type": "tool_execution",
                         "conversation_id": conversation_id,
                         "tools": [tc.get("function", {}).get("name") for tc in accumulated_tool_calls],
                     }
 
-                    # Execute tools and get results
                     tool_results = await self._tool_executor.execute_tool_calls(accumulated_tool_calls)
-                    LOGGER.info(f"Tool results: {tool_results}")
 
-                    # Add assistant message with tool calls to messages
+                    # Add assistant message with tool calls
                     messages.append({
                         "role": "assistant",
                         "content": response_text if response_text else None,
                         "tool_calls": accumulated_tool_calls,
                     })
 
-                    # Add tool results to messages
+                    # Add tool results
                     for result in tool_results:
                         messages.append(result)
-
-                    # Continue the loop to get LLM's response with tool results
-                    continue
 
             llm_time = time.time() - llm_start
             total_time = time.time() - processing_start
 
-            # Step 7: Add assistant response to conversation
-            if rag_state and rag_state.client and rag_state.embedder:
-                async with rag_state.lock:
-                    await rag_state.ensure_ready()
-                    assistant_message = {
-                        "role": "assistant",
-                        "content": full_response,
-                        "metadata": {"contexts_used": [ctx.metadata.get("doc_id", str(i)) for i, ctx in enumerate(contexts)]},
-                        "created_at": time.time(),
-                    }
-                    await _touch_conversation(rag_state, conversation_id, assistant_message)
+            # Save assistant response to conversation
+            async with rag_state.lock:
+                assistant_message = {
+                    "role": "assistant",
+                    "content": full_response,
+                    "metadata": {},
+                    "created_at": time.time(),
+                }
+                await _touch_conversation(rag_state, conversation_id, assistant_message)
 
             yield {
                 "type": "complete",
@@ -331,10 +277,10 @@ class ChatbotService:
                 },
             }
 
-            LOGGER.info(f"Total processing time: {total_time:.3f}s (RAG: {rag_time:.3f}s, LLM: {llm_time:.3f}s)")
+            LOGGER.info(f"Total: {total_time:.3f}s (RAG: {rag_time:.3f}s, LLM: {llm_time:.3f}s)")
 
         except Exception as e:
-            LOGGER.error(f"Error in chat message processing: {e}")
+            LOGGER.error(f"Error in chat processing: {e}", exc_info=True)
             yield {"type": "error", "content": str(e)}
         finally:
             if self.llm_service:
@@ -342,6 +288,34 @@ class ChatbotService:
             if self._tool_executor:
                 await self._tool_executor.close()
                 self._tool_executor = None
+
+    def _build_rag_query(self, conversation_messages: List[Dict[str, Any]]) -> str:
+        """
+        Build a RAG search query from conversation history.
+        
+        Takes recent user messages and combines them to understand
+        what products/topics the user is interested in.
+        """
+        if not conversation_messages:
+            return ""
+        
+        # Get last few user messages to build context
+        user_messages = [
+            msg.get("content", "") 
+            for msg in conversation_messages[-6:]  # Last 6 messages
+            if msg.get("role") == "user" and msg.get("content")
+        ]
+        
+        if not user_messages:
+            return ""
+        
+        # Combine recent user messages for better RAG retrieval
+        # The most recent message is most important
+        if len(user_messages) == 1:
+            return user_messages[0]
+        
+        # Combine last 2-3 user messages
+        return " ".join(user_messages[-3:])
 
 
 # Global chatbot service instance

@@ -490,6 +490,7 @@ class RagConfigService:
             # Map provider config to RetrievalEngine parameters
             collection_name = config.get("collection_name")
             embed_model_name = config.get("embedding_model")
+            openai_api_key = config.get("openai_api_key")  # For OpenAI embeddings
             top_k = config.get("top_k")
             enable_reranker = config.get("enable_reranker")
             ultra_low_latency = config.get("ultra_low_latency", True)
@@ -506,6 +507,7 @@ class RagConfigService:
             engine = RetrievalEngine(
                 collection_name=collection_name,
                 embed_model_name=embed_model_name,
+                openai_api_key=openai_api_key,
                 top_k=top_k,
                 enable_reranker=enable_reranker,
                 ultra_low_latency_mode=ultra_low_latency,

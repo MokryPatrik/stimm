@@ -135,7 +135,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat/message")
-async def chat_message(request: ChatRequest, rag_state: RagState = Depends(get_rag_state)):
+async def chat_message(request: ChatRequest):
     """
     Process a chat message with RAG context and stream the response
     """
@@ -143,8 +143,19 @@ async def chat_message(request: ChatRequest, rag_state: RagState = Depends(get_r
         LOGGER.info(f"Received chat message: {request.message}, conversation_id: {request.conversation_id}, agent_id: {request.agent_id}")
         conversation_id = request.conversation_id or str(uuid.uuid4())
 
+        # Get agent-specific RAG state if agent_id is provided
+        # This ensures the retrieval_engine is configured for the agent's RAG config
+        from .rag_preloader import rag_preloader
+
+        if request.agent_id:
+            LOGGER.info(f"Getting agent-specific RAG state for agent {request.agent_id}")
+            agent_rag_state = await rag_preloader.get_rag_state_for_agent(agent_id=request.agent_id)
+        else:
+            # Fallback to global RAG state
+            agent_rag_state = await initialize_rag_state()
+
         async def generate_response():
-            async for chunk_data in chatbot_service.process_chat_message(request.message, conversation_id, rag_state, request.agent_id, request.session_id):
+            async for chunk_data in chatbot_service.process_chat_message(request.message, conversation_id, agent_rag_state, request.agent_id, request.session_id):
                 yield f"data: {json.dumps(chunk_data)}\n\n"
 
         return StreamingResponse(

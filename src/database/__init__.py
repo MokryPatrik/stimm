@@ -2,10 +2,10 @@
 Database package for stimm application.
 """
 
-from .models import Agent, AgentSession, AgentTool, Base, Document, RagConfig, User
+from .models import Agent, AgentSession, AgentTool, Base, Document, Product, RagConfig, User
 from .session import get_db, get_engine
 
 # For backward compatibility, provide engine as a property
 engine = get_engine()
 
-__all__ = ["get_db", "engine", "Base", "User", "Agent", "AgentSession", "RagConfig", "Document", "AgentTool"]
+__all__ = ["get_db", "engine", "Base", "User", "Agent", "AgentSession", "RagConfig", "Document", "AgentTool", "Product"]

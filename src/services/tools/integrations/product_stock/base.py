@@ -1,8 +1,8 @@
 """
-Base Product Search Integration
+Base Product Stock Integration
 
-Abstract base class for product search integrations.
-All product search integrations (WordPress, Shopify, etc.) must inherit from this class.
+Abstract base class for product stock/availability integrations.
+All product stock integrations (WordPress, Shopify, etc.) must inherit from this class.
 """
 
 from abc import ABC, abstractmethod
@@ -13,47 +13,70 @@ import aiohttp
 
 
 @dataclass
-class ProductSearchResult:
-    """Standardized product search result."""
+class ProductStockResult:
+    """Standardized product stock result."""
+
+    id: str
+    name: str
+    in_stock: bool
+    stock_quantity: Optional[int] = None
+    availability: Optional[str] = None  # e.g., "In stock", "Low stock (3 left)", "Out of stock"
+    backorders_allowed: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for LLM response."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "in_stock": self.in_stock,
+            "stock_quantity": self.stock_quantity,
+            "availability": self.availability or ("In stock" if self.in_stock else "Out of stock"),
+            "backorders_allowed": self.backorders_allowed,
+        }
+
+
+@dataclass
+class ProductSyncResult:
+    """
+    Standardized product result for sync/RAG indexing.
+    
+    This contains all product information needed for database storage
+    and RAG embedding (not just stock info).
+    """
 
     id: str
     name: str
     description: Optional[str] = None
     price: Optional[float] = None
     currency: Optional[str] = None
-    in_stock: Optional[bool] = None
+    category: Optional[str] = None
     url: Optional[str] = None
     image_url: Optional[str] = None
-    category: Optional[str] = None
+    in_stock: bool = True
     extra_data: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for LLM response."""
-        result = {
+        """Convert to dictionary."""
+        return {
             "id": self.id,
             "name": self.name,
+            "description": self.description,
+            "price": self.price,
+            "currency": self.currency,
+            "category": self.category,
+            "url": self.url,
+            "image_url": self.image_url,
+            "in_stock": self.in_stock,
+            "extra_data": self.extra_data,
         }
-        if self.description:
-            result["description"] = self.description
-        if self.price is not None:
-            result["price"] = self.price
-        if self.currency:
-            result["currency"] = self.currency
-        if self.in_stock is not None:
-            result["in_stock"] = self.in_stock
-        if self.url:
-            result["url"] = self.url
-        if self.category:
-            result["category"] = self.category
-        return result
 
 
-class BaseProductSearchIntegration(ABC):
+class BaseProductStockIntegration(ABC):
     """
-    Abstract base class for product search integrations.
+    Abstract base class for product stock integrations.
 
-    All product search integrations must implement:
-    - search(): Execute a product search
+    All product stock integrations must implement:
+    - check_stock(): Check stock for a product
     - get_expected_properties(): Return list of required config properties
     - get_field_definitions(): Return field metadata for UI
     """
@@ -81,24 +104,20 @@ class BaseProductSearchIntegration(ABC):
             self._session = None
 
     @abstractmethod
-    async def search(
+    async def check_stock(
         self,
-        query: str,
-        category: Optional[str] = None,
-        max_results: int = 5,
-        **kwargs,
-    ) -> List[ProductSearchResult]:
+        product_name: str,
+        product_id: Optional[str] = None,
+    ) -> List[ProductStockResult]:
         """
-        Search for products.
+        Check stock for a product.
 
         Args:
-            query: Search query string
-            category: Optional category filter
-            max_results: Maximum number of results to return
-            **kwargs: Additional integration-specific parameters
+            product_name: Product name to search for
+            product_id: Optional product ID for direct lookup
 
         Returns:
-            List of ProductSearchResult objects
+            List of ProductStockResult objects
         """
         pass
 
@@ -149,12 +168,20 @@ class BaseProductSearchIntegration(ABC):
         """
         self._validate_config()
 
-        query = parameters.get("query", "")
-        category = parameters.get("category")
-        max_results = parameters.get("max_results", 5)
+        product_name = parameters.get("product_name", "")
+        product_id = parameters.get("product_id")
 
         try:
-            results = await self.search(query, category, max_results)
+            results = await self.check_stock(product_name, product_id)
+            
+            if not results:
+                return {
+                    "success": True,
+                    "message": f"No products found matching '{product_name}'",
+                    "results": [],
+                    "count": 0,
+                }
+            
             return {
                 "success": True,
                 "results": [r.to_dict() for r in results],

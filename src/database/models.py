@@ -203,6 +203,143 @@ class Document(Base):
         }
 
 
+class Product(Base):
+    """
+    Product model for caching products from e-commerce integrations.
+    
+    Products are synced from external sources (WooCommerce, Shopify, etc.)
+    and stored locally. The RAG manager then embeds only products that have
+    changed (based on updated_at and content_hash).
+    """
+
+    __tablename__ = "products"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Link to agent tool (which integration this product came from)
+    agent_tool_id = Column(UUID(as_uuid=True), ForeignKey("agent_tools.id", ondelete="CASCADE"), nullable=False)
+    
+    # External product ID from the source system
+    external_id = Column(String(255), nullable=False)
+    
+    # Product data
+    name = Column(String(500), nullable=False)
+    description = Column(Text)
+    long_description = Column(Text)
+    price = Column(String(50))  # Store as string to preserve formatting
+    currency = Column(String(10))
+    category = Column(String(255))
+    sku = Column(String(100))
+    url = Column(Text)
+    image_url = Column(Text)
+    in_stock = Column(Boolean, default=True)
+    
+    # Additional data as JSON (attributes, variations, etc.)
+    extra_data = Column(JSONB, default=dict)
+    
+    # Hash of content for change detection
+    content_hash = Column(String(64), nullable=False)
+    
+    # RAG embedding status
+    rag_indexed = Column(Boolean, default=False)
+    rag_indexed_at = Column(DateTime(timezone=True), nullable=True)
+    qdrant_point_id = Column(String(100), nullable=True)  # UUID of point in Qdrant
+    
+    # Timestamps from source system
+    source_created_at = Column(DateTime(timezone=True), nullable=True)
+    source_updated_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Local timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_products_agent_tool_id", "agent_tool_id"),
+        Index("idx_products_external_id", "agent_tool_id", "external_id", unique=True),
+        Index("idx_products_rag_indexed", "rag_indexed"),
+        Index("idx_products_content_hash", "content_hash"),
+        Index("idx_products_updated_at", "updated_at"),
+    )
+
+    def __repr__(self):
+        return f"<Product(id={self.id}, external_id='{self.external_id}', name='{self.name[:30]}...')>"
+
+    def to_dict(self):
+        """Convert product to dictionary for API responses."""
+        return {
+            "id": str(self.id),
+            "agent_tool_id": str(self.agent_tool_id),
+            "external_id": self.external_id,
+            "name": self.name,
+            "description": self.description,
+            "long_description": self.long_description,
+            "price": self.price,
+            "currency": self.currency,
+            "category": self.category,
+            "sku": self.sku,
+            "url": self.url,
+            "image_url": self.image_url,
+            "in_stock": self.in_stock,
+            "extra_data": self.extra_data,
+            "content_hash": self.content_hash,
+            "rag_indexed": self.rag_indexed,
+            "rag_indexed_at": self.rag_indexed_at.isoformat() if self.rag_indexed_at else None,
+            "source_created_at": self.source_created_at.isoformat() if self.source_created_at else None,
+            "source_updated_at": self.source_updated_at.isoformat() if self.source_updated_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def to_rag_text(self) -> str:
+        """
+        Convert product to rich text for RAG embedding.
+        
+        NOTE: Stock information is intentionally excluded because it changes
+        in real-time. Use the product_stock tool for live stock queries.
+        """
+        parts = [f"Product: {self.name}"]
+        
+        if self.description:
+            parts.append(f"Description: {self.description}")
+        
+        if self.long_description:
+            parts.append(f"Details: {self.long_description}")
+        
+        if self.category:
+            parts.append(f"Category: {self.category}")
+        
+        if self.price:
+            price_str = f"Price: {self.price}"
+            if self.currency:
+                price_str += f" {self.currency}"
+            parts.append(price_str)
+        
+        # NOTE: Stock information (in_stock) is NOT included here because it's
+        # dynamic and should be queried via the product_stock tool in real-time.
+        
+        if self.sku:
+            parts.append(f"SKU: {self.sku}")
+        
+        # Add attributes from extra_data
+        if self.extra_data:
+            if self.extra_data.get("on_sale"):
+                regular_price = self.extra_data.get("regular_price")
+                if regular_price:
+                    parts.append(f"Regular Price: {regular_price} {self.currency or ''}")
+                    parts.append("This product is currently on sale!")
+            
+            for attr in self.extra_data.get("attributes", []):
+                attr_name = attr.get("name", "")
+                attr_options = attr.get("options", [])
+                if attr_name and attr_options:
+                    parts.append(f"{attr_name}: {', '.join(attr_options)}")
+        
+        if self.url:
+            parts.append(f"URL: {self.url}")
+        
+        return "\n".join(parts)
+
+
 class AgentTool(Base):
     """
     Agent-Tool association model linking agents to tools with specific integrations.

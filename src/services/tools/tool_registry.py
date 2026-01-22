@@ -22,7 +22,7 @@ class ToolRegistry:
 
     # Tool slug to module mapping
     TOOL_MODULES = {
-        "product_search": "services.tools.integrations.product_search",
+        "product_stock": "services.tools.integrations.product_stock",
         "order_lookup": "services.tools.integrations.order_lookup",
         "calendar": "services.tools.integrations.calendar",
         "custom_api": "services.tools.integrations.custom_api",
@@ -30,49 +30,28 @@ class ToolRegistry:
 
     # Integration slug to class name mapping for each tool
     INTEGRATION_CLASSES = {
-        "product_search": {
-            "wordpress": "wordpress.WordPressProductSearch",
-            "shopify": "shopify.ShopifyProductSearch",
-            "woocommerce": "woocommerce.WooCommerceProductSearch",
-            "custom_api": "custom_api.CustomAPIProductSearch",
+        "product_stock": {
+            "wordpress": "wordpress.WordPressProductStock",
         },
         "order_lookup": {
-            "shopify": "shopify.ShopifyOrderLookup",
             "woocommerce": "woocommerce.WooCommerceOrderLookup",
-        },
-        "calendar": {
-            "google_calendar": "google_calendar.GoogleCalendarIntegration",
-            "outlook": "outlook.OutlookCalendarIntegration",
-        },
-        "custom_api": {
-            "rest": "rest.RestAPIIntegration",
-            "graphql": "graphql.GraphQLIntegration",
         },
     }
 
     # Tool definitions with OpenAI function calling schema format
     TOOL_DEFINITIONS = {
-        "product_search": {
-            "name": "product_search",
-            "description": "Search for products in the catalog by name, category, or other attributes. Use this when the user asks about products, availability, or prices.",
+        "product_stock": {
+            "name": "product_stock",
+            "description": "Check real-time stock quantity for a specific product. ONLY call this tool when customer explicitly asks about STOCK or AVAILABILITY (e.g. 'is it in stock?', 'do you have it?', 'how many do you have?'). DO NOT use this tool for: finding products, recommendations, prices, specs, or any other product questions - that information is already in your context.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {
+                    "product_id": {
                         "type": "string",
-                        "description": "Search query to find products (product name, keywords, or description)"
-                    },
-                    "category": {
-                        "type": "string",
-                        "description": "Optional category to filter products"
-                    },
-                    "max_results": {
-                        "type": "integer",
-                        "description": "Maximum number of results to return (default: 5)",
-                        "default": 5
+                        "description": "The product ID"
                     }
                 },
-                "required": ["query"]
+                "required": ["product_name"]
             }
         },
         "order_lookup": {
@@ -97,57 +76,6 @@ class ToolRegistry:
                 "required": ["order_number"]
             }
         },
-        "calendar": {
-            "name": "calendar",
-            "description": "Check availability and schedule appointments. Use this when the user wants to book a meeting or check available times.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "enum": ["check_availability", "book_appointment", "cancel_appointment"],
-                        "description": "The calendar action to perform"
-                    },
-                    "date": {
-                        "type": "string",
-                        "description": "Date for the action (ISO 8601 format)"
-                    },
-                    "time": {
-                        "type": "string",
-                        "description": "Time for the action (HH:MM format)"
-                    },
-                    "duration_minutes": {
-                        "type": "integer",
-                        "description": "Duration of the appointment in minutes",
-                        "default": 30
-                    }
-                },
-                "required": ["action"]
-            }
-        },
-        "custom_api": {
-            "name": "custom_api",
-            "description": "Call a custom API endpoint to retrieve or submit data.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "endpoint": {
-                        "type": "string",
-                        "description": "API endpoint path to call"
-                    },
-                    "method": {
-                        "type": "string",
-                        "enum": ["GET", "POST", "PUT", "DELETE"],
-                        "description": "HTTP method to use"
-                    },
-                    "data": {
-                        "type": "object",
-                        "description": "Data to send with the request"
-                    }
-                },
-                "required": ["endpoint"]
-            }
-        }
     }
 
     def __init__(self):

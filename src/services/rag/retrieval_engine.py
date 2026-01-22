@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
-from services.embeddings import CrossEncoder, SentenceTransformer
+from services.embeddings import CrossEncoder, get_embedder
 from services.retrieval.config import retrieval_config as global_retrieval_config
 from services.retrieval.retrieval_models import RetrievalCandidate, StoredDocument
 
@@ -29,6 +29,7 @@ class RetrievalEngine:
         collection_name: Optional[str] = None,
         embed_model_name: Optional[str] = None,
         embed_normalize: Optional[bool] = None,
+        openai_api_key: Optional[str] = None,
         top_k: Optional[int] = None,
         dense_candidate_count: Optional[int] = None,
         lexical_candidate_count: Optional[int] = None,
@@ -51,6 +52,7 @@ class RetrievalEngine:
         self.collection_name = collection_name or global_retrieval_config.qdrant_collection
         self.embed_model_name = embed_model_name or global_retrieval_config.embed_model_name
         self.embed_normalize = embed_normalize if embed_normalize is not None else global_retrieval_config.embed_normalize
+        self.openai_api_key = openai_api_key  # API key for OpenAI embeddings
         self.top_k = top_k or global_retrieval_config.default_top_k
         self.dense_candidate_count = dense_candidate_count or global_retrieval_config.dense_candidate_count
         self.lexical_candidate_count = lexical_candidate_count or global_retrieval_config.lexical_candidate_count
@@ -71,17 +73,18 @@ class RetrievalEngine:
         # Caches
         self._embedding_cache = {}
         self._retrieval_cache = {}
-        self._embedder: Optional[SentenceTransformer] = None
+        self._embedder = None  # Will be lazy loaded via get_embedder
         self._client: Optional[QdrantClient] = None
         self._reranker: Optional[CrossEncoder] = None
         self._lexical_index = None
         self._documents: Dict[str, StoredDocument] = {}
 
     @property
-    def embedder(self) -> SentenceTransformer:
-        """Lazy load the embedding model."""
+    def embedder(self):
+        """Lazy load the embedding model using the factory function."""
         if self._embedder is None:
-            self._embedder = SentenceTransformer(self.embed_model_name)
+            # Pass API key to get_embedder for OpenAI models
+            self._embedder = get_embedder(self.embed_model_name, api_key=self.openai_api_key)
         return self._embedder
 
     @property
@@ -380,16 +383,43 @@ class RetrievalEngine:
 
         return contexts
 
-    async def ensure_collection(self) -> None:
-        """Ensure the Qdrant collection exists."""
+    async def ensure_collection(self, recreate_on_dimension_mismatch: bool = False) -> None:
+        """
+        Ensure the Qdrant collection exists with correct dimensions.
+        
+        Args:
+            recreate_on_dimension_mismatch: If True, recreate collection if dimensions don't match
+        """
+        expected_dim = self.embedder.get_sentence_embedding_dimension()
         existing = self.client.get_collections()
         names = {collection.name for collection in existing.collections}
+        
         if self.collection_name in names:
-            return
-        dim = self.embedder.get_sentence_embedding_dimension()
+            # Check if dimensions match
+            if recreate_on_dimension_mismatch:
+                collection_info = self.client.get_collection(self.collection_name)
+                current_dim = collection_info.config.params.vectors.size
+                
+                if current_dim != expected_dim:
+                    # Dimension mismatch - delete and recreate
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"Collection {self.collection_name} has dimension {current_dim} "
+                        f"but model requires {expected_dim}. Recreating collection."
+                    )
+                    self.client.delete_collection(self.collection_name)
+                else:
+                    # Dimensions match, nothing to do
+                    return
+            else:
+                # Collection exists, don't check dimensions
+                return
+        
+        # Create collection with correct dimensions
         self.client.create_collection(
             collection_name=self.collection_name,
-            vectors_config=qmodels.VectorParams(size=dim, distance=qmodels.Distance.COSINE),
+            vectors_config=qmodels.VectorParams(size=expected_dim, distance=qmodels.Distance.COSINE),
         )
 
     def bootstrap_documents(self) -> None:

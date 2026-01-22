@@ -38,12 +38,19 @@
       "BASE_URL": "https://api.gladia.io",
       "SAMPLE_RATE": 16000
     },
+    "google.cloud": {
+      "SAMPLE_RATE": 16000
+    },
     "whisper.local": {
       "URL": "ws://whisper-stt:8003/api/stt/stream",
       "SAMPLE_RATE": 16000
     }
   },
   "llm": {
+    "openai.com": {
+      "API_URL": "https://api.openai.com/v1",
+      "COMPLETIONS_PATH": "/chat/completions"
+    },
     "groq.com": {
       "API_URL": "https://api.groq.com",
       "COMPLETIONS_PATH": "/openai/v1/chat/completions"

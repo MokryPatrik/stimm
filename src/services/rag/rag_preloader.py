@@ -108,13 +108,14 @@ class RAGPreloader:
             # Import required modules
             from qdrant_client import QdrantClient
 
-            from services.embeddings import CrossEncoder, SentenceTransformer
+            from services.embeddings import CrossEncoder, get_embedder
 
             # Initialize RAG state
             rag_state = RagState()
 
-            # Determine which embedding model to use
+            # Determine which embedding model to use and get API key if needed
             embed_model_name = retrieval_config.embed_model_name  # Default fallback
+            openai_api_key = None  # For OpenAI embedding models
 
             # Try to get agent-specific config if agent_id provided
             if agent_id:
@@ -138,9 +139,10 @@ class RAGPreloader:
                         rag_config_resp = rag_config_service.get_rag_config(agent_config.rag_config_id)
                         rag_config_dict = rag_config_resp.model_dump()
 
-                        # Extract embedding model from agent's RAG config
+                        # Extract embedding model and API key from agent's RAG config
                         provider_config = rag_config_dict.get("provider_config", {})
                         agent_embed_model = provider_config.get("embedding_model")
+                        openai_api_key = provider_config.get("openai_api_key")
 
                         if agent_embed_model:
                             embed_model_name = agent_embed_model
@@ -155,10 +157,10 @@ class RAGPreloader:
             else:
                 logger.info(f"ℹ️ No agent specified, using global embedding model: {embed_model_name}")
 
-            # Load embedding model (either agent-specific or global)
+            # Load embedding model using get_embedder factory (supports both local and OpenAI models)
             logger.info(f"Loading embedding model: {embed_model_name}")
             embed_start = time.time()
-            rag_state.embedder = SentenceTransformer(embed_model_name)
+            rag_state.embedder = get_embedder(embed_model_name, api_key=openai_api_key)
             embed_time = time.time() - embed_start
             logger.info(f"Embedding model loaded in {embed_time:.2f}s")
 

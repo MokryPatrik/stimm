@@ -37,10 +37,13 @@ dependencies = [
     "livekit-plugins-silero>=0.6.0",
     # Providers
     "deepgram-sdk>=3.0.0",
+    "google-cloud-speech>=2.27.0",
     # HTTP and networking
     "aiohttp>=3.10",
     "websockets>=12.0",
     "httpx>=0.27.0",
+    # OpenAI for embeddings (optional, when using OpenAI embeddings model)
+    "openai>=1.0.0",
     # Document processing
     "PyPDF2>=3.0.0",
     "python-docx>=1.1.0",

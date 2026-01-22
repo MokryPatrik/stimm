@@ -38,7 +38,7 @@ def configure_logging(verbose: bool = False):
     # These are the loggers for our code. We want them to be INFO (clean) or DEBUG (detailed).
     app_level = logging.DEBUG if verbose else logging.INFO
 
-    app_loggers = ["src", "services", "cli", "agent-worker", "__main__"]
+    app_loggers = ["src", "services", "cli", "agent-worker", "__main__", "rag_chatbot", "rag_preloader"]
 
     for logger_name in app_loggers:
         logger = logging.getLogger(logger_name)

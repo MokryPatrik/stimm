@@ -25,6 +25,7 @@ class QdrantInternalProvider:
         return [
             "collection_name",
             "embedding_model",
+            "openai_api_key",
             "top_k",
         ]
 
@@ -48,11 +49,20 @@ class QdrantInternalProvider:
                 "type": "select",
                 "label": "Embedding Model",
                 "required": True,
-                "description": "Model used to generate embeddings (ONNX-compatible only)",
+                "description": "Model used to generate embeddings",
                 "options": [
-                    {"value": "sentence-transformers/all-MiniLM-L6-v2", "label": "MiniLM L6 v2 (384 dims, fast)"},
+                    {"value": "sentence-transformers/all-MiniLM-L6-v2", "label": "MiniLM L6 v2 (384 dims, fast, local)"},
+                    {"value": "openai/text-embedding-3-small", "label": "OpenAI text-embedding-3-small (1536 dims, API)"},
+                    {"value": "openai/text-embedding-3-large", "label": "OpenAI text-embedding-3-large (3072 dims, API)"},
                 ],
                 "default": "sentence-transformers/all-MiniLM-L6-v2",
+            },
+            "openai_api_key": {
+                "type": "password",
+                "label": "OpenAI API Key",
+                "required": False,
+                "description": "Required when using OpenAI embedding models. Get your key at platform.openai.com",
+                "default": "",
             },
             "top_k": {
                 "type": "number",
